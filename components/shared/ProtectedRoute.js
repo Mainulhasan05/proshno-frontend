@@ -16,7 +16,9 @@ export default function ProtectedRoute({ children, role }) {
     if (!isInitialized) return;
 
     if (!isAuthenticated) {
-      router.replace('/login');
+      // Admin routes redirect to hidden admin login, others to public login
+      const loginPath = role === 'admin' ? '/portal/k7x9m2p4' : '/login';
+      router.replace(loginPath);
       return;
     }
 

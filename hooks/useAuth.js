@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchProfile, logoutUser, clearError } from '@/store/slices/authSlice';
+import { fetchProfile, adminFetchProfile, logoutUser, clearError } from '@/store/slices/authSlice';
 
 export default function useAuth() {
   const dispatch = useDispatch();
@@ -14,8 +14,13 @@ export default function useAuth() {
   useEffect(() => {
     if (!isInitialized && typeof window !== 'undefined') {
       const token = localStorage.getItem('accessToken');
+      const sessionType = localStorage.getItem('sessionType');
       if (token) {
-        dispatch(fetchProfile());
+        if (sessionType === 'admin') {
+          dispatch(adminFetchProfile());
+        } else {
+          dispatch(fetchProfile());
+        }
       } else {
         // No token — mark as initialized (not authenticated)
         dispatch({ type: 'auth/fetchProfile/rejected' });
@@ -24,7 +29,9 @@ export default function useAuth() {
   }, [dispatch, isInitialized]);
 
   const logout = useCallback(() => {
-    dispatch(logoutUser());
+    dispatch(logoutUser()).then(() => {
+      localStorage.removeItem('sessionType');
+    });
   }, [dispatch]);
 
   const clearAuthError = useCallback(() => {

@@ -43,14 +43,42 @@ export const fetchProfile = createAsyncThunk(
 
 export const logoutUser = createAsyncThunk(
   'auth/logout',
-  async (_, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     try {
-      await apiClient.post('/auth/logout');
+      const { user } = getState().auth;
+      const endpoint = user?.role === 'admin' ? '/admin-auth/logout' : '/auth/logout';
+      await apiClient.post(endpoint);
       localStorage.removeItem('accessToken');
       return null;
     } catch (error) {
       localStorage.removeItem('accessToken');
       return rejectWithValue(error.error || { message: 'Logout failed' });
+    }
+  }
+);
+
+// Admin-specific thunks
+export const adminLogin = createAsyncThunk(
+  'auth/adminLogin',
+  async (credentials, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post('/admin-auth/login', credentials);
+      localStorage.setItem('accessToken', response.data.accessToken);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.error || { message: 'Login failed' });
+    }
+  }
+);
+
+export const adminFetchProfile = createAsyncThunk(
+  'auth/adminFetchProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.get('/admin-auth/me');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.error || { message: 'Failed to fetch profile' });
     }
   }
 );
@@ -135,6 +163,36 @@ const authSlice = createSlice({
       .addCase(logoutUser.fulfilled, (state) => {
         state.user = null;
         state.isAuthenticated = false;
+      });
+
+    // Admin Login
+    builder
+      .addCase(adminLogin.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(adminLogin.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = { ...action.payload.admin, role: 'admin' };
+        state.isAuthenticated = true;
+        state.isInitialized = true;
+      })
+      .addCase(adminLogin.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload?.message || 'Login failed';
+      });
+
+    // Admin Fetch Profile
+    builder
+      .addCase(adminFetchProfile.fulfilled, (state, action) => {
+        state.user = { ...action.payload.data, role: 'admin' };
+        state.isAuthenticated = true;
+        state.isInitialized = true;
+      })
+      .addCase(adminFetchProfile.rejected, (state) => {
+        state.user = null;
+        state.isAuthenticated = false;
+        state.isInitialized = true;
       });
   },
 });
