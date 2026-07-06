@@ -54,12 +54,12 @@ export default function LoginPage() {
         className="w-full max-w-md"
       >
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="h-12 w-12 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20">
+        <Link href="/" className="flex items-center justify-center gap-2.5 mb-8 group">
+          <div className="h-12 w-12 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover:bg-white/20 transition-colors">
             <HiOutlineAcademicCap className="h-7 w-7 text-white" />
           </div>
           <span className="text-2xl font-bold text-white">প্রশ্ন</span>
-        </div>
+        </Link>
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl shadow-black/20 p-8">
