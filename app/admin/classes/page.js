@@ -44,9 +44,9 @@ export default function ClassesPage() {
     setModalType(type);
     setEditItem(item);
     if (item) {
-      setFormData({ name: item.name, nameEn: item.nameEn || '', order: item.order || 0, classId: item.classId?._id || item.classId || '' });
+      setFormData({ name: item.name, order: item.order || 0, classId: item.classId?._id || item.classId || '' });
     } else {
-      setFormData({ name: '', nameEn: '', order: 0, classId: expandedClass || '' });
+      setFormData({ name: '', order: 0, classId: expandedClass || '' });
     }
     setModalOpen(true);
   };
@@ -61,7 +61,7 @@ export default function ClassesPage() {
     e.preventDefault();
     try {
       if (modalType === 'class') {
-        const body = { name: formData.name, nameEn: formData.nameEn, order: Number(formData.order) || 0 };
+        const body = { name: formData.name, order: Number(formData.order) || 0 };
         if (editItem) {
           await dispatch(updateClass({ id: editItem._id, body })).unwrap();
           toast.success('ক্লাস আপডেট হয়েছে');
@@ -173,7 +173,6 @@ export default function ClassesPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-neutral-800 text-sm">{cls.name}</p>
-                    {cls.nameEn && <p className="text-xs text-neutral-400">{cls.nameEn}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -268,29 +267,19 @@ export default function ClassesPage() {
       <Modal isOpen={modalOpen} onClose={closeModal} title={editItem ? `${modalType === 'class' ? 'ক্লাস' : 'ভার্সন'} সম্পাদনা` : `নতুন ${modalType === 'class' ? 'ক্লাস' : 'ভার্সন'}`}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">নাম (বাংলা) *</label>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">নাম *</label>
             <input
               type="text"
               value={formData.name || ''}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-              placeholder={modalType === 'class' ? 'যেমন: ষষ্ঠ শ্রেণি' : 'যেমন: বাংলা মাধ্যম'}
+              placeholder={modalType === 'class' ? 'যেমন: নবম শ্রেণি' : 'যেমন: বাংলা মাধ্যম'}
               required
             />
           </div>
 
           {modalType === 'class' && (
             <>
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">নাম (ইংরেজি)</label>
-                <input
-                  type="text"
-                  value={formData.nameEn || ''}
-                  onChange={(e) => setFormData({ ...formData, nameEn: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                  placeholder="e.g., Class 6"
-                />
-              </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1">ক্রম</label>
                 <input

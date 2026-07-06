@@ -43,9 +43,9 @@ export default function ChaptersPage() {
   const openModal = (item = null) => {
     setEditItem(item);
     if (item) {
-      setFormData({ name: item.name, nameEn: item.nameEn || '', order: item.order || 0, subjectId: item.subjectId?._id || item.subjectId || subjectId || '' });
+      setFormData({ name: item.name, order: item.order || 0, subjectId: item.subjectId?._id || item.subjectId || subjectId || '' });
     } else {
-      setFormData({ name: '', nameEn: '', order: 0, subjectId: subjectId || '' });
+      setFormData({ name: '', order: 0, subjectId: subjectId || '' });
     }
     setModalOpen(true);
   };
@@ -55,7 +55,7 @@ export default function ChaptersPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const body = { name: formData.name, nameEn: formData.nameEn, order: Number(formData.order) || 0, subjectId: formData.subjectId };
+      const body = { name: formData.name, order: Number(formData.order) || 0, subjectId: formData.subjectId };
       if (editItem) {
         await dispatch(updateChapter({ id: editItem._id, body })).unwrap();
         toast.success('অধ্যায় আপডেট হয়েছে');
@@ -146,7 +146,6 @@ export default function ChaptersPage() {
                 <div>
                   <p className="font-semibold text-neutral-800 text-sm">{ch.name}</p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    {ch.nameEn && <span className="text-xs text-neutral-400">{ch.nameEn}</span>}
                     {!ch.isActive && <span className="text-xs bg-red-50 text-red-400 px-2 py-0.5 rounded-full">নিষ্ক্রিয়</span>}
                   </div>
                 </div>
@@ -171,16 +170,10 @@ export default function ChaptersPage() {
       <Modal isOpen={modalOpen} onClose={closeModal} title={editItem ? 'অধ্যায় সম্পাদনা' : 'নতুন অধ্যায়'}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">নাম (বাংলা) *</label>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">নাম *</label>
             <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
               placeholder="যেমন: সংখ্যা ও গণনা" required />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">নাম (ইংরেজি)</label>
-            <input type="text" value={formData.nameEn || ''} onChange={(e) => setFormData({ ...formData, nameEn: e.target.value })}
-              className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-              placeholder="e.g., Numbers and Counting" />
           </div>
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">ক্রম</label>

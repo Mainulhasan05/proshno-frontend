@@ -14,6 +14,8 @@ import {
   HiOutlineCheck, HiOutlineX,
 } from 'react-icons/hi';
 
+import MathRenderer from '@/components/shared/MathRenderer';
+
 const COGNITIVE_DOMAINS = [
   { value: 'knowledge', label: 'জ্ঞান', color: 'bg-blue-100 text-blue-700' },
   { value: 'comprehension', label: 'অনুধাবন', color: 'bg-green-100 text-green-700' },
@@ -245,25 +247,32 @@ export default function QuestionsPage() {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden mb-4"
           >
-            <div className="bg-white rounded-xl border border-neutral-200 p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-white rounded-xl border border-neutral-200 p-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+              <input
+                type="text"
+                value={filters.search || ''}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value || undefined })}
+                placeholder="প্রশ্ন খুঁজুন..."
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-1 focus:ring-primary-500 outline-none w-full"
+              />
               <select value={filters.type || ''} onChange={(e) => setFilters({ ...filters, type: e.target.value || undefined })}
-                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm">
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full">
                 <option value="">সব ধরন</option>
                 <option value="MCQ">বহুনির্বাচনী (MCQ)</option>
                 <option value="CQ">সৃজনশীল (CQ)</option>
                 <option value="SHORT">সংক্ষিপ্ত</option>
               </select>
               <select value={filters.cognitiveDomain || ''} onChange={(e) => setFilters({ ...filters, cognitiveDomain: e.target.value || undefined })}
-                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm">
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full">
                 <option value="">সব ডোমেইন</option>
                 {COGNITIVE_DOMAINS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
               <select value={filters.difficulty || ''} onChange={(e) => setFilters({ ...filters, difficulty: e.target.value || undefined })}
-                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm">
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full">
                 <option value="">সব মাত্রা</option>
                 {DIFFICULTIES.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
-              <Button variant="ghost" size="sm" onClick={() => setFilters({})}>রিসেট</Button>
+              <Button variant="ghost" size="sm" onClick={() => setFilters({})} className="w-full">রিসেট</Button>
             </div>
           </motion.div>
         )}
@@ -302,15 +311,18 @@ export default function QuestionsPage() {
                 </div>
 
                 {/* Question text */}
-                <p className="text-sm text-neutral-800 font-medium leading-relaxed">{q.questionText}</p>
+                <div className="text-sm text-neutral-800 font-medium leading-relaxed">
+                  <MathRenderer text={q.questionText} />
+                </div>
 
                 {/* MCQ options preview */}
                 {q.type === 'MCQ' && q.options?.length > 0 && (
                   <div className="mt-2 grid grid-cols-2 gap-1">
                     {q.options.map((opt, oi) => (
-                      <div key={oi} className={`text-xs px-2 py-1 rounded ${opt.isCorrect ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-neutral-500'}`}>
-                        {String.fromCharCode(2453 + oi)}) {opt.text}
-                        {opt.isCorrect && <HiOutlineCheck className="inline h-3 w-3 ml-1" />}
+                      <div key={oi} className={`text-xs px-2 py-1 rounded ${opt.isCorrect ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-neutral-500'} flex items-center gap-1`}>
+                        <span>{String.fromCharCode(2453 + oi)})</span>
+                        <MathRenderer text={opt.text} />
+                        {opt.isCorrect && <HiOutlineCheck className="inline h-3 w-3 ml-1 text-emerald-600 shrink-0" />}
                       </div>
                     ))}
                   </div>
@@ -320,9 +332,11 @@ export default function QuestionsPage() {
                 {q.type === 'CQ' && q.subParts?.length > 0 && (
                   <div className="mt-2 space-y-0.5">
                     {q.subParts.map((sp, si) => (
-                      <p key={si} className="text-xs text-neutral-500">
-                        {sp.partLabel}) {sp.text} ({sp.marks} নম্বর)
-                      </p>
+                      <div key={si} className="text-xs text-neutral-500 flex items-center gap-1">
+                        <span>{sp.partLabel})</span>
+                        <MathRenderer text={sp.text} />
+                        <span className="text-neutral-400">({sp.marks} নম্বর)</span>
+                      </div>
                     ))}
                   </div>
                 )}
