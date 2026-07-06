@@ -34,9 +34,11 @@ apiClient.interceptors.response.use(
       !originalRequest._retry
     ) {
       originalRequest._retry = true;
+      const isSystemAdmin = typeof window !== 'undefined' && localStorage.getItem('sessionType') === 'admin';
       try {
+        const refreshEndpoint = isSystemAdmin ? '/admin-auth/refresh' : '/auth/refresh';
         const res = await axios.post(
-          `${apiClient.defaults.baseURL}/auth/refresh`,
+          `${apiClient.defaults.baseURL}${refreshEndpoint}`,
           {},
           { withCredentials: true }
         );
@@ -47,8 +49,9 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         // Refresh failed — force logout
         localStorage.removeItem('accessToken');
+        localStorage.removeItem('sessionType');
         if (typeof window !== 'undefined') {
-          window.location.href = '/login';
+          window.location.href = isSystemAdmin ? '/portal/k7x9m2p4' : '/login';
         }
         return Promise.reject(refreshError);
       }

@@ -5,8 +5,8 @@ import apiClient from '../api/apiClient';
 
 export const fetchClasses = createAsyncThunk('hierarchy/fetchClasses', async (params = {}, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.get('/hierarchy/classes', { params: { includeInactive: 'true', ...params } });
-    return data;
+    const response = await apiClient.get('/hierarchy/classes', { params: { includeInactive: 'true', ...params } });
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to fetch classes');
   }
@@ -14,8 +14,8 @@ export const fetchClasses = createAsyncThunk('hierarchy/fetchClasses', async (pa
 
 export const createClass = createAsyncThunk('hierarchy/createClass', async (body, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.post('/hierarchy/classes', body);
-    return data;
+    const response = await apiClient.post('/hierarchy/classes', body);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to create class');
   }
@@ -23,8 +23,8 @@ export const createClass = createAsyncThunk('hierarchy/createClass', async (body
 
 export const updateClass = createAsyncThunk('hierarchy/updateClass', async ({ id, body }, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.put(`/hierarchy/classes/${id}`, body);
-    return data;
+    const response = await apiClient.put(`/hierarchy/classes/${id}`, body);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to update class');
   }
@@ -32,8 +32,8 @@ export const updateClass = createAsyncThunk('hierarchy/updateClass', async ({ id
 
 export const toggleClassActive = createAsyncThunk('hierarchy/toggleClassActive', async (id, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.patch(`/hierarchy/classes/${id}/toggle`);
-    return data;
+    const response = await apiClient.patch(`/hierarchy/classes/${id}/toggle`);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to toggle class');
   }
@@ -52,8 +52,8 @@ export const deleteClass = createAsyncThunk('hierarchy/deleteClass', async (id, 
 
 export const fetchVersions = createAsyncThunk('hierarchy/fetchVersions', async (params = {}, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.get('/hierarchy/versions', { params: { includeInactive: 'true', ...params } });
-    return data;
+    const response = await apiClient.get('/hierarchy/versions', { params: { includeInactive: 'true', ...params } });
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to fetch versions');
   }
@@ -61,8 +61,8 @@ export const fetchVersions = createAsyncThunk('hierarchy/fetchVersions', async (
 
 export const createVersion = createAsyncThunk('hierarchy/createVersion', async (body, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.post('/hierarchy/versions', body);
-    return data;
+    const response = await apiClient.post('/hierarchy/versions', body);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to create version');
   }
@@ -70,8 +70,8 @@ export const createVersion = createAsyncThunk('hierarchy/createVersion', async (
 
 export const updateVersion = createAsyncThunk('hierarchy/updateVersion', async ({ id, body }, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.put(`/hierarchy/versions/${id}`, body);
-    return data;
+    const response = await apiClient.put(`/hierarchy/versions/${id}`, body);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to update version');
   }
@@ -79,8 +79,8 @@ export const updateVersion = createAsyncThunk('hierarchy/updateVersion', async (
 
 export const toggleVersionActive = createAsyncThunk('hierarchy/toggleVersionActive', async (id, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.patch(`/hierarchy/versions/${id}/toggle`);
-    return data;
+    const response = await apiClient.patch(`/hierarchy/versions/${id}/toggle`);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to toggle version');
   }
@@ -99,8 +99,8 @@ export const deleteVersion = createAsyncThunk('hierarchy/deleteVersion', async (
 
 export const fetchSubjects = createAsyncThunk('hierarchy/fetchSubjects', async (params = {}, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.get('/hierarchy/subjects', { params: { includeInactive: 'true', ...params } });
-    return data;
+    const response = await apiClient.get('/hierarchy/subjects', { params: { includeInactive: 'true', ...params } });
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to fetch subjects');
   }
@@ -108,8 +108,8 @@ export const fetchSubjects = createAsyncThunk('hierarchy/fetchSubjects', async (
 
 export const createSubject = createAsyncThunk('hierarchy/createSubject', async (body, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.post('/hierarchy/subjects', body);
-    return data;
+    const response = await apiClient.post('/hierarchy/subjects', body);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to create subject');
   }
@@ -117,8 +117,8 @@ export const createSubject = createAsyncThunk('hierarchy/createSubject', async (
 
 export const updateSubject = createAsyncThunk('hierarchy/updateSubject', async ({ id, body }, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.put(`/hierarchy/subjects/${id}`, body);
-    return data;
+    const response = await apiClient.put(`/hierarchy/subjects/${id}`, body);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to update subject');
   }
@@ -126,8 +126,8 @@ export const updateSubject = createAsyncThunk('hierarchy/updateSubject', async (
 
 export const toggleSubjectActive = createAsyncThunk('hierarchy/toggleSubjectActive', async (id, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.patch(`/hierarchy/subjects/${id}/toggle`);
-    return data;
+    const response = await apiClient.patch(`/hierarchy/subjects/${id}/toggle`);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to toggle subject');
   }
@@ -146,8 +146,8 @@ export const deleteSubject = createAsyncThunk('hierarchy/deleteSubject', async (
 
 export const fetchChapters = createAsyncThunk('hierarchy/fetchChapters', async (params = {}, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.get('/hierarchy/chapters', { params: { includeInactive: 'true', ...params } });
-    return data;
+    const response = await apiClient.get('/hierarchy/chapters', { params: { includeInactive: 'true', ...params } });
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to fetch chapters');
   }
@@ -155,8 +155,8 @@ export const fetchChapters = createAsyncThunk('hierarchy/fetchChapters', async (
 
 export const createChapter = createAsyncThunk('hierarchy/createChapter', async (body, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.post('/hierarchy/chapters', body);
-    return data;
+    const response = await apiClient.post('/hierarchy/chapters', body);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to create chapter');
   }
@@ -164,8 +164,8 @@ export const createChapter = createAsyncThunk('hierarchy/createChapter', async (
 
 export const updateChapter = createAsyncThunk('hierarchy/updateChapter', async ({ id, body }, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.put(`/hierarchy/chapters/${id}`, body);
-    return data;
+    const response = await apiClient.put(`/hierarchy/chapters/${id}`, body);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to update chapter');
   }
@@ -173,8 +173,8 @@ export const updateChapter = createAsyncThunk('hierarchy/updateChapter', async (
 
 export const toggleChapterActive = createAsyncThunk('hierarchy/toggleChapterActive', async (id, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.patch(`/hierarchy/chapters/${id}/toggle`);
-    return data;
+    const response = await apiClient.patch(`/hierarchy/chapters/${id}/toggle`);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to toggle chapter');
   }
@@ -193,8 +193,8 @@ export const deleteChapter = createAsyncThunk('hierarchy/deleteChapter', async (
 
 export const fetchTree = createAsyncThunk('hierarchy/fetchTree', async (params = {}, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.get('/hierarchy/tree', { params: { includeInactive: 'true', ...params } });
-    return data;
+    const response = await apiClient.get('/hierarchy/tree', { params: { includeInactive: 'true', ...params } });
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to fetch hierarchy');
   }

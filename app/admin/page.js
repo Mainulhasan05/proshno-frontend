@@ -10,16 +10,42 @@ import {
   HiOutlineShoppingCart,
 } from 'react-icons/hi';
 
-const stats = [
-  { label: 'ক্লাস', value: '—', icon: HiOutlineAcademicCap, color: 'bg-primary-50 text-primary-600' },
-  { label: 'বিষয়', value: '—', icon: HiOutlineBookOpen, color: 'bg-blue-50 text-blue-600' },
-  { label: 'প্রশ্ন', value: '—', icon: HiOutlineQuestionMarkCircle, color: 'bg-emerald-50 text-emerald-600' },
-  { label: 'প্যাকেজ', value: '—', icon: HiOutlineCube, color: 'bg-amber-50 text-amber-600' },
-  { label: 'শিক্ষক', value: '—', icon: HiOutlineUsers, color: 'bg-violet-50 text-violet-600' },
-  { label: 'ক্রয়', value: '—', icon: HiOutlineShoppingCart, color: 'bg-rose-50 text-rose-600' },
-];
+import { useState, useEffect } from 'react';
+import apiClient from '@/store/api/apiClient';
 
 export default function AdminDashboard() {
+  const [counts, setCounts] = useState({
+    classes: '—',
+    subjects: '—',
+    questions: '—',
+    packages: '—',
+    teachers: '—',
+    purchases: '—',
+  });
+
+  useEffect(() => {
+    let active = true;
+    apiClient.get('/admin-auth/dashboard-stats')
+      .then((res) => {
+        if (active && res.success) {
+          setCounts(res.data);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load dashboard stats:', err);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const statsList = [
+    { label: 'ক্লাস', value: counts.classes, icon: HiOutlineAcademicCap, color: 'bg-primary-50 text-primary-600' },
+    { label: 'বিষয়', value: counts.subjects, icon: HiOutlineBookOpen, color: 'bg-blue-50 text-blue-600' },
+    { label: 'প্রশ্ন', value: counts.questions, icon: HiOutlineQuestionMarkCircle, color: 'bg-emerald-50 text-emerald-600' },
+    { label: 'প্যাকেজ', value: counts.packages, icon: HiOutlineCube, color: 'bg-amber-50 text-amber-600' },
+    { label: 'শিক্ষক', value: counts.teachers, icon: HiOutlineUsers, color: 'bg-violet-50 text-violet-600' },
+    { label: 'ক্রয়', value: counts.purchases, icon: HiOutlineShoppingCart, color: 'bg-rose-50 text-rose-600' },
+  ];
+
   return (
     <div>
       <div className="mb-6">
@@ -29,7 +55,7 @@ export default function AdminDashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        {stats.map((stat, index) => {
+        {statsList.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <motion.div

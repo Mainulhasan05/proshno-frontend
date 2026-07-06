@@ -5,8 +5,8 @@ import apiClient from '../api/apiClient';
 
 export const fetchQuestions = createAsyncThunk('questions/fetchQuestions', async (params = {}, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.get('/questions', { params: { includeInactive: 'true', ...params } });
-    return data;
+    const response = await apiClient.get('/questions', { params: { includeInactive: 'true', ...params } });
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to fetch questions');
   }
@@ -14,8 +14,8 @@ export const fetchQuestions = createAsyncThunk('questions/fetchQuestions', async
 
 export const createQuestion = createAsyncThunk('questions/createQuestion', async (body, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.post('/questions', body);
-    return data;
+    const response = await apiClient.post('/questions', body);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to create question');
   }
@@ -23,8 +23,8 @@ export const createQuestion = createAsyncThunk('questions/createQuestion', async
 
 export const updateQuestion = createAsyncThunk('questions/updateQuestion', async ({ id, body }, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.put(`/questions/${id}`, body);
-    return data;
+    const response = await apiClient.put(`/questions/${id}`, body);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to update question');
   }
@@ -32,8 +32,8 @@ export const updateQuestion = createAsyncThunk('questions/updateQuestion', async
 
 export const toggleQuestionActive = createAsyncThunk('questions/toggleQuestionActive', async (id, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.patch(`/questions/${id}/toggle`);
-    return data;
+    const response = await apiClient.patch(`/questions/${id}/toggle`);
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to toggle question');
   }
@@ -50,8 +50,8 @@ export const deleteQuestion = createAsyncThunk('questions/deleteQuestion', async
 
 export const fetchQuestionStats = createAsyncThunk('questions/fetchStats', async (params = {}, { rejectWithValue }) => {
   try {
-    const { data } = await apiClient.get('/questions/stats', { params });
-    return data;
+    const response = await apiClient.get('/questions/stats', { params });
+    return response;
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'Failed to fetch stats');
   }

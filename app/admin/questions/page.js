@@ -375,7 +375,7 @@ export default function QuestionsPage() {
           </div>
 
           {/* Hierarchy cascade selectors */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-neutral-500 mb-1">ক্লাস *</label>
               <select value={selClass} onChange={(e) => { setSelClass(e.target.value); setSelVersion(''); setSelSubject(''); setForm({ ...form, chapterId: '' }); }}
@@ -419,7 +419,7 @@ export default function QuestionsPage() {
           </div>
 
           {/* Cognitive Domain + Difficulty + Marks */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-neutral-500 mb-1">জ্ঞানমূলক স্তর *</label>
               <select value={form.cognitiveDomain} onChange={(e) => setForm({ ...form, cognitiveDomain: e.target.value })}
