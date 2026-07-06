@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>প্রশ্নবন্ধু — ১ ক্লিকে প্রশ্ন তৈরি, নিশ্চিন্তে পরীক্ষা</title>
+<meta name="description" content="৩য় থেকে ১২শ শ্রেণির শিক্ষকদের জন্য — ১ ক্লিকে প্রশ্ন তৈরি, OMR মূল্যায়ন ও অনলাইন পরীক্ষা, একটি প্ল্যাটফর্মে।">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #FBF8F1;
+    --ink: #1B2B22;
+    --muted: #66705F;
+    --primary: #0F5132;
+    --primary-dark: #0B3B24;
+    --primary-light: #E8F1EA;
+    --accent: #E8A33D;
+    --accent-dark: #C6821F;
+    --pencil: #D64545;
+    --card: #FFFFFF;
+    --line: #E6DFC9;
+    --shadow: 0 10px 30px rgba(15,81,50,0.08);
+    --radius-lg: 22px;
+    --radius-md: 14px;
+    --radius-sm: 9px;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Hind Siliguri', sans-serif;
+    font-size:17px;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{
+    font-family:'Baloo Da 2', 'Hind Siliguri', sans-serif;
+    font-weight:700;
+    line-height:1.28;
+    margin:0 0 .5em;
+    color:var(--primary-dark);
+  }
+  p{margin:0 0 1em;}
+  a{color:inherit;}
+  img,svg{display:block;}
+  button{font-family:inherit;}
+  .container{max-width:1140px;margin:0 auto;padding:0 24px;}
+  section{scroll-margin-top:84px;}
+
+  ::selection{background:var(--accent);color:var(--primary-dark);}
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:14px 26px;border-radius:999px;font-weight:600;font-size:16.5px;
+    text-decoration:none;border:2px solid transparent;cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+    white-space:nowrap;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--accent);color:var(--primary-dark);box-shadow:0 6px 0 var(--accent-dark);}
+  .btn-primary:hover{background:#EFB158;}
+  .btn-primary:active{box-shadow:0 3px 0 var(--accent-dark);transform:translateY(3px);}
+  .btn-ghost{background:transparent;border-color:var(--primary);color:var(--primary-dark);}
+  .btn-ghost:hover{background:var(--primary-light);}
+  .btn-outline-light{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.5);color:#fff;}
+  .btn-outline-light:hover{background:rgba(255,255,255,.18);}
+  .btn-block{width:100%;}
+  .btn:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, .accordion-q:focus-visible{
+    outline:3px solid var(--accent-dark); outline-offset:2px;
+  }
+
+  /* ---------- Nav ---------- */
+  header{
+    position:sticky;top:0;z-index:50;background:rgba(251,248,241,.92);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  }
+  .nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1140px;margin:0 auto;}
+  .brand{display:flex;align-items:center;gap:10px;font-family:'Baloo Da 2';font-weight:700;font-size:22px;color:var(--primary-dark);text-decoration:none;}
+  .brand-mark{width:38px;height:38px;border-radius:11px;background:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .nav-links{display:flex;align-items:center;gap:30px;list-style:none;margin:0;padding:0;}
+  .nav-links a{text-decoration:none;font-weight:600;color:var(--ink);font-size:15.5px;}
+  .nav-links a:hover{color:var(--primary);}
+  .nav-actions{display:flex;align-items:center;gap:14px;}
+  .nav-actions .btn{padding:10px 20px;font-size:15px;}
+  .hamburger{display:none;background:none;border:none;padding:8px;cursor:pointer;}
+  .nav-mobile{display:none;}
+
+  @media (max-width:900px){
+    .nav-links, .nav-actions .btn-ghost{display:none;}
+    .hamburger{display:block;}
+    .nav-mobile.open{display:flex;}
+    .nav-mobile{
+      display:none;flex-direction:column;gap:2px;background:var(--card);
+      border-top:1px solid var(--line);padding:10px 24px 18px;
+    }
+    .nav-mobile a{padding:12px 4px;text-decoration:none;color:var(--ink);font-weight:600;border-bottom:1px solid var(--line);}
+    .nav-mobile .btn{margin-top:10px;}
+  }
+
+  /* ---------- Hero ---------- */
+  .hero{
+    position:relative;overflow:hidden;padding:64px 0 40px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0) 0%, var(--bg) 85%),
+      repeating-linear-gradient(180deg, transparent 0 37px, #CFE3D6 37px 38px),
+      var(--bg);
+  }
+  .hero::before{ /* red margin rule, notebook style */
+    content:"";position:absolute;top:0;bottom:0;left:64px;width:2px;background:rgba(214,69,69,.28);
+  }
+  @media (max-width:640px){.hero::before{left:26px;}}
+  .hero-inner{position:relative;text-align:center;max-width:760px;margin:0 auto;}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;background:var(--primary-light);
+    color:var(--primary-dark);padding:7px 16px;border-radius:999px;font-weight:600;
+    font-size:14px;margin-bottom:20px;
+  }
+  .hero h1{font-size:clamp(2.1rem, 4.5vw, 3.2rem);letter-spacing:-.01em;}
+  .hero .lead{font-size:19px;color:var(--muted);max-width:560px;margin:0 auto 30px;}
+  .hero-ctas{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:52px;}
+
+  /* ---------- Demo card ---------- */
+  .demo-card{
+    position:relative;max-width:720px;margin:0 auto;background:var(--card);
+    border-radius:var(--radius-lg);box-shadow:var(--shadow);border:1px solid var(--line);
+    text-align:left;overflow:hidden;
+  }
+  .demo-topbar{
+    background:var(--primary);color:#fff;padding:14px 24px;display:flex;
+    align-items:center;justify-content:space-between;gap:10px;
+  }
+  .demo-topbar strong{font-family:'Baloo Da 2';font-weight:600;font-size:16px;}
+  .live-badge{
+    display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.16);
+    padding:4px 11px;border-radius:999px;font-size:12.5px;font-weight:600;
+  }
+  .live-dot{width:7px;height:7px;border-radius:50%;background:#7CE29A;animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  .demo-body{padding:22px 24px 26px;}
+  .demo-controls{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+  .demo-controls select{
+    width:100%;padding:12px 12px;border-radius:var(--radius-sm);border:1.5px solid var(--line);
+    background:#FDFCF8 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="9"><path d="M1 1l6 6 6-6" stroke="%230F5132" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>') no-repeat right 12px center;
+    appearance:none;font-family:inherit;font-size:15px;color:var(--ink);font-weight:600;cursor:pointer;
+  }
+  .demo-controls select:focus{outline:2px solid var(--primary);}
+  .demo-generate{width:100%;justify-content:center;font-size:17px;padding:15px;}
+  .demo-result{
+    margin-top:18px;border-top:2px dashed var(--line);padding-top:18px;min-height:70px;
+  }
+  .demo-result .placeholder{color:var(--muted);text-align:center;padding:18px 10px;font-size:15px;}
+  .demo-result .placeholder svg{margin:0 auto 10px;opacity:.5;}
+  .result-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .result-head .tag{font-weight:700;color:var(--primary-dark);font-size:15px;}
+  .result-head .time-badge{background:#E9F6EC;color:#1C7A46;font-weight:700;font-size:13px;padding:4px 10px;border-radius:999px;}
+  .q-item{padding:12px 0;border-bottom:1px solid #F0ECDE;}
+  .q-item:last-child{border-bottom:none;}
+  .q-item .qn{font-weight:600;margin-bottom:6px;}
+  .q-opts{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;color:var(--muted);font-size:15px;}
+  .spinner{width:22px;height:22px;border:3px solid #DCE9E0;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin:16px auto;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading-text{text-align:center;color:var(--muted);font-size:14.5px;}
+
+  @media (max-width:600px){
+    .demo-controls{grid-template-columns:1fr;}
+    .q-opts{grid-template-columns:1fr;}
+  }
+
+  /* ---------- Trust bar ---------- */
+  .trustbar{background:var(--primary-dark);padding:28px 0;}
+  .trust-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;text-align:center;}
+  .trust-grid .num{font-family:'Baloo Da 2';font-weight:700;font-size:clamp(22px,3vw,30px);color:#fff;}
+  .trust-grid .label{color:#B9D4C3;font-size:14px;margin-top:2px;}
+  @media (max-width:760px){.trust-grid{grid-template-columns:1fr 1fr;row-gap:24px;}}
+
+  /* ---------- Sections generic ---------- */
+  .section{padding:84px 0;}
+  .section-head{text-align:center;max-width:600px;margin:0 auto 48px;}
+  .section-head .kicker{color:var(--pencil);font-weight:700;font-size:14px;letter-spacing:.03em;text-transform:uppercase;margin-bottom:10px;display:block;}
+  .section-head h2{font-size:clamp(1.7rem,3vw,2.3rem);}
+  .section-head p{color:var(--muted);font-size:17.5px;}
+  .section-alt{background:var(--card);border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+
+  /* ---------- Compare (problem/solution) ---------- */
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+  .compare-card{border-radius:var(--radius-lg);padding:28px 26px;}
+  .compare-old{background:#FBF1EE;border:1.5px solid #F0D9CF;}
+  .compare-new{background:var(--primary);color:#fff;}
+  .compare-card h3{font-size:19px;display:flex;align-items:center;gap:9px;}
+  .compare-old h3{color:#A6432B;}
+  .compare-new h3{color:#fff;}
+  .compare-list{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:13px;}
+  .compare-list li{display:flex;gap:10px;align-items:flex-start;font-size:15.5px;}
+  .compare-old .compare-list{color:#7A4335;}
+  .compare-new .compare-list{color:#DCEFE3;}
+  .compare-list svg{flex-shrink:0;margin-top:3px;}
+  @media (max-width:760px){.compare{grid-template-columns:1fr;}}
+
+  /* ---------- Features ---------- */
+  .features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+  .feature-card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);
+    padding:28px 24px;transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .feature-card:hover{transform:translateY(-4px);box-shadow:var(--shadow);}
+  .feature-icon{
+    width:52px;height:52px;border-radius:14px;background:var(--primary-light);
+    display:flex;align-items:center;justify-content:center;color:var(--primary);margin-bottom:16px;
+  }
+  .feature-card h3{font-size:18.5px;margin-bottom:8px;}
+  .feature-card p{color:var(--muted);font-size:15.3px;margin:0;}
+  @media (max-width:900px){.features-grid{grid-template-columns:1fr 1fr;}}
+  @media (max-width:600px){.features-grid{grid-template-columns:1fr;}}
+
+  /* ---------- How it works ---------- */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:30px;counter-reset:step;position:relative;}
+  .steps::before{
+    content:"";position:absolute;top:26px;left:12%;right:12%;height:2px;
+    background:repeating-linear-gradient(90deg,var(--line) 0 10px, transparent 10px 20px);
+    z-index:0;
+  }
+  @media (max-width:760px){.steps::before{display:none;}.steps{grid-template-columns:1fr;}}
+  .step{position:relative;z-index:1;text-align:center;}
+  .step-num{
+    width:54px;height:54px;border-radius:50%;background:var(--accent);color:var(--primary-dark);
+    display:flex;align-items:center;justify-content:center;font-family:'Baloo Da 2';font-weight:700;
+    font-size:20px;margin:0 auto 18px;box-shadow:0 6px 0 var(--accent-dark);
+  }
+  .step h3{font-size:18px;}
+  .step p{color:var(--muted);font-size:15.3px;max-width:260px;margin:0 auto;}
+
+  /* ---------- Calculator ---------- */
+  .calc-wrap{
+    background:var(--primary);border-radius:var(--radius-lg);padding:44px 40px;color:#fff;
+    display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;
+  }
+  .calc-wrap h2{color:#fff;}
+  .calc-wrap .section-sub{color:#CFE5D8;font-size:16px;margin-bottom:26px;}
+  .slider-row{display:flex;justify-content:space-between;font-size:14.5px;color:#CFE5D8;margin-top:8px;}
+  input[type=range]{
+    width:100%;height:8px;border-radius:999px;background:rgba(255,255,255,.25);
+    -webkit-appearance:none;appearance:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:var(--accent);
+    border:4px solid #fff;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.25);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:26px;height:26px;border-radius:50%;background:var(--accent);border:4px solid #fff;cursor:pointer;
+  }
+  .calc-result{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:var(--radius-md);padding:26px;text-align:center;}
+  .calc-result .big{font-family:'Baloo Da 2';font-weight:700;font-size:44px;color:var(--accent);line-height:1;}
+  .calc-result .cap{color:#CFE5D8;font-size:14.5px;margin-top:6px;}
+  .calc-result .sub{margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.2);font-size:14.5px;color:#DCEFE3;}
+  @media (max-width:800px){.calc-wrap{grid-template-columns:1fr;padding:32px 24px;}}
+
+  /* ---------- Testimonials ---------- */
+  .testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+  .testi-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-lg);padding:26px;}
+  .testi-quote{font-size:16px;color:var(--ink);margin-bottom:18px;}
+  .testi-who{display:flex;align-items:center;gap:12px;}
+  .testi-avatar{
+    width:42px;height:42px;border-radius:50%;background:var(--primary-light);color:var(--primary-dark);
+    display:flex;align-items:center;justify-content:center;font-family:'Baloo Da 2';font-weight:700;font-size:16px;
+    flex-shrink:0;
+  }
+  .testi-name{font-weight:700;font-size:15px;}
+  .testi-role{color:var(--muted);font-size:13.5px;}
+  @media (max-width:900px){.testi-grid{grid-template-columns:1fr;}}
+
+  /* ---------- Pricing ---------- */
+  .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:stretch;}
+  .price-card{
+    background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius-lg);
+    padding:32px 26px;display:flex;flex-direction:column;position:relative;
+  }
+  .price-card.popular{border-color:var(--accent);box-shadow:var(--shadow);}
+  .popular-badge{
+    position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--accent);
+    color:var(--primary-dark);padding:5px 16px;border-radius:999px;font-size:13px;font-weight:700;
+  }
+  .price-card h3{font-size:19px;}
+  .price-amount{font-family:'Baloo Da 2';font-size:34px;font-weight:700;color:var(--primary-dark);margin:6px 0 4px;}
+  .price-amount span{font-size:15px;color:var(--muted);font-weight:500;}
+  .price-desc{color:var(--muted);font-size:14.5px;margin-bottom:20px;}
+  .price-features{list-style:none;padding:0;margin:0 0 26px;display:flex;flex-direction:column;gap:11px;flex-grow:1;}
+  .price-features li{display:flex;gap:9px;align-items:flex-start;font-size:15px;}
+  .price-features svg{flex-shrink:0;margin-top:3px;color:var(--primary);}
+  .pricing-note{text-align:center;color:var(--muted);font-size:13.5px;margin-top:26px;}
+  @media (max-width:900px){.pricing-grid{grid-template-columns:1fr;}}
+
+  /* ---------- FAQ ---------- */
+  .faq-list{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:12px;}
+  .accordion{background:var(--card);border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;}
+  .accordion-q{
+    width:100%;text-align:right;background:none;border:none;padding:19px 22px;
+    display:flex;justify-content:space-between;align-items:center;gap:14px;cursor:pointer;
+    font-size:16.5px;font-weight:600;color:var(--ink);text-align:left;
+  }
+  .accordion-q svg{flex-shrink:0;transition:transform .2s ease;color:var(--primary);}
+  .accordion.open .accordion-q svg{transform:rotate(45deg);}
+  .accordion-a{max-height:0;overflow:hidden;transition:max-height .25s ease;}
+  .accordion-a-inner{padding:0 22px 20px;color:var(--muted);font-size:15.3px;}
+  .accordion.open .accordion-a{max-height:220px;}
+
+  /* ---------- Final CTA ---------- */
+  .final-cta{
+    background:linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius:var(--radius-lg);padding:54px 40px;text-align:center;color:#fff;
+    position:relative;overflow:hidden;
+  }
+  .final-cta h2{color:#fff;font-size:clamp(1.6rem,3vw,2.1rem);}
+  .final-cta p{color:#CFE5D8;font-size:17px;margin-bottom:26px;}
+  .final-cta .ctas{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+
+  /* ---------- Footer ---------- */
+  footer{background:var(--primary-dark);color:#B9D4C3;padding:56px 0 26px;font-size:14.5px;}
+  .footer-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:34px;margin-bottom:40px;}
+  .footer-brand{display:flex;align-items:center;gap:10px;color:#fff;font-family:'Baloo Da 2';font-weight:700;font-size:20px;margin-bottom:12px;}
+  .footer-col h4{color:#fff;font-size:15px;margin-bottom:16px;font-family:'Hind Siliguri';font-weight:700;}
+  .footer-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
+  .footer-col a{text-decoration:none;color:#B9D4C3;}
+  .footer-col a:hover{color:#fff;}
+  .footer-bottom{border-top:1px solid rgba(255,255,255,.12);padding-top:22px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  @media (max-width:800px){.footer-grid{grid-template-columns:1fr 1fr;}}
+  @media (max-width:480px){.footer-grid{grid-template-columns:1fr;}}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important;transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="nav">
+    <a href="#" class="brand">
+      <span class="brand-mark">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 6C4 4.9 4.9 4 6 4h9l5 5v11c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6z" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 12h8M8 16h5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </span>
+      প্রশ্নবন্ধু
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">ফিচার</a></li>
+      <li><a href="#how">কীভাবে কাজ করে</a></li>
+      <li><a href="#pricing">মূল্য</a></li>
+      <li><a href="#faq">প্রশ্নোত্তর</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="#" class="btn btn-ghost">লগইন</a>
+      <a href="#demo" class="btn btn-primary">ফ্রি শুরু করুন</a>
+      <button class="hamburger" id="hamBtn" aria-label="মেনু খুলুন" aria-expanded="false">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h18M3 18h18" stroke="#0F5132" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </nav>
+  <div class="nav-mobile" id="navMobile">
+    <a href="#features">ফিচার</a>
+    <a href="#how">কীভাবে কাজ করে</a>
+    <a href="#pricing">মূল্য</a>
+    <a href="#faq">প্রশ্নোত্তর</a>
+    <a href="#">লগইন</a>
+    <a href="#demo" class="btn btn-primary btn-block">ফ্রি শুরু করুন</a>
+  </div>
+</header>
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="demo">
+  <div class="container hero-inner">
+    <span class="eyebrow">🎓 শিক্ষকদের জন্য তৈরি · ৩য়–১২শ শ্রেণি</span>
+    <h1>প্রশ্ন তৈরি হবে ১ ক্লিকে,<br>সময় বাঁচবে আপনার।</h1>
+    <p class="lead">শ্রেণি, বিষয় আর অধ্যায় বেছে নিন — বাকিটা আমরা করে দিচ্ছি। নিচে নিজের হাতে চেষ্টা করে দেখুন, বিশ্বাস হয়ে যাবে।</p>
+    <div class="hero-ctas">
+      <a href="#pricing" class="btn btn-primary">ফ্রি অ্যাকাউন্ট খুলুন</a>
+      <a href="#how" class="btn btn-ghost">কীভাবে কাজ করে দেখুন ↓</a>
+    </div>
+
+    <!-- Signature interactive element -->
+    <div class="demo-card">
+      <div class="demo-topbar">
+        <strong>✏️ নিজেই চেষ্টা করুন</strong>
+        <span class="live-badge"><span class="live-dot"></span> লাইভ ডেমো</span>
+      </div>
+      <div class="demo-body">
+        <div class="demo-controls">
+          <select id="selClass" aria-label="শ্রেণি বাছুন">
+            <option value="৬ষ্ঠ">৬ষ্ঠ শ্রেণি</option>
+            <option value="৭ম">৭ম শ্রেণি</option>
+            <option value="৮ম">৮ম শ্রেণি</option>
+            <option value="৯ম" selected>৯ম শ্রেণি</option>
+            <option value="১০ম">১০ম শ্রেণি</option>
+          </select>
+          <select id="selSubject" aria-label="বিষয় বাছুন">
+            <option>গণিত</option>
+            <option>বাংলা</option>
+            <option>বিজ্ঞান</option>
+            <option>ইংরেজি</option>
+          </select>
+          <select id="selChapter" aria-label="অধ্যায় বাছুন">
+            <option>অধ্যায় ১</option>
+            <option>অধ্যায় ২</option>
+            <option>অধ্যায় ৩</option>
+            <option>অধ্যায় ৪</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-block demo-generate" id="genBtn">
+          ⚡ প্রশ্ন তৈরি করুন
+        </button>
+
+        <div class="demo-result" id="demoResult">
+          <div class="placeholder" id="demoPlaceholder">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M4 6C4 4.9 4.9 4 6 4h9l5 5v11c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6z" stroke="#9AA69C" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 12h8M8 16h5" stroke="#9AA69C" stroke-width="1.6" stroke-linecap="round"/></svg>
+            উপরে বেছে নিয়ে "প্রশ্ন তৈরি করুন"-এ ক্লিক করুন
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TRUST BAR ================= -->
+<div class="trustbar">
+  <div class="container trust-grid">
+    <div><div class="num" data-count="1000000">০</div><div class="label">প্রশ্নের ভান্ডার (লক্ষ্যমাত্রা)</div></div>
+    <div><div class="num">৳০</div><div class="label">থেকে শুরু</div></div>
+    <div><div class="num">৩য়–১২শ</div><div class="label">সকল শ্রেণির জন্য</div></div>
+    <div><div class="num">২৪/৭</div><div class="label">সহায়তা প্রস্তুত</div></div>
+  </div>
+</div>
+
+<!-- ================= PROBLEM / SOLUTION ================= -->
+<section class="section">
+  <div class="container">
+    <div class="section-head">
+      <span class="kicker">কেন প্রশ্নবন্ধু</span>
+      <h2>আগে যেভাবে সময় যেত, এখন যেভাবে বাঁচে</h2>
+      <p>শত শত শিক্ষক প্রতিদিন যে ঝামেলা এড়িয়ে চলছেন, আপনিও চলুন।</p>
+    </div>
+    <div class="compare">
+      <div class="compare-card compare-old">
+        <h3>😩 পুরোনো নিয়মে</h3>
+        <ul class="compare-list">
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#C0503A" stroke-width="2.2" stroke-linecap="round"/></svg> ঘণ্টার পর ঘণ্টা টাইপ করা</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#C0503A" stroke-width="2.2" stroke-linecap="round"/></svg> বই ঘেঁটে প্রশ্ন খোঁজা</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#C0503A" stroke-width="2.2" stroke-linecap="round"/></svg> ফরম্যাট ঠিক করতে মাথাব্যথা</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#C0503A" stroke-width="2.2" stroke-linecap="round"/></svg> প্রিন্টের দোকানে দৌড়াদৌড়ি</li>
+        </ul>
+      </div>
+      <div class="compare-card compare-new">
+        <h3>😊 প্রশ্নবন্ধুতে</h3>
+        <ul class="compare-list">
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="#7CE29A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> ১ মিনিটে প্রশ্নপত্র রেডি</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="#7CE29A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> লাখো প্রশ্ন থেকে বেছে নিন</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="#7CE29A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> অটোমেটিক সুন্দর ফরম্যাট</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke="#7CE29A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> সরাসরি প্রিন্ট বা PDF ডাউনলোড</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FEATURES ================= -->
+<section class="section section-alt" id="features">
+  <div class="container">
+    <div class="section-head">
+      <span class="kicker">সবকিছু একসাথে</span>
+      <h2>একটি প্ল্যাটফর্মে সব সমাধান</h2>
+      <p>প্রশ্ন তৈরি থেকে ফলাফল প্রকাশ — সবকিছু একসাথে, এক জায়গায়।</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4L12 2z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></div>
+        <h3>১ ক্লিক প্রশ্ন তৈরি</h3>
+        <p>শ্রেণি, বিষয়, অধ্যায় বেছে নিন — প্রশ্ন প্রস্তুত হয়ে যাবে সঙ্গে সঙ্গে।</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M4 6c0-1.1 3.6-2 8-2s8 .9 8 2-3.6 2-8 2-8-.9-8-2z" stroke="currentColor" stroke-width="1.7"/><path d="M4 6v12c0 1.1 3.6 2 8 2s8-.9 8-2V6" stroke="currentColor" stroke-width="1.7"/><path d="M4 12c0 1.1 3.6 2 8 2s8-.9 8-2" stroke="currentColor" stroke-width="1.7"/></svg></div>
+        <h3>বিশাল প্রশ্নভান্ডার</h3>
+        <p>সব শ্রেণি, সব বিষয়, সব অধ্যায়ের লাখো প্রশ্ন এক জায়গায়।</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 9h.01M8 12h.01M8 15h.01M12 9l2 2-2 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>OMR মূল্যায়ন</h3>
+        <p>উত্তরপত্র স্ক্যান করুন, ফলাফল প্রস্তুত হয়ে যাবে সেকেন্ডের মধ্যেই।</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+        <h3>অনলাইন পরীক্ষা</h3>
+        <p>লিংক শেয়ার করুন, শিক্ষার্থীরা ঘরে বসেই পরীক্ষা দিতে পারবে।</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 3l7 3v6c0 5-3.4 7.8-7 9-3.6-1.2-7-4-7-9V6l7-3z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></div>
+        <h3>নেগেটিভ মার্কিং ও কাস্টম নিয়ম</h3>
+        <p>নিজের প্রতিষ্ঠানের নিয়ম অনুযায়ী পরীক্ষার সেটিংস সাজিয়ে নিন।</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+        <h3>প্রিন্ট ও PDF</h3>
+        <p>এক ক্লিকে ছাপার উপযোগী, সুন্দর ফরম্যাটের ফাইল ডাউনলোড করুন।</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= HOW IT WORKS ================= -->
+<section class="section" id="how">
+  <div class="container">
+    <div class="section-head">
+      <span class="kicker">সহজ ৩ ধাপ</span>
+      <h2>মাত্র ৩ ধাপে প্রশ্নপত্র তৈরি</h2>
+      <p>কোনো টাইপিং নেই, কোনো জটিলতা নেই।</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">১</div>
+        <h3>শ্রেণি ও অধ্যায় বাছুন</h3>
+        <p>যেকোনো শ্রেণি, যেকোনো বিষয়ের অধ্যায় বেছে নিন কয়েক সেকেন্ডে।</p>
+      </div>
+      <div class="step">
+        <div class="step-num">২</div>
+        <h3>১ ক্লিকে প্রশ্ন তৈরি করুন</h3>
+        <p>আমাদের লাখো প্রশ্নের ভান্ডার থেকে মানসম্মত প্রশ্ন চলে আসবে আপনার সামনে।</p>
+      </div>
+      <div class="step">
+        <div class="step-num">৩</div>
+        <h3>প্রিন্ট করুন বা পরীক্ষা নিন</h3>
+        <p>PDF ডাউনলোড করুন, প্রিন্ট করুন, অথবা লিংক শেয়ার করে অনলাইনে পরীক্ষা নিন।</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CALCULATOR ================= -->
+<section class="section section-alt">
+  <div class="container">
+    <div class="calc-wrap">
+      <div>
+        <h2>আপনি ঠিক কতটা সময় বাঁচাবেন?</h2>
+        <p class="section-sub">নিচের স্লাইডার সরিয়ে নিজেই হিসাব করে দেখুন।</p>
+        <label for="examSlider" style="font-weight:600;display:block;margin-bottom:10px;">আপনি সপ্তাহে কয়টি প্রশ্নপত্র তৈরি করেন?</label>
+        <input type="range" id="examSlider" min="1" max="10" value="3">
+        <div class="slider-row"><span>১টি</span><span id="sliderVal">৩টি / সপ্তাহে</span><span>১০টি</span></div>
+      </div>
+      <div class="calc-result">
+        <div class="big" id="calcHours">৪৫</div>
+        <div class="cap">ঘণ্টা বাঁচবে প্রতি মাসে</div>
+        <div class="sub" id="calcYearly">বছরে বাঁচবে প্রায় ৫৪০ ঘণ্টা — মানে ৬৭টি বাড়তি কর্মদিবস!</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TESTIMONIALS ================= -->
+<section class="section">
+  <div class="container">
+    <div class="section-head">
+      <span class="kicker">শিক্ষকদের অভিজ্ঞতা</span>
+      <h2>শিক্ষকরা যা বলছেন</h2>
+      <p>নমুনা মতামত — বাস্তব ব্যবহারকারীদের প্রতিক্রিয়া লঞ্চের পর যুক্ত করা হবে।</p>
+    </div>
+    <div class="testi-grid">
+      <div class="testi-card">
+        <p class="testi-quote">"আগে একটা প্রশ্নপত্র বানাতে পুরো সন্ধ্যা লেগে যেত। এখন ১০ মিনিটেই শেষ!"</p>
+        <div class="testi-who">
+          <div class="testi-avatar">র</div>
+          <div><div class="testi-name">রহিমা আক্তার</div><div class="testi-role">সহকারী শিক্ষক, বগুড়া</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <p class="testi-quote">"OMR দিয়ে ২০০ খাতা মূল্যায়ন করেছি এক বিকেলে। বিশ্বাসই হচ্ছিল না।"</p>
+        <div class="testi-who">
+          <div class="testi-avatar">ক</div>
+          <div><div class="testi-name">কামরুল হাসান</div><div class="testi-role">প্রধান শিক্ষক, রংপুর</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <p class="testi-quote">"কম্পিউটারে খুব একটা দক্ষ না আমি, তবুও প্রথমবারেই পারছি।"</p>
+        <div class="testi-who">
+          <div class="testi-avatar">স</div>
+          <div><div class="testi-name">সালমা বেগম</div><div class="testi-role">সহকারী শিক্ষক, খুলনা</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PRICING ================= -->
+<section class="section section-alt" id="pricing">
+  <div class="container">
+    <div class="section-head">
+      <span class="kicker">মূল্য তালিকা</span>
+      <h2>সাধ্যের মধ্যে মূল্য</h2>
+      <p>যেভাবে লাগবে, সেভাবেই বেছে নিন।</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <h3>একক শ্রেণি</h3>
+        <div class="price-amount">৯৯৳ <span>/ মাস থেকে</span></div>
+        <p class="price-desc">একটি শ্রেণির সব বিষয়ের প্রশ্ন তৈরি করুন।</p>
+        <ul class="price-features">
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/></svg> ১টি শ্রেণির সব বিষয়</li>
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/></svg> PDF ও প্রিন্ট সুবিধা</li>
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/></svg> ইমেইল সহায়তা</li>
+        </ul>
+        <a href="#" class="btn btn-ghost btn-block">শুরু করুন</a>
+      </div>
+      <div class="price-card popular">
+        <span class="popular-badge">সবচেয়ে জনপ্রিয়</span>
+        <h3>স্কুল প্যাকেজ</h3>
+        <div class="price-amount">৪৯৯৳ <span>/ মাস থেকে</span></div>
+        <p class="price-desc">৩য়–১০ম শ্রেণি, সব বিষয়, OMR সহ সম্পূর্ণ সমাধান।</p>
+        <ul class="price-features">
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/></svg> সব শ্রেণি ও বিষয়</li>
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/></svg> OMR মূল্যায়ন অন্তর্ভুক্ত</li>
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/></svg> অনলাইন পরীক্ষা হোস্টিং</li>
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/></svg> ফোন সহায়তা</li>
+        </ul>
+        <a href="#" class="btn btn-primary btn-block">শুরু করুন</a>
+      </div>
+      <div class="price-card">
+        <h3>প্রতিষ্ঠান</h3>
+        <div class="price-amount">কাস্টম মূল্য</div>
+        <p class="price-desc">পুরো প্রতিষ্ঠানের জন্য বিশেষ সমাধান।</p>
+        <ul class="price-features">
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/></svg> একাধিক শিক্ষকের অ্যাকাউন্ট</li>
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/></svg> প্রতিষ্ঠানের নিজস্ব লোগো</li>
+          <li><svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5L20 6" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" stroke="currentColor"/></svg> প্রায়োরিটি সহায়তা</li>
+        </ul>
+        <a href="#" class="btn btn-ghost btn-block">যোগাযোগ করুন</a>
+      </div>
+    </div>
+    <p class="pricing-note">*মূল্য প্রাথমিক ও পরিবর্তনযোগ্য — আনুষ্ঠানিক লঞ্চের সময় আপডেট করা হবে।</p>
+  </div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section class="section" id="faq">
+  <div class="container">
+    <div class="section-head">
+      <span class="kicker">দ্বিধা থাকলে বলুন</span>
+      <h2>প্রায় জিজ্ঞাসিত প্রশ্ন</h2>
+      <p>এখনো কিছু জানার থাকলে, নিচে দেখুন।</p>
+    </div>
+    <div class="faq-list" id="faqList">
+      <div class="accordion">
+        <button class="accordion-q">আমি কম্পিউটার/স্মার্টফোনে খুব একটা দক্ষ না, আমি কি পারব?
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#0F5132" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="accordion-a"><div class="accordion-a-inner">হ্যাঁ, নিশ্চিন্তে পারবেন। মাত্র ৩টা বাটনে ক্লিক করলেই প্রশ্ন তৈরি হয়ে যায় — কোনো টাইপিং লাগে না। আটকে গেলে আমাদের সাপোর্ট টিম ফোনেও সাহায্য করবে।</div></div>
+      </div>
+      <div class="accordion">
+        <button class="accordion-q">ইন্টারনেট স্পিড কম হলে ব্যবহার করা যাবে?
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#0F5132" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="accordion-a"><div class="accordion-a-inner">হ্যাঁ, প্রশ্নবন্ধু হালকা ও দ্রুত — কম গতির ইন্টারনেটেও স্বাভাবিকভাবে চলে।</div></div>
+      </div>
+      <div class="accordion">
+        <button class="accordion-q">প্রশ্নগুলো কি জাতীয় শিক্ষাক্রম অনুযায়ী সাজানো?
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#0F5132" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="accordion-a"><div class="accordion-a-inner">হ্যাঁ, প্রতিটি প্রশ্ন শ্রেণি ও অধ্যায় অনুযায়ী গোছানো এবং বাংলাদেশের জাতীয় শিক্ষাক্রম মেনে তৈরি।</div></div>
+      </div>
+      <div class="accordion">
+        <button class="accordion-q">টাকা কীভাবে পরিশোধ করব?
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#0F5132" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="accordion-a"><div class="accordion-a-inner">বিকাশ, নগদ, রকেট অথবা কার্ড দিয়ে সহজেই পেমেন্ট করতে পারবেন।</div></div>
+      </div>
+      <div class="accordion">
+        <button class="accordion-q">সমস্যায় পড়লে সাহায্য পাব কীভাবে?
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#0F5132" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="accordion-a"><div class="accordion-a-inner">ফোন, হোয়াটসঅ্যাপ অথবা লাইভ চ্যাটে আমাদের টিম সবসময় আপনার পাশে থাকবে।</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FINAL CTA ================= -->
+<section class="section" style="padding-top:0;">
+  <div class="container">
+    <div class="final-cta">
+      <h2>আজই শুরু করুন — প্রথম প্রশ্নপত্র একদম ফ্রি</h2>
+      <p>কোনো ঝুঁকি নেই, কোনো কার্ড লাগবে না। মাত্র ২ মিনিটে অ্যাকাউন্ট খুলুন।</p>
+      <div class="ctas">
+        <a href="#" class="btn btn-primary">ফ্রি অ্যাকাউন্ট খুলুন</a>
+        <a href="#demo" class="btn btn-outline-light">ডেমো আবার দেখুন</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand">
+          <span class="brand-mark" style="background:var(--accent);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 6C4 4.9 4.9 4 6 4h9l5 5v11c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6z" stroke="#0B3B24" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          </span>
+          প্রশ্নবন্ধু
+        </div>
+        <p style="max-width:280px;">বাংলাদেশের শিক্ষকদের জন্য সবচেয়ে সহজ প্রশ্ন তৈরি, OMR মূল্যায়ন ও অনলাইন পরীক্ষার প্ল্যাটফর্ম।</p>
+      </div>
+      <div class="footer-col">
+        <h4>প্ল্যাটফর্ম</h4>
+        <ul>
+          <li><a href="#features">ফিচার</a></li>
+          <li><a href="#pricing">মূল্য</a></li>
+          <li><a href="#demo">লাইভ ডেমো</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>সহায়তা</h4>
+        <ul>
+          <li><a href="#faq">প্রশ্নোত্তর</a></li>
+          <li><a href="#">যোগাযোগ করুন</a></li>
+          <li><a href="#">সাপোর্ট সেন্টার</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>যোগাযোগ</h4>
+        <ul>
+          <li>hello@prosnobondhu.com</li>
+          <li>+৮৮০ ১XXX-XXXXXX</li>
+          <li>ঢাকা, বাংলাদেশ</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© ২০২৬ প্রশ্নবন্ধু। সর্বস্বত্ব সংরক্ষিত।</span>
+      <span>তৈরি হয়েছে বাংলাদেশের শিক্ষকদের জন্য, ভালোবাসা দিয়ে ❤️</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // ---------- Mobile nav ----------
+  var hamBtn = document.getElementById('hamBtn');
+  var navMobile = document.getElementById('navMobile');
+  hamBtn.addEventListener('click', function(){
+    var open = navMobile.classList.toggle('open');
+    hamBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  navMobile.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click', function(){ navMobile.classList.remove('open'); });
+  });
+
+  // ---------- Bengali numeral helper ----------
+  var bnDigits = ['০','১','২','৩','৪','৫','৬','৭','৮','৯'];
+  function toBn(n){
+    return String(Math.round(n)).split('').map(function(d){
+      return /[0-9]/.test(d) ? bnDigits[+d] : d;
+    }).join('');
+  }
+
+  // ---------- Accordion ----------
+  document.querySelectorAll('.accordion-q').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var item = btn.closest('.accordion');
+      var wasOpen = item.classList.contains('open');
+      document.querySelectorAll('.accordion.open').forEach(function(el){ el.classList.remove('open'); });
+      if(!wasOpen){ item.classList.add('open'); }
+    });
+  });
+
+  // ---------- Savings calculator ----------
+  var slider = document.getElementById('examSlider');
+  var sliderVal = document.getElementById('sliderVal');
+  var calcHours = document.getElementById('calcHours');
+  var calcYearly = document.getElementById('calcYearly');
+  function updateCalc(){
+    var exams = parseInt(slider.value, 10);
+    sliderVal.textContent = toBn(exams) + 'টি / সপ্তাহে';
+    var minutesSavedPerExam = 45; // manual ~50min vs app ~5min
+    var monthlyHours = Math.round((exams * 4 * minutesSavedPerExam) / 60);
+    var yearlyHours = monthlyHours * 12;
+    var workdays = Math.round(yearlyHours / 8);
+    calcHours.textContent = toBn(monthlyHours);
+    calcYearly.textContent = 'বছরে বাঁচবে প্রায় ' + toBn(yearlyHours) + ' ঘণ্টা — মানে ' + toBn(workdays) + 'টি বাড়তি কর্মদিবস!';
+  }
+  slider.addEventListener('input', updateCalc);
+  updateCalc();
+
+  // ---------- Counter animation ----------
+  var counters = document.querySelectorAll('.num[data-count]');
+  var animated = false;
+  function animateCounters(){
+    if(animated) return;
+    animated = true;
+    counters.forEach(function(el){
+      var target = parseInt(el.getAttribute('data-count'), 10);
+      var start = 0;
+      var dur = 1400;
+      var t0 = performance.now();
+      function tick(t){
+        var p = Math.min((t - t0) / dur, 1);
+        var val = Math.floor(p * target);
+        el.textContent = toBn(val).toString().replace(/(\d)(?=(\d{2})+(?!\d))/g,'$1,') ;
+        // simple grouping isn't essential for bn digits; fallback plain
+        el.textContent = toBn(val);
+        if(p < 1){ requestAnimationFrame(tick); }
+        else { el.textContent = toBn(target); }
+      }
+      requestAnimationFrame(tick);
+    });
+  }
+  var trustSection = document.querySelector('.trustbar');
+  if('IntersectionObserver' in window){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting){ animateCounters(); io.disconnect(); } });
+    }, {threshold:.4});
+    io.observe(trustSection);
+  } else {
+    animateCounters();
+  }
+
+  // ---------- Live demo generator ----------
+  var sampleQuestions = {
+    'গণিত': [
+      {q:'দুইটি সংখ্যার সমষ্টি ৪৫ এবং একটি সংখ্যা অপরটির দ্বিগুণ। সংখ্যা দুটি কত?', opts:['ক) ১৫, ৩০','খ) ১০, ৩৫','গ) ২০, ২৫','ঘ) ৫, ৪০']},
+      {q:'একটি আয়তক্ষেত্রের দৈর্ঘ্য ১২ সেমি ও প্রস্থ ৫ সেমি হলে ক্ষেত্রফল কত?', opts:['ক) ৩৪ বর্গ সেমি','খ) ৬০ বর্গ সেমি','গ) ১৭ বর্গ সেমি','ঘ) ৮৫ বর্গ সেমি']},
+      {q:'x + ৭ = ১৫ হলে x এর মান কত?', opts:['ক) ৬','খ) ৭','গ) ৮','ঘ) ৯']}
+    ],
+    'বাংলা': [
+      {q:'নিচের কোনটি "আকাশ" শব্দের সমার্থক শব্দ?', opts:['ক) নভ','খ) বায়ু','গ) সাগর','ঘ) মাটি']},
+      {q:'"যে ব্যক্তি পরের উপকার করে" — এক কথায় কী বলে?', opts:['ক) পরোপকারী','খ) স্বার্থপর','গ) বিদ্বান','ঘ) দরিদ্র']},
+      {q:'বাংলা বর্ণমালায় স্বরবর্ণ কয়টি?', opts:['ক) ১০টি','খ) ১১টি','গ) ১২টি','ঘ) ১৩টি']}
+    ],
+    'বিজ্ঞান': [
+      {q:'উদ্ভিদের খাদ্য তৈরির প্রক্রিয়াকে কী বলে?', opts:['ক) শ্বসন','খ) সালোকসংশ্লেষণ','গ) প্রস্বেদন','ঘ) পরিপাক']},
+      {q:'পানির রাসায়নিক সংকেত কী?', opts:['ক) CO₂','খ) H₂O','গ) O₂','ঘ) NaCl']},
+      {q:'মানবদেহে হৃৎপিণ্ড কয়টি প্রকোষ্ঠ নিয়ে গঠিত?', opts:['ক) ২টি','খ) ৩টি','গ) ৪টি','ঘ) ৫টি']}
+    ],
+    'ইংরেজি': [
+      {q:'Choose the correct synonym of "Happy".', opts:['a) Sad','b) Joyful','c) Angry','d) Tired']},
+      {q:'Fill in the blank: She ___ to school every day.', opts:['a) go','b) goes','c) going','d) gone']},
+      {q:'What is the plural form of "Child"?', opts:['a) Childs','b) Childes','c) Children','d) Childrens']}
+    ]
+  };
+
+  var genBtn = document.getElementById('genBtn');
+  var demoResult = document.getElementById('demoResult');
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  genBtn.addEventListener('click', function(){
+    var cls = document.getElementById('selClass').value;
+    var subj = document.getElementById('selSubject').value;
+    var chap = document.getElementById('selChapter').value;
+
+    demoResult.innerHTML = '<div class="spinner"></div><div class="loading-text">প্রশ্ন তৈরি হচ্ছে…</div>';
+
+    var delay = reduceMotion ? 50 : 650;
+    setTimeout(function(){
+      var qs = sampleQuestions[subj] || sampleQuestions['গণিত'];
+      var html = '<div class="result-head"><span class="tag">' + cls + ' শ্রেণি · ' + subj + ' · ' + chap + '</span><span class="time-badge">০.৮ সেকেন্ডে তৈরি হলো ✓</span></div>';
+      qs.forEach(function(item, i){
+        html += '<div class="q-item"><div class="qn">' + toBn(i+1) + '. ' + item.q + '</div><div class="q-opts">' +
+          item.opts.map(function(o){ return '<span>'+o+'</span>'; }).join('') + '</div></div>';
+      });
+      demoResult.innerHTML = html;
+    }, delay);
+  });
+})();
+</script>
+
+</body>
+</html>
