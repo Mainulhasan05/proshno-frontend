@@ -9,6 +9,7 @@ export const loginUser = createAsyncThunk(
     try {
       const response = await apiClient.post('/auth/login', credentials);
       localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('sessionType', 'user');
       return response.data;
     } catch (error) {
       return rejectWithValue(error.error || { message: 'Login failed' });
@@ -22,6 +23,7 @@ export const registerUser = createAsyncThunk(
     try {
       const response = await apiClient.post('/auth/register', userData);
       localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('sessionType', 'user');
       return response.data;
     } catch (error) {
       return rejectWithValue(error.error || { message: 'Registration failed' });
@@ -64,6 +66,7 @@ export const adminLogin = createAsyncThunk(
     try {
       const response = await apiClient.post('/admin-auth/login', credentials);
       localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('sessionType', 'admin');
       return response.data;
     } catch (error) {
       return rejectWithValue(error.error || { message: 'Login failed' });
