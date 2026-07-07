@@ -30,6 +30,7 @@ const adminMenu = [
   { label: 'শিক্ষক', href: '/admin/teachers', icon: HiOutlineUsers },
   { label: 'ক্রয় ব্যবস্থাপনা', href: '/admin/purchases', icon: HiOutlineShoppingCart },
   { label: 'OMR টেমপ্লেট', href: '/admin/omr-templates', icon: HiOutlineDocumentText },
+  { label: 'পেজ ব্যবস্থাপনা', href: '/admin/pages', icon: HiOutlineDocumentText },
   { label: 'সেটিংস', href: '/admin/settings', icon: HiOutlineCog },
 ];
 
