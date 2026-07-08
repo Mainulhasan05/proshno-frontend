@@ -126,3 +126,62 @@ body {
 .page-content th, .page-content td { border: 1px solid var(--color-neutral-200); padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; }
 .page-content th { background: var(--color-neutral-50); font-weight: 600; color: var(--color-neutral-800); }
 
+/* ══════════════════════════════════════
+   MOBILE APP-LIKE STYLES
+   ══════════════════════════════════════ */
+
+/* Prevent rubber-band overscroll on iOS */
+html {
+  overscroll-behavior: none;
+}
+
+/* Prevent text selection on interactive elements (app-like) */
+nav, button, a {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth momentum scrolling for scroll containers */
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Safe area padding for bottom nav */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Mobile: hide sidebar completely, show bottom nav */
+@media (max-width: 1023px) {
+  /* Make main content take full width with no sidebar gap */
+  main {
+    touch-action: pan-y;
+  }
+
+  /* Prevent body scroll when modal/overlay is open */
+  body.modal-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+}
+
+/* Mobile card touch feedback */
+@media (max-width: 1023px) {
+  .hover\:shadow-md:active,
+  .hover\:shadow-lg:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+}
+
+/* Responsive font scaling for mobile */
+@media (max-width: 640px) {
+  h1 {
+    font-size: 1.375rem !important;
+  }
+}

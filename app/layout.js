@@ -2,12 +2,31 @@ import "./globals.css";
 import Providers from "@/components/Providers";
 import JsonLd from "@/components/shared/JsonLd";
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: '#4F46E5',
+};
+
 export const metadata = {
   metadataBase: new URL('https://proshnopedia.com'),
 
   title: {
     default: 'প্রশ্নপিডিয়া — ১ ক্লিকে প্রশ্নপত্র তৈরি | ProshnoPedia',
     template: '%s | প্রশ্নপিডিয়া — ProshnoPedia',
+  },
+
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'প্রশ্নপিডিয়া',
+  },
+
+  formatDetection: {
+    telephone: false,
   },
 
   description:
@@ -137,6 +156,8 @@ export default function RootLayout({ children }) {
   return (
     <html lang="bn" className="h-full">
       <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <JsonLd data={[organizationSchema, websiteSchema, softwareSchema]} />
       </head>
       <body className="min-h-full bg-neutral-50 text-neutral-800 antialiased">

@@ -71,12 +71,12 @@ export default function Sidebar({ role }) {
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
+      {/* Sidebar — full menu (desktop: static, mobile: drawer) */}
       <aside
         className={clsx(
-          'fixed top-0 left-0 z-50 h-full bg-white border-r border-neutral-200 flex flex-col transition-transform duration-300 ease-out',
+          'fixed top-0 left-0 z-50 h-full bg-white border-r border-neutral-200 flex flex-col transition-transform duration-300 ease-out will-change-transform',
           'w-64 lg:translate-x-0 lg:static lg:z-auto',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
         )}
       >
         {/* Logo */}
