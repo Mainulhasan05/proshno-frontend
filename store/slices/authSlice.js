@@ -86,6 +86,30 @@ export const adminFetchProfile = createAsyncThunk(
   }
 );
 
+export const forgotPassword = createAsyncThunk(
+  'auth/forgotPassword',
+  async (email, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post('/auth/forgot-password', { email });
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.error || { message: 'Failed to send reset email' });
+    }
+  }
+);
+
+export const resetPassword = createAsyncThunk(
+  'auth/resetPassword',
+  async ({ token, newPassword }, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.post('/auth/reset-password', { token, newPassword });
+      return response;
+    } catch (error) {
+      return rejectWithValue(error.error || { message: 'Failed to reset password' });
+    }
+  }
+);
+
 // --- Slice ---
 
 const authSlice = createSlice({

@@ -95,13 +95,21 @@ export default function LoginPage() {
                   required: 'পাসওয়ার্ড প্রয়োজন',
                 })}
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-xs text-primary-600 hover:text-primary-700 mt-1"
-              >
-                {showPassword ? 'লুকান' : 'দেখুন'}
-              </button>
+              <div className="flex items-center justify-between mt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-xs text-primary-600 hover:text-primary-700"
+                >
+                  {showPassword ? 'লুকান' : 'দেখুন'}
+                </button>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  পাসওয়ার্ড ভুলে গেছেন?
+                </Link>
+              </div>
             </div>
 
             <Button
