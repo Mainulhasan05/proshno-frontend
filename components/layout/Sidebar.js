@@ -85,7 +85,7 @@ export default function Sidebar({ role }) {
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary-600 to-primary-700 flex items-center justify-center">
               <span className="text-white font-bold text-sm">প্র</span>
             </div>
-            <span className="text-lg font-bold text-neutral-800">প্রশ্ন</span>
+            <span className="text-base font-bold text-neutral-800">প্রশ্নপিডিয়া</span>
           </Link>
           <button
             onClick={() => dispatch(setSidebarOpen(false))}
@@ -136,7 +136,7 @@ export default function Sidebar({ role }) {
         {/* Footer */}
         <div className="p-4 border-t border-neutral-200 shrink-0">
           <p className="text-xs text-neutral-400 text-center">
-            প্রশ্ন EdTech © ২০২৬
+            ProshnoPedia © ২০২৬
           </p>
         </div>
       </aside>

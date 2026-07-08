@@ -91,7 +91,7 @@ export default function PublicPage() {
               <div className="h-6 w-6 rounded-md bg-gradient-to-br from-primary-600 to-primary-700 flex items-center justify-center">
                 <span className="text-white font-bold text-[10px]">প্র</span>
               </div>
-              <span className="text-sm font-semibold text-neutral-800">প্রশ্ন</span>
+              <span className="text-sm font-semibold text-neutral-800">প্রশ্নপিডিয়া</span>
             </div>
           </Link>
         </div>
@@ -125,7 +125,7 @@ export default function PublicPage() {
             <div className="h-5 w-5 rounded bg-gradient-to-br from-primary-600 to-primary-700 flex items-center justify-center">
               <span className="text-white font-bold text-[8px]">প্র</span>
             </div>
-            প্রশ্ন EdTech © ২০২৬
+            ProshnoPedia.com © ২০২৬
           </Link>
         </div>
       </footer>

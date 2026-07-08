@@ -1,0 +1,19 @@
+{
+  "name": "প্রশ্নপিডিয়া — ProshnoPedia",
+  "short_name": "ProshnoPedia",
+  "description": "শিক্ষকদের জন্য ১ ক্লিকে প্রশ্নপত্র তৈরির প্ল্যাটফর্ম। প্রশ্ন ব্যাংক, OMR মূল্যায়ন ও অনলাইন পরীক্ষা — সবকিছু এক জায়গায়।",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF8F1",
+  "theme_color": "#0F5132",
+  "orientation": "portrait-primary",
+  "lang": "bn",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

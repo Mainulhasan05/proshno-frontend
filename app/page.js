@@ -82,7 +82,7 @@ export default function HomePage() {
             <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#0F5132' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 6C4 4.9 4.9 4 6 4h9l5 5v11c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6z" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 12h8M8 16h5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round"/></svg>
             </div>
-            <span className="text-xl font-bold" style={{ color: '#0B3B24' }}>প্রশ্নবন্ধু</span>
+            <span className="text-xl font-bold" style={{ color: '#0B3B24' }}>প্রশ্নপিডিয়া</span>
           </Link>
           <div className="hidden md:flex items-center gap-7">
             <a href="#features" className="text-sm font-semibold hover:text-[#0F5132] transition-colors no-underline" style={{ color: '#1B2B22' }}>ফিচার</a>
@@ -173,7 +173,7 @@ export default function HomePage() {
       <section className="py-20">
         <div className="max-w-[1140px] mx-auto px-6">
           <div className="text-center max-w-[600px] mx-auto mb-12">
-            <span className="text-xs font-bold uppercase tracking-wider mb-2.5 block" style={{ color: '#D64545' }}>কেন প্রশ্নবন্ধু</span>
+            <span className="text-xs font-bold uppercase tracking-wider mb-2.5 block" style={{ color: '#D64545' }}>কেন প্রশ্নপিডিয়া</span>
             <h2 className="text-2xl md:text-3xl font-bold" style={{ color: '#0B3B24' }}>আগে যেভাবে সময় যেত, এখন যেভাবে বাঁচে</h2>
           </div>
           <div className="grid md:grid-cols-2 gap-5">
@@ -204,7 +204,7 @@ export default function HomePage() {
               className="rounded-2xl p-7 text-white"
               style={{ background: '#0F5132' }}
             >
-              <h3 className="text-lg font-bold flex items-center gap-2 mb-4 text-white">😊 প্রশ্নবন্ধুতে</h3>
+              <h3 className="text-lg font-bold flex items-center gap-2 mb-4 text-white">😊 প্রশ্নপিডিয়ায়</h3>
               <ul className="space-y-3.5">
                 {solutions.map((item) => (
                   <li key={item} className="flex items-start gap-2.5 text-sm" style={{ color: '#DCEFE3' }}>
@@ -310,9 +310,9 @@ export default function HomePage() {
               <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 6C4 4.9 4.9 4 6 4h9l5 5v11c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V6z" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round"/><path d="M8 12h8M8 16h5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round"/></svg>
               </div>
-              <span className="text-base font-bold text-white">প্রশ্নবন্ধু</span>
+              <span className="text-base font-bold text-white">প্রশ্নপিডিয়া</span>
             </div>
-            <p className="text-xs" style={{ color: '#B9D4C3' }}>© ২০২৬ প্রশ্নবন্ধু — শিক্ষকদের জন্য তৈরি</p>
+            <p className="text-xs" style={{ color: '#B9D4C3' }}>© ২০২৬ ProshnoPedia.com — শিক্ষকদের জন্য তৈরি</p>
           </div>
         </div>
       </footer>
