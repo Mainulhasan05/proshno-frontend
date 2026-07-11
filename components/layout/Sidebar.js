@@ -18,6 +18,7 @@ import {
   HiOutlineShoppingCart,
   HiOutlineClipboardList,
   HiOutlineX,
+  HiOutlineClipboardCheck,
 } from 'react-icons/hi';
 
 const adminMenu = [
@@ -31,6 +32,7 @@ const adminMenu = [
   { label: 'ক্রয় ব্যবস্থাপনা', href: '/admin/purchases', icon: HiOutlineShoppingCart },
   { label: 'OMR টেমপ্লেট', href: '/admin/omr-templates', icon: HiOutlineDocumentText },
   { label: 'পেজ ব্যবস্থাপনা', href: '/admin/pages', icon: HiOutlineDocumentText },
+  { label: 'কার্যক্রম', href: '/admin/activity', icon: HiOutlineClipboardCheck },
   { label: 'সেটিংস', href: '/admin/settings', icon: HiOutlineCog },
 ];
 
@@ -108,7 +110,7 @@ export default function Sidebar({ role }) {
                   if (window.innerWidth < 1024) dispatch(setSidebarOpen(false));
                 }}
                 className={clsx(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
+                  'relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150',
                   active
                     ? 'bg-primary-50 text-primary-700'
                     : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-800'

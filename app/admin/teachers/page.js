@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { fetchTeachers, toggleTeacherActive } from '@/store/slices/adminSlice';
 import Button from '@/components/ui/Button';
+import Pagination from '@/components/ui/Pagination';
 import {
   HiOutlineUsers, HiOutlineEye, HiOutlineEyeOff,
   HiOutlineSearch, HiOutlineMail, HiOutlinePhone,
@@ -14,21 +15,22 @@ import {
 
 export default function TeachersPage() {
   const dispatch = useDispatch();
-  const { teachers = [], isLoading } = useSelector((state) => state.admin);
+  const { teachers = [], pagination = {}, isLoading } = useSelector((state) => state.admin);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [filterActive, setFilterActive] = useState('all');
 
   useEffect(() => {
-    const params = {};
+    const params = { page };
     if (search) params.search = search;
     if (filterActive !== 'all') params.isActive = filterActive;
     dispatch(fetchTeachers(params));
-  }, [dispatch, search, filterActive]);
+  }, [dispatch, search, filterActive, page]);
 
   const handleToggle = async (id) => {
     try {
       await dispatch(toggleTeacherActive(id)).unwrap();
-      const params = {};
+      const params = { page };
       if (search) params.search = search;
       if (filterActive !== 'all') params.isActive = filterActive;
       dispatch(fetchTeachers(params));
@@ -59,14 +61,14 @@ export default function TeachersPage() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="নাম, ইমেইল বা ফোনে খুঁজুন..."
             className="w-full pl-10 pr-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
           />
         </div>
         <select
           value={filterActive}
-          onChange={(e) => setFilterActive(e.target.value)}
+          onChange={(e) => { setFilterActive(e.target.value); setPage(1); }}
           className="px-3 py-2.5 border border-neutral-300 rounded-lg text-sm outline-none min-w-[140px]"
         >
           <option value="all">সকল</option>

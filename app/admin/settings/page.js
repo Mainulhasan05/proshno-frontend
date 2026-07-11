@@ -1,119 +1,80 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-  HiOutlineCog, HiOutlineDocumentText, HiOutlineGlobe,
-} from 'react-icons/hi';
-import Link from 'next/link';
+import toast from 'react-hot-toast';
+import apiClient from '@/store/api/apiClient';
+import Button from '@/components/ui/Button';
+import { HiOutlineCheckCircle, HiOutlineCog, HiOutlineExclamation, HiOutlineMail, HiOutlinePhone, HiOutlineRefresh, HiOutlineShieldCheck } from 'react-icons/hi';
 
-const settingsTabs = [
-  { id: 'general', label: 'সাধারণ', icon: HiOutlineCog },
-  { id: 'pages', label: 'পেজ ব্যবস্থাপনা', icon: HiOutlineDocumentText },
-];
+const defaults = { platformName: '', platformDescription: '', supportEmail: '', supportPhone: '', maintenanceMode: false, allowTeacherRegistration: true };
+const editable = (value) => ({ platformName: value.platformName, platformDescription: value.platformDescription, supportEmail: value.supportEmail, supportPhone: value.supportPhone, maintenanceMode: value.maintenanceMode, allowTeacherRegistration: value.allowTeacherRegistration });
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState('general');
+  const [form, setForm] = useState(defaults);
+  const [saved, setSaved] = useState(defaults);
+  const [status, setStatus] = useState('loading');
+  const [saving, setSaving] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState(null);
+
+  const load = useCallback(async () => {
+    setStatus('loading');
+    try {
+      const response = await apiClient.get('/settings');
+      const value = { ...defaults, ...response.data };
+      setForm(value); setSaved(value); setUpdatedAt(value.updatedAt); setStatus('success');
+    } catch { setStatus('error'); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+  const change = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const dirty = JSON.stringify(editable(form)) !== JSON.stringify(editable(saved));
+
+  const submit = async (event) => {
+    event.preventDefault(); setSaving(true);
+    try {
+      const response = await apiClient.put('/settings', editable(form));
+      const value = { ...defaults, ...response.data };
+      setForm(value); setSaved(value); setUpdatedAt(value.updatedAt);
+      toast.success('সেটিংস সংরক্ষণ হয়েছে');
+    } catch (error) { toast.error(error?.error?.message || 'সেটিংস সংরক্ষণ করা যায়নি'); }
+    finally { setSaving(false); }
+  };
+
+  if (status === 'loading') return <div className="mx-auto max-w-5xl animate-pulse"><div className="mb-6 h-8 w-48 rounded bg-neutral-200" /><div className="h-[520px] rounded-2xl bg-white" /></div>;
+  if (status === 'error') return <div className="mx-auto flex min-h-[60vh] max-w-xl items-center"><div className="w-full rounded-2xl border border-rose-200 bg-white p-7 text-center"><HiOutlineExclamation className="mx-auto h-10 w-10 text-rose-500" /><h1 className="mt-4 text-xl font-bold">সেটিংস লোড করা যায়নি</h1><p className="mt-2 text-sm text-neutral-500">ব্যাকএন্ড সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।</p><Button onClick={load} className="mt-5"><HiOutlineRefresh className="h-4 w-4" /> আবার চেষ্টা করুন</Button></div></div>;
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-neutral-800">সেটিংস</h1>
-        <p className="text-sm text-neutral-500 mt-1">প্ল্যাটফর্মের সেটিংস পরিচালনা</p>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 bg-white rounded-xl border border-neutral-200 p-1 mb-6 overflow-x-auto">
-        {settingsTabs.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'bg-primary-600 text-white'
-                  : 'text-neutral-600 hover:bg-neutral-100'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'general' && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl border border-neutral-200 p-6"
-        >
-          <h2 className="text-lg font-semibold text-neutral-800 mb-4">সাধারণ সেটিংস</h2>
-          <div className="space-y-4 max-w-lg">
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">প্ল্যাটফর্ম নাম</label>
-              <input
-                type="text"
-                defaultValue="প্রশ্ন"
-                className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                disabled
-              />
-              <p className="text-xs text-neutral-400 mt-1">ভবিষ্যতে সক্রিয় হবে</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">প্ল্যাটফর্ম বিবরণ</label>
-              <textarea
-                defaultValue="বাংলাদেশি শিক্ষকদের জন্য প্রশ্ন ব্যাংক ও OMR প্ল্যাটফর্ম"
-                className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"
-                rows={3}
-                disabled
-              />
-              <p className="text-xs text-neutral-400 mt-1">ভবিষ্যতে সক্রিয় হবে</p>
-            </div>
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mx-auto max-w-5xl">
+      <header className="mb-7"><p className="text-xs font-bold uppercase tracking-widest text-primary-600">Platform configuration</p><h1 className="mt-1 text-2xl font-bold sm:text-3xl">সাধারণ সেটিংস</h1><p className="mt-1 text-sm text-neutral-500">প্ল্যাটফর্ম পরিচিতি, সহায়তা ও প্রবেশাধিকার নিয়ন্ত্রণ করুন</p></header>
+      <form onSubmit={submit} className="space-y-5">
+        <Panel icon={HiOutlineCog} title="প্ল্যাটফর্ম পরিচিতি" subtitle="ব্যবহারকারীদের কাছে প্রদর্শিত মৌলিক তথ্য">
+          <Field label="প্ল্যাটফর্ম নাম"><input required maxLength={100} value={form.platformName} onChange={(e) => change('platformName', e.target.value)} className="admin-setting-input" /></Field>
+          <Field label="বিবরণ"><textarea rows={4} maxLength={500} value={form.platformDescription} onChange={(e) => change('platformDescription', e.target.value)} className="admin-setting-input py-3" /></Field>
+        </Panel>
+        <Panel icon={HiOutlineMail} title="সহায়তা যোগাযোগ" subtitle="ব্যবহারকারীরা যে ঠিকানায় সহায়তা চাইবেন">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="ইমেইল"><div className="relative"><HiOutlineMail className="absolute left-3.5 top-3.5 h-4 w-4 text-neutral-400" /><input type="email" value={form.supportEmail} onChange={(e) => change('supportEmail', e.target.value)} className="admin-setting-input pl-10" /></div></Field>
+            <Field label="ফোন"><div className="relative"><HiOutlinePhone className="absolute left-3.5 top-3.5 h-4 w-4 text-neutral-400" /><input maxLength={30} value={form.supportPhone} onChange={(e) => change('supportPhone', e.target.value)} className="admin-setting-input pl-10" /></div></Field>
           </div>
-
-          <div className="mt-8 p-4 bg-primary-50 rounded-lg">
-            <h3 className="text-sm font-semibold text-primary-700 mb-2">দ্রুত লিঙ্ক</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <Link href="/admin/pages" className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 bg-white rounded-lg px-3 py-2 border border-primary-100 hover:border-primary-200 transition-colors">
-                <HiOutlineDocumentText className="h-4 w-4" />
-                পেজ ব্যবস্থাপনা
-              </Link>
-              <Link href="/admin/packages" className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 bg-white rounded-lg px-3 py-2 border border-primary-100 hover:border-primary-200 transition-colors">
-                <HiOutlineGlobe className="h-4 w-4" />
-                প্যাকেজ ব্যবস্থাপনা
-              </Link>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {activeTab === 'pages' && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl border border-neutral-200 p-6"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-neutral-800">পেজ ব্যবস্থাপনা</h2>
-              <p className="text-sm text-neutral-500 mt-0.5">প্রাইভেসি পলিসি, শর্তাবলী ইত্যাদি পেজ তৈরি করুন</p>
-            </div>
-          </div>
-          <div className="bg-neutral-50 rounded-lg p-6 text-center">
-            <HiOutlineDocumentText className="h-10 w-10 text-neutral-300 mx-auto mb-3" />
-            <p className="text-sm text-neutral-500 mb-3">ডায়নামিক পেজ তৈরি ও সম্পাদনা করতে পেজ ম্যানেজমেন্টে যান</p>
-            <Link href="/admin/pages">
-              <button className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors">
-                <HiOutlineDocumentText className="h-4 w-4" />
-                পেজ ম্যানেজমেন্ট
-              </button>
-            </Link>
-          </div>
-        </motion.div>
-      )}
-    </div>
+        </Panel>
+        <Panel icon={HiOutlineShieldCheck} title="প্রবেশাধিকার" subtitle="গুরুত্বপূর্ণ প্ল্যাটফর্ম নিয়ন্ত্রণ">
+          <Toggle title="শিক্ষক নিবন্ধন" text="নতুন শিক্ষকরা অ্যাকাউন্ট তৈরি করতে পারবেন" checked={form.allowTeacherRegistration} onChange={(value) => change('allowTeacherRegistration', value)} />
+          <Toggle title="রক্ষণাবেক্ষণ মোড" text="প্ল্যাটফর্মকে রক্ষণাবেক্ষণ অবস্থায় চিহ্নিত করুন" checked={form.maintenanceMode} onChange={(value) => change('maintenanceMode', value)} danger />
+        </Panel>
+        <div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-2xl border bg-white/95 p-3 shadow-xl backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-neutral-500">{updatedAt ? 'সর্বশেষ সংরক্ষণ: ' + new Date(updatedAt).toLocaleString('bn-BD') : 'এখনও সংরক্ষণ করা হয়নি'}</p>
+          <div className="flex gap-2"><Button type="button" variant="ghost" disabled={!dirty || saving} onClick={() => setForm(saved)} className="flex-1">বাতিল</Button><Button type="submit" loading={saving} disabled={!dirty} className="flex-1"><HiOutlineCheckCircle className="h-4 w-4" /> সংরক্ষণ</Button></div>
+        </div>
+      </form>
+    </motion.div>
   );
+}
+
+function Panel({ icon: Icon, title, subtitle, children }) {
+  return <section className="rounded-2xl border border-neutral-200 bg-white shadow-sm"><div className="flex items-center gap-3 border-b px-4 py-4 sm:px-6"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-700"><Icon className="h-5 w-5" /></span><div><h2 className="font-bold">{title}</h2><p className="text-xs text-neutral-500">{subtitle}</p></div></div><div className="space-y-5 p-4 sm:p-6">{children}</div></section>;
+}
+function Field({ label, children }) { return <label className="block"><span className="mb-1.5 block text-sm font-semibold text-neutral-700">{label}</span>{children}</label>; }
+function Toggle({ title, text, checked, onChange, danger }) {
+  return <label className="mb-3 flex min-h-[72px] cursor-pointer items-center justify-between gap-4 rounded-xl border p-3.5 hover:bg-neutral-50"><span><b className="block text-sm">{title}</b><small className="mt-1 block text-neutral-500">{text}</small></span><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="sr-only" /><span className={['relative h-7 w-12 shrink-0 rounded-full', checked ? (danger ? 'bg-rose-500' : 'bg-primary-600') : 'bg-neutral-300'].join(' ')}><span className={['absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform', checked ? 'translate-x-6' : 'translate-x-1'].join(' ')} /></span></label>;
 }

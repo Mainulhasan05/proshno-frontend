@@ -13,8 +13,8 @@ export default function useAuth() {
   // Initialize auth state on mount
   useEffect(() => {
     if (!isInitialized && typeof window !== 'undefined') {
-      const token = localStorage.getItem('accessToken');
-      const sessionType = localStorage.getItem('sessionType');
+      const sessionType = sessionStorage.getItem('sessionType');
+      const token = localStorage.getItem(sessionType === 'admin' ? 'adminAccessToken' : 'userAccessToken');
       if (token) {
         if (sessionType === 'admin') {
           dispatch(adminFetchProfile());
@@ -30,7 +30,7 @@ export default function useAuth() {
 
   const logout = useCallback(() => {
     dispatch(logoutUser()).then(() => {
-      localStorage.removeItem('sessionType');
+      sessionStorage.removeItem('sessionType');
     });
   }, [dispatch]);
 

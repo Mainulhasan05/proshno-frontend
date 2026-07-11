@@ -185,3 +185,7 @@ nav, button, a {
     font-size: 1.375rem !important;
   }
 }
+
+@layer components {
+  .admin-setting-input { @apply min-h-11 w-full rounded-xl border border-neutral-300 px-3.5 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10; }
+}

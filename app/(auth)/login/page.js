@@ -11,6 +11,7 @@ import { loginUser, clearError } from '@/store/slices/authSlice';
 import useAuth from '@/hooks/useAuth';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import GoogleAuthButton from '@/components/auth/GoogleAuthButton';
 import { HiOutlineMail, HiOutlineLockClosed, HiOutlineAcademicCap } from 'react-icons/hi';
 
 export default function LoginPage() {
@@ -68,6 +69,8 @@ export default function LoginPage() {
             আপনার অ্যাকাউন্টে প্রবেশ করুন
           </p>
 
+          <GoogleAuthButton mode="signin" />
+          <div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-neutral-200" /><span className="text-xs font-medium text-neutral-400">অথবা ইমেইল দিয়ে</span><span className="h-px flex-1 bg-neutral-200" /></div>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Input
               label="ইমেইল"

@@ -204,6 +204,7 @@ const adminSlice = createSlice({
     purchases: [],
     omrTemplates: [],
     pages: [],
+    pagination: {},
     isLoading: false,
     error: null,
   },
@@ -220,6 +221,8 @@ const adminSlice = createSlice({
       .addCase(fetchPackages.fulfilled, (state, action) => {
         state.isLoading = false;
         state.packages = action.payload.data;
+        (state.pagination ||= {});
+        state.pagination.packages = action.payload.meta;
       })
       .addCase(fetchPackages.rejected, rejected)
       .addCase(createPackage.fulfilled, (state, action) => {
@@ -242,6 +245,8 @@ const adminSlice = createSlice({
       .addCase(fetchTeachers.fulfilled, (state, action) => {
         state.isLoading = false;
         state.teachers = action.payload.data;
+        (state.pagination ||= {});
+        state.pagination.teachers = action.payload.meta;
       })
       .addCase(fetchTeachers.rejected, rejected)
       .addCase(toggleTeacherActive.fulfilled, (state, action) => {
@@ -254,6 +259,8 @@ const adminSlice = createSlice({
       .addCase(fetchPurchases.fulfilled, (state, action) => {
         state.isLoading = false;
         state.purchases = action.payload.data;
+        (state.pagination ||= {});
+        state.pagination.purchases = action.payload.meta;
       })
       .addCase(fetchPurchases.rejected, rejected)
       .addCase(updatePurchaseStatus.fulfilled, (state, action) => {
@@ -266,6 +273,8 @@ const adminSlice = createSlice({
       .addCase(fetchOMRTemplates.fulfilled, (state, action) => {
         state.isLoading = false;
         state.omrTemplates = action.payload.data;
+        (state.pagination ||= {});
+        state.pagination.omrTemplates = action.payload.meta;
       })
       .addCase(fetchOMRTemplates.rejected, rejected)
       .addCase(createOMRTemplate.fulfilled, (state, action) => {
@@ -288,6 +297,8 @@ const adminSlice = createSlice({
       .addCase(fetchPages.fulfilled, (state, action) => {
         state.isLoading = false;
         state.pages = action.payload.data;
+        (state.pagination ||= {});
+        state.pagination.pages = action.payload.meta;
       })
       .addCase(fetchPages.rejected, rejected)
       .addCase(createPage.fulfilled, (state, action) => {

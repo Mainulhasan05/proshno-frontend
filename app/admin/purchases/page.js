@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { fetchPurchases, updatePurchaseStatus } from '@/store/slices/adminSlice';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import Pagination from '@/components/ui/Pagination';
 import {
   HiOutlineShoppingCart, HiOutlineCheck, HiOutlineX,
   HiOutlineClock, HiOutlineExclamation,
@@ -22,7 +23,8 @@ const statusConfig = {
 
 export default function PurchasesPage() {
   const dispatch = useDispatch();
-  const { purchases = [], isLoading } = useSelector((state) => state.admin);
+  const { purchases = [], pagination = {}, isLoading } = useSelector((state) => state.admin);
+  const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState(null);
@@ -30,10 +32,10 @@ export default function PurchasesPage() {
   const [adminNote, setAdminNote] = useState('');
 
   useEffect(() => {
-    const params = {};
+    const params = { page };
     if (statusFilter) params.status = statusFilter;
     dispatch(fetchPurchases(params));
-  }, [dispatch, statusFilter]);
+  }, [dispatch, statusFilter, page]);
 
   const openStatusModal = (purchase) => {
     setSelectedPurchase(purchase);
@@ -52,7 +54,7 @@ export default function PurchasesPage() {
       })).unwrap();
       toast.success('স্ট্যাটাস আপডেট হয়েছে');
       setModalOpen(false);
-      const params = {};
+      const params = { page };
       if (statusFilter) params.status = statusFilter;
       dispatch(fetchPurchases(params));
     } catch (err) {
@@ -90,7 +92,7 @@ export default function PurchasesPage() {
       {/* Status Filter Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
         <button
-          onClick={() => setStatusFilter('')}
+          onClick={() => { setStatusFilter(''); setPage(1); }}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             !statusFilter ? 'bg-primary-600 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50'
           }`}
@@ -100,7 +102,7 @@ export default function PurchasesPage() {
         {Object.entries(statusConfig).map(([key, val]) => (
           <button
             key={key}
-            onClick={() => setStatusFilter(key)}
+            onClick={() => { setStatusFilter(key); setPage(1); }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               statusFilter === key ? 'bg-primary-600 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50'
             }`}
@@ -172,6 +174,7 @@ export default function PurchasesPage() {
         })}
       </div>
 
+      <Pagination meta={pagination.purchases} disabled={isLoading} onPageChange={(nextPage) => { setPage(nextPage); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
       {/* Status Update Modal */}
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="ক্রয় স্ট্যাটাস পরিবর্তন">
         <form onSubmit={handleStatusUpdate} className="space-y-4">

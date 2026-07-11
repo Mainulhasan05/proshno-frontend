@@ -8,6 +8,7 @@ import { fetchQuestions, createQuestion, updateQuestion, toggleQuestionActive, d
 import { fetchTree } from '@/store/slices/hierarchySlice';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import Pagination from '@/components/ui/Pagination';
 import {
   HiOutlinePlus, HiOutlinePencil, HiOutlineTrash,
   HiOutlineEye, HiOutlineEyeOff, HiOutlineFilter,
@@ -251,23 +252,23 @@ export default function QuestionsPage() {
               <input
                 type="text"
                 value={filters.search || ''}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value || undefined })}
+                onChange={(e) => setFilters({ ...filters, page: 1, search: e.target.value || undefined })}
                 placeholder="প্রশ্ন খুঁজুন..."
                 className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-1 focus:ring-primary-500 outline-none w-full"
               />
-              <select value={filters.type || ''} onChange={(e) => setFilters({ ...filters, type: e.target.value || undefined })}
+              <select value={filters.type || ''} onChange={(e) => setFilters({ ...filters, page: 1, type: e.target.value || undefined })}
                 className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full">
                 <option value="">সব ধরন</option>
                 <option value="MCQ">বহুনির্বাচনী (MCQ)</option>
                 <option value="CQ">সৃজনশীল (CQ)</option>
                 <option value="SHORT">সংক্ষিপ্ত</option>
               </select>
-              <select value={filters.cognitiveDomain || ''} onChange={(e) => setFilters({ ...filters, cognitiveDomain: e.target.value || undefined })}
+              <select value={filters.cognitiveDomain || ''} onChange={(e) => setFilters({ ...filters, page: 1, cognitiveDomain: e.target.value || undefined })}
                 className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full">
                 <option value="">সব ডোমেইন</option>
                 {COGNITIVE_DOMAINS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
-              <select value={filters.difficulty || ''} onChange={(e) => setFilters({ ...filters, difficulty: e.target.value || undefined })}
+              <select value={filters.difficulty || ''} onChange={(e) => setFilters({ ...filters, page: 1, difficulty: e.target.value || undefined })}
                 className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full">
                 <option value="">সব মাত্রা</option>
                 {DIFFICULTIES.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
@@ -364,6 +365,14 @@ export default function QuestionsPage() {
         ))}
       </div>
 
+      <Pagination
+        meta={pagination}
+        disabled={isLoading}
+        onPageChange={(page) => {
+          setFilters((current) => ({ ...current, page }));
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
       {/* Create/Edit Modal */}
       <Modal isOpen={modalOpen} onClose={closeModal} title={editItem ? 'প্রশ্ন সম্পাদনা' : 'নতুন প্রশ্ন'} maxWidth="max-w-2xl">
         <form onSubmit={handleSubmit} className="space-y-4">
