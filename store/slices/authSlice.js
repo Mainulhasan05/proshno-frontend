@@ -168,6 +168,24 @@ const authSlice = createSlice({
         state.error = action.payload?.message || 'Login failed';
       });
 
+    // Google Auth
+    builder
+      .addCase(googleAuth.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(googleAuth.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload.user;
+        state.isAuthenticated = true;
+        state.isInitialized = true;
+      })
+      .addCase(googleAuth.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload?.message || 'Google authentication failed';
+      });
+
+
     // Register
     builder
       .addCase(registerUser.pending, (state) => {

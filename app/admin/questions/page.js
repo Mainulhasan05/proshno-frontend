@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -30,11 +30,23 @@ const DIFFICULTIES = [
   { value: 'hard', label: 'কঠিন', color: 'bg-red-100 text-red-700' },
 ];
 
-const TYPE_LABELS = { MCQ: 'বহুনির্বাচনী', CQ: 'সৃজনশীল', SHORT: 'সংক্ষিপ্ত' };
+const TYPE_LABELS = { MCQ: 'বহুনির্বাচনী', CQ: 'সৃজনশীল', SHORT: 'সংক্ষিপ্ত (Legacy)', OTHER: 'অন্যান্য' };
 const TYPE_COLORS = {
   MCQ: 'bg-indigo-100 text-indigo-700',
   CQ: 'bg-rose-100 text-rose-700',
   SHORT: 'bg-teal-100 text-teal-700',
+  OTHER: 'bg-amber-100 text-amber-700',
+};
+
+const FORMAT_LABELS = {
+  single_correct: 'একক সঠিক উত্তর (Single MCQ)',
+  multiple_correct: 'বহু সঠিক উত্তর (Multiple MCQ)',
+  true_false: 'সত্য/মিথ্যা (True/False)',
+  assertion_reason: 'দৃঢ়োক্তি-যুক্তি (Assertion-Reason)',
+  passage_mcq: 'প্যাসেজভিত্তিক MCQ (Stimulus MCQ)',
+  creative_default: 'সৃজনশীল (Creative Default)',
+  short_answer: 'সংক্ষিপ্ত উত্তর (Short Answer)',
+  other_format: 'অন্যান্য ফরম্যাট'
 };
 
 export default function QuestionsPage() {
@@ -53,6 +65,7 @@ export default function QuestionsPage() {
   // Form
   const [form, setForm] = useState({
     type: 'MCQ',
+    format: 'single_correct',
     questionText: '',
     cognitiveDomain: 'knowledge',
     difficulty: 'medium',
@@ -66,10 +79,12 @@ export default function QuestionsPage() {
       { text: '', isCorrect: false, order: 4 },
     ],
     stimulus: '',
-    subParts: [{ partLabel: 'ক', text: '', marks: 2, sampleAnswer: '' }],
+    stimulusImage: '',
+    expectedAnswer: '',
+    subParts: [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
   });
 
-  // Selected hierarchy for chapter picker
+  // Selected hierarchy for chapter picker (in modal)
   const [selClass, setSelClass] = useState('');
   const [selVersion, setSelVersion] = useState('');
   const [selSubject, setSelSubject] = useState('');
@@ -79,19 +94,36 @@ export default function QuestionsPage() {
     dispatch(fetchQuestions(filters));
   }, [dispatch, filters]);
 
+  // Modal hierarchy options
   const versions = tree.find((c) => c._id === selClass)?.versions || [];
   const subjects = versions.find((v) => v._id === selVersion)?.subjects || [];
   const chapters = subjects.find((s) => s._id === selSubject)?.chapters || [];
 
+  // Filter bar hierarchy options (cascade)
+  const filterVersions = tree.find((c) => c._id === filters.classId)?.versions || [];
+  const filterSubjects = filterVersions.find((v) => v._id === filters.versionId)?.subjects || [];
+  const filterChapters = filterSubjects.find((s) => s._id === filters.subjectId)?.chapters || [];
+
   const resetForm = () => {
     setForm({
-      type: 'MCQ', questionText: '', cognitiveDomain: 'knowledge', difficulty: 'medium',
-      marks: 1, explanation: '', chapterId: '',
+      type: 'MCQ',
+      format: 'single_correct',
+      questionText: '',
+      cognitiveDomain: 'knowledge',
+      difficulty: 'medium',
+      marks: 1,
+      explanation: '',
+      chapterId: '',
       options: [
-        { text: '', isCorrect: true, order: 1 }, { text: '', isCorrect: false, order: 2 },
-        { text: '', isCorrect: false, order: 3 }, { text: '', isCorrect: false, order: 4 },
+        { text: '', isCorrect: true, order: 1 },
+        { text: '', isCorrect: false, order: 2 },
+        { text: '', isCorrect: false, order: 3 },
+        { text: '', isCorrect: false, order: 4 },
       ],
-      stimulus: '', subParts: [{ partLabel: 'ক', text: '', marks: 2, sampleAnswer: '' }],
+      stimulus: '',
+      stimulusImage: '',
+      expectedAnswer: '',
+      subParts: [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
     });
     setSelClass(''); setSelVersion(''); setSelSubject('');
   };
@@ -101,6 +133,7 @@ export default function QuestionsPage() {
       setEditItem(item);
       setForm({
         type: item.type,
+        format: item.format || (item.type === 'CQ' ? 'creative_default' : item.type === 'SHORT' || item.type === 'OTHER' ? 'short_answer' : 'single_correct'),
         questionText: item.questionText,
         cognitiveDomain: item.cognitiveDomain,
         difficulty: item.difficulty,
@@ -112,12 +145,14 @@ export default function QuestionsPage() {
           { text: '', isCorrect: false, order: 3 }, { text: '', isCorrect: false, order: 4 },
         ],
         stimulus: item.stimulus || '',
-        subParts: item.subParts?.length > 0 ? item.subParts : [{ partLabel: 'ক', text: '', marks: 2, sampleAnswer: '' }],
+        stimulusImage: item.stimulusImage || '',
+        expectedAnswer: item.expectedAnswer || '',
+        subParts: item.subParts?.length > 0 ? item.subParts : [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
       });
       // Set hierarchy selectors
-      setSelClass(item.classId?._id || '');
-      setSelVersion(item.versionId?._id || '');
-      setSelSubject(item.subjectId?._id || '');
+      setSelClass(item.classId?._id || item.classId || '');
+      setSelVersion(item.versionId?._id || item.versionId || '');
+      setSelSubject(item.subjectId?._id || item.subjectId || '');
     } else {
       setEditItem(null);
       resetForm();
@@ -138,7 +173,11 @@ export default function QuestionsPage() {
   const updateOption = (idx, field, value) => {
     const opts = [...form.options];
     if (field === 'isCorrect') {
-      opts.forEach((o, i) => { o.isCorrect = i === idx; });
+      if (form.format === 'multiple_correct') {
+        opts[idx] = { ...opts[idx], isCorrect: !opts[idx].isCorrect };
+      } else {
+        opts.forEach((o, i) => { o.isCorrect = i === idx; });
+      }
     } else {
       opts[idx] = { ...opts[idx], [field]: value };
     }
@@ -149,7 +188,8 @@ export default function QuestionsPage() {
   const PART_LABELS = ['ক', 'খ', 'গ', 'ঘ', 'ঙ', 'চ'];
   const addSubPart = () => {
     const next = PART_LABELS[form.subParts.length] || `${form.subParts.length + 1}`;
-    setForm({ ...form, subParts: [...form.subParts, { partLabel: next, text: '', marks: 2, sampleAnswer: '' }] });
+    const defaultMarks = form.subParts.length === 1 ? 2 : form.subParts.length === 2 ? 3 : form.subParts.length === 3 ? 4 : 2;
+    setForm({ ...form, subParts: [...form.subParts, { partLabel: next, text: '', marks: defaultMarks, sampleAnswer: '' }] });
   };
   const removeSubPart = (idx) => {
     if (form.subParts.length <= 1) return;
@@ -166,6 +206,7 @@ export default function QuestionsPage() {
     try {
       const body = {
         type: form.type,
+        format: form.format,
         questionText: form.questionText,
         cognitiveDomain: form.cognitiveDomain,
         difficulty: form.difficulty,
@@ -176,12 +217,25 @@ export default function QuestionsPage() {
 
       if (form.type === 'MCQ') {
         body.options = form.options.map((o, i) => ({ text: o.text, isCorrect: o.isCorrect, order: i + 1 }));
+        if (form.format === 'passage_mcq') {
+          body.stimulus = form.stimulus || undefined;
+          body.stimulusImage = form.stimulusImage || undefined;
+        }
       }
       if (form.type === 'CQ') {
         body.stimulus = form.stimulus;
+        body.stimulusImage = form.stimulusImage || undefined;
         body.subParts = form.subParts.map((p) => ({
-          partLabel: p.partLabel, text: p.text, marks: Number(p.marks), sampleAnswer: p.sampleAnswer || undefined,
+          partLabel: p.partLabel,
+          text: p.text,
+          marks: Number(p.marks),
+          sampleAnswer: p.sampleAnswer || undefined,
         }));
+        // Auto-calculate marks as the sum of subparts
+        body.marks = body.subParts.reduce((acc, sp) => acc + sp.marks, 0);
+      }
+      if (form.type === 'OTHER' || form.type === 'SHORT') {
+        body.expectedAnswer = form.expectedAnswer || undefined;
       }
 
       if (editItem) {
@@ -239,7 +293,7 @@ export default function QuestionsPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters Panel */}
       <AnimatePresence>
         {showFilters && (
           <motion.div
@@ -248,20 +302,21 @@ export default function QuestionsPage() {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden mb-4"
           >
-            <div className="bg-white rounded-xl border border-neutral-200 p-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="bg-white rounded-xl border border-neutral-200 p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               <input
                 type="text"
                 value={filters.search || ''}
                 onChange={(e) => setFilters({ ...filters, page: 1, search: e.target.value || undefined })}
                 placeholder="প্রশ্ন খুঁজুন..."
-                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-1 focus:ring-primary-500 outline-none w-full"
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-1 focus:ring-primary-500 outline-none w-full col-span-2 sm:col-span-1"
               />
               <select value={filters.type || ''} onChange={(e) => setFilters({ ...filters, page: 1, type: e.target.value || undefined })}
                 className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full">
                 <option value="">সব ধরন</option>
                 <option value="MCQ">বহুনির্বাচনী (MCQ)</option>
                 <option value="CQ">সৃজনশীল (CQ)</option>
-                <option value="SHORT">সংক্ষিপ্ত</option>
+                <option value="OTHER">অন্যান্য (Other)</option>
+                <option value="SHORT">সংক্ষিপ্ত (Legacy)</option>
               </select>
               <select value={filters.cognitiveDomain || ''} onChange={(e) => setFilters({ ...filters, page: 1, cognitiveDomain: e.target.value || undefined })}
                 className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full">
@@ -273,6 +328,35 @@ export default function QuestionsPage() {
                 <option value="">সব মাত্রা</option>
                 {DIFFICULTIES.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
+
+              {/* Class Filter */}
+              <select value={filters.classId || ''} onChange={(e) => setFilters({ ...filters, page: 1, classId: e.target.value || undefined, versionId: undefined, subjectId: undefined, chapterId: undefined })}
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full">
+                <option value="">সব ক্লাস</option>
+                {tree.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+              </select>
+
+              {/* Version Filter */}
+              <select value={filters.versionId || ''} onChange={(e) => setFilters({ ...filters, page: 1, versionId: e.target.value || undefined, subjectId: undefined, chapterId: undefined })}
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full" disabled={!filters.classId}>
+                <option value="">সব ভার্সন</option>
+                {filterVersions.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
+              </select>
+
+              {/* Subject Filter */}
+              <select value={filters.subjectId || ''} onChange={(e) => setFilters({ ...filters, page: 1, subjectId: e.target.value || undefined, chapterId: undefined })}
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full" disabled={!filters.versionId}>
+                <option value="">সব বিষয়</option>
+                {filterSubjects.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
+              </select>
+
+              {/* Chapter Filter */}
+              <select value={filters.chapterId || ''} onChange={(e) => setFilters({ ...filters, page: 1, chapterId: e.target.value || undefined })}
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full" disabled={!filters.subjectId}>
+                <option value="">সব অধ্যায়</option>
+                {filterChapters.map((ch) => <option key={ch._id} value={ch._id}>{ch.name}</option>)}
+              </select>
+
               <Button variant="ghost" size="sm" onClick={() => setFilters({})} className="w-full">রিসেট</Button>
             </div>
           </motion.div>
@@ -282,48 +366,82 @@ export default function QuestionsPage() {
       {/* Questions List */}
       {questions.length === 0 && !isLoading && (
         <div className="bg-white rounded-xl border border-neutral-200 p-12 text-center text-neutral-400 text-sm">
-          কোনো প্রশ্ন নেই। "নতুন প্রশ্ন" বাটনে ক্লিক করুন।
+          কোনো প্রশ্ন নেই। &quot;নতুন প্রশ্ন&quot; বাটনে ক্লিক করুন।
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {questions.map((q, i) => (
           <motion.div
             key={q._id}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.02 }}
-            className={`bg-white rounded-xl border border-neutral-200 p-4 hover:shadow-sm transition-all ${!q.isActive ? 'opacity-60' : ''}`}
+            className={`bg-white rounded-xl border border-neutral-200 p-5 hover:shadow-md transition-all ${!q.isActive ? 'opacity-65' : ''}`}
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 {/* Tags */}
-                <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[q.type]}`}>
+                <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${TYPE_COLORS[q.type] || 'bg-neutral-100 text-neutral-700'}`}>
                     {TYPE_LABELS[q.type]}
                   </span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${COGNITIVE_DOMAINS.find((d) => d.value === q.cognitiveDomain)?.color || ''}`}>
+                  {q.format && (
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600 font-medium border border-neutral-200">
+                      {FORMAT_LABELS[q.format] || q.format}
+                    </span>
+                  )}
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${COGNITIVE_DOMAINS.find((d) => d.value === q.cognitiveDomain)?.color || 'bg-blue-50 text-blue-600'}`}>
                     {COGNITIVE_DOMAINS.find((d) => d.value === q.cognitiveDomain)?.label}
                   </span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${DIFFICULTIES.find((d) => d.value === q.difficulty)?.color || ''}`}>
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${DIFFICULTIES.find((d) => d.value === q.difficulty)?.color || 'bg-amber-50 text-amber-600'}`}>
                     {DIFFICULTIES.find((d) => d.value === q.difficulty)?.label}
                   </span>
-                  <span className="text-xs text-neutral-400">{q.marks} নম্বর</span>
+                  <span className="text-xs text-neutral-500 font-semibold bg-neutral-100 px-2 py-0.5 rounded">{q.marks} নম্বর</span>
                 </div>
 
+                {/* Stimulus Section if present */}
+                {q.stimulus && (
+                  <div className="mb-3 bg-[#F9FAF9] border-l-4 border-primary-500 p-3 rounded-lg text-sm text-neutral-700 leading-relaxed font-serif">
+                    <span className="font-bold block text-neutral-800 mb-1">উদ্দীপক:</span>
+                    <MathRenderer text={q.stimulus} />
+                    {q.stimulusImage && (
+                      <div className="mt-2">
+                        <img src={q.stimulusImage} alt="উদ্দীপক চিত্র" className="max-h-48 object-contain rounded border border-neutral-200 bg-white" />
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Question text */}
-                <div className="text-sm text-neutral-800 font-medium leading-relaxed">
+                <div className="text-sm sm:text-base text-neutral-800 font-medium leading-relaxed">
                   <MathRenderer text={q.questionText} />
                 </div>
 
+                {/* Question Image (Not stimulus image) */}
+                {q.questionImage && (
+                  <div className="mt-2">
+                    <img src={q.questionImage} alt="প্রশ্ন চিত্র" className="max-h-32 object-contain rounded border border-neutral-200 bg-white" />
+                  </div>
+                )}
+
                 {/* MCQ options preview */}
                 {q.type === 'MCQ' && q.options?.length > 0 && (
-                  <div className="mt-2 grid grid-cols-2 gap-1">
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {q.options.map((opt, oi) => (
-                      <div key={oi} className={`text-xs px-2 py-1 rounded ${opt.isCorrect ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-neutral-500'} flex items-center gap-1`}>
-                        <span>{String.fromCharCode(2453 + oi)})</span>
-                        <MathRenderer text={opt.text} />
-                        {opt.isCorrect && <HiOutlineCheck className="inline h-3 w-3 ml-1 text-emerald-600 shrink-0" />}
+                      <div
+                        key={oi}
+                        className={`text-sm px-3 py-2 rounded-xl border flex items-center justify-between gap-2 transition-all ${
+                          opt.isCorrect
+                            ? 'bg-emerald-50/60 border-emerald-300 text-emerald-800 font-medium shadow-sm'
+                            : 'bg-neutral-50/50 border-neutral-200 text-neutral-600'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-neutral-400">{String.fromCharCode(2453 + oi)})</span>
+                          <MathRenderer text={opt.text} />
+                        </div>
+                        {opt.isCorrect && <HiOutlineCheck className="h-4 w-4 text-emerald-600 shrink-0" />}
                       </div>
                     ))}
                   </div>
@@ -331,32 +449,60 @@ export default function QuestionsPage() {
 
                 {/* CQ sub-parts preview */}
                 {q.type === 'CQ' && q.subParts?.length > 0 && (
-                  <div className="mt-2 space-y-0.5">
+                  <div className="mt-3 space-y-2 border-t border-neutral-100 pt-3">
                     {q.subParts.map((sp, si) => (
-                      <div key={si} className="text-xs text-neutral-500 flex items-center gap-1">
-                        <span>{sp.partLabel})</span>
-                        <MathRenderer text={sp.text} />
-                        <span className="text-neutral-400">({sp.marks} নম্বর)</span>
+                      <div key={si} className="text-sm text-neutral-700 pl-3 border-l-2 border-primary-300 space-y-1">
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span className="font-bold text-primary-700">{sp.partLabel})</span>
+                          <MathRenderer text={sp.text} />
+                          <span className="text-xs text-neutral-400">({sp.marks} নম্বর)</span>
+                        </div>
+                        {sp.sampleAnswer && (
+                          <p className="text-xs text-neutral-500 bg-neutral-50 p-2 rounded">
+                            <span className="font-semibold">নমুনা উত্তর:</span> {sp.sampleAnswer}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
 
+                {/* Short Answer expectedAnswer preview */}
+                {(q.type === 'OTHER' || q.type === 'SHORT') && q.expectedAnswer && (
+                  <div className="mt-3 text-xs text-neutral-600 bg-neutral-50 p-3 rounded-lg border border-neutral-150">
+                    <span className="font-semibold text-neutral-700 block mb-1">নমুনা উত্তর / মূল্যায়ন নির্দেশিকা:</span>
+                    <p>{q.expectedAnswer}</p>
+                  </div>
+                )}
+
+                {/* Explanation */}
+                {q.explanation && (
+                  <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 p-2.5 rounded-lg border border-neutral-100">
+                    <span className="font-medium text-neutral-600">ব্যাখ্যা:</span> {q.explanation}
+                  </div>
+                )}
+
                 {/* Hierarchy breadcrumb */}
-                <p className="text-xs text-neutral-400 mt-2">
-                  {q.classId?.name} → {q.subjectId?.name} → {q.chapterId?.name}
+                <p className="text-xs text-neutral-400 mt-3 flex items-center gap-1.5">
+                  <span className="bg-neutral-100 px-2 py-0.5 rounded text-[10px] font-semibold text-neutral-500">
+                    {q.classId?.name || 'Unknown Class'} ({q.versionId?.name || 'Unknown Version'})
+                  </span>
+                  <span>→</span>
+                  <span className="font-medium text-neutral-500">{q.subjectId?.name || 'Unknown Subject'}</span>
+                  <span>→</span>
+                  <span className="text-neutral-400">{q.chapterId?.name || 'Unknown Chapter'}</span>
                 </p>
               </div>
 
               {/* Actions */}
               <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => openModal(q)} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600">
+                <button onClick={() => openModal(q)} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600" title="সম্পাদনা">
                   <HiOutlinePencil className="h-4 w-4" />
                 </button>
-                <button onClick={() => handleToggle(q._id)} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600">
+                <button onClick={() => handleToggle(q._id)} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600" title={q.isActive ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}>
                   {q.isActive ? <HiOutlineEyeOff className="h-4 w-4" /> : <HiOutlineEye className="h-4 w-4" />}
                 </button>
-                <button onClick={() => handleDelete(q._id)} className="p-1.5 rounded-lg hover:bg-red-50 text-neutral-400 hover:text-red-500">
+                <button onClick={() => handleDelete(q._id)} className="p-1.5 rounded-lg hover:bg-red-50 text-neutral-400 hover:text-red-500" title="মুছুন">
                   <HiOutlineTrash className="h-4 w-4" />
                 </button>
               </div>
@@ -373,6 +519,7 @@ export default function QuestionsPage() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
+
       {/* Create/Edit Modal */}
       <Modal isOpen={modalOpen} onClose={closeModal} title={editItem ? 'প্রশ্ন সম্পাদনা' : 'নতুন প্রশ্ন'} maxWidth="max-w-2xl">
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -380,13 +527,27 @@ export default function QuestionsPage() {
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1.5">প্রশ্নের ধরন *</label>
             <div className="flex gap-2">
-              {['MCQ', 'CQ', 'SHORT'].map((t) => (
+              {['MCQ', 'CQ', 'OTHER'].map((t) => (
                 <button
                   key={t}
                   type="button"
-                  onClick={() => setForm({ ...form, type: t })}
+                  onClick={() => {
+                    const defaultFormat = t === 'MCQ' ? 'single_correct' : t === 'CQ' ? 'creative_default' : 'short_answer';
+                    let extra = {};
+                    if (t === 'CQ') {
+                      extra = {
+                        subParts: [
+                          { partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' },
+                          { partLabel: 'খ', text: '', marks: 2, sampleAnswer: '' },
+                          { partLabel: 'গ', text: '', marks: 3, sampleAnswer: '' },
+                          { partLabel: 'ঘ', text: '', marks: 4, sampleAnswer: '' },
+                        ]
+                      };
+                    }
+                    setForm({ ...form, type: t, format: defaultFormat, ...extra });
+                  }}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                    form.type === t
+                    form.type === t || (t === 'OTHER' && form.type === 'SHORT')
                       ? 'bg-primary-600 text-white shadow-md'
                       : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                   }`}
@@ -396,6 +557,44 @@ export default function QuestionsPage() {
               ))}
             </div>
           </div>
+
+          {/* Format selector */}
+          {(form.type === 'MCQ' || form.type === 'OTHER' || form.type === 'SHORT') && (
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1.5">প্রশ্ন ফরম্যাট *</label>
+              <select
+                value={form.format}
+                onChange={(e) => {
+                  const fmt = e.target.value;
+                  let updatedOpts = [...form.options];
+                  if (fmt === 'true_false') {
+                    updatedOpts = [
+                      { text: 'সত্য', isCorrect: true, order: 1 },
+                      { text: 'মিথ্যা', isCorrect: false, order: 2 }
+                    ];
+                  }
+                  setForm({ ...form, format: fmt, options: updatedOpts });
+                }}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                required
+              >
+                {form.type === 'MCQ' ? (
+                  <>
+                    <option value="single_correct">একক সঠিক উত্তর (Single Correct)</option>
+                    <option value="multiple_correct">বহু সঠিক উত্তর (Multiple Correct)</option>
+                    <option value="true_false">সত্য / মিথ্যা (True/False)</option>
+                    <option value="assertion_reason">দৃঢ়োক্তি-যুক্তি (Assertion-Reason)</option>
+                    <option value="passage_mcq">উদ্দীপকভিত্তিক MCQ (Passage-based MCQ)</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="short_answer">সংক্ষিপ্ত উত্তর (Short Answer)</option>
+                    <option value="other_format">অন্যান্য ফরম্যাট</option>
+                  </>
+                )}
+              </select>
+            </div>
+          )}
 
           {/* Hierarchy cascade selectors */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -433,12 +632,39 @@ export default function QuestionsPage() {
             </div>
           </div>
 
+          {/* Stimulus + Stimulus Image (for CQ and passage_mcq) */}
+          {(form.type === 'CQ' || form.format === 'passage_mcq') && (
+            <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200 space-y-3">
+              <h3 className="text-sm font-semibold text-neutral-700">উদ্দীপক / অনুচ্ছেদ (Stimulus)</h3>
+              <div>
+                <label className="block text-xs font-medium text-neutral-500 mb-1">উদ্দীপক টেক্সট</label>
+                <textarea value={form.stimulus} onChange={(e) => setForm({ ...form, stimulus: e.target.value })}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none resize-none"
+                  rows={3} placeholder="উদ্দীপক বা অনুচ্ছেদটি লিখুন..." />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-neutral-500 mb-1">উদ্দীপকের ছবি/ডায়াগ্রাম ইউআরএল (ঐচ্ছিক)</label>
+                <input type="text" value={form.stimulusImage} onChange={(e) => setForm({ ...form, stimulusImage: e.target.value })}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                  placeholder="যেমন: https://example.com/diagram.png" />
+              </div>
+            </div>
+          )}
+
           {/* Question text */}
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">প্রশ্ন *</label>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">প্রশ্ন টেক্সট *</label>
             <textarea value={form.questionText} onChange={(e) => setForm({ ...form, questionText: e.target.value })}
               className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none resize-none"
               rows={3} placeholder="প্রশ্ন লিখুন..." required />
+          </div>
+
+          {/* Question image URL */}
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">প্রশ্নের ছবি/চিত্র ইউআরএল (ঐচ্ছিক)</label>
+            <input type="text" value={form.questionImage || ''} onChange={(e) => setForm({ ...form, questionImage: e.target.value })}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+              placeholder="যেমন: https://example.com/graph.png" />
           </div>
 
           {/* Cognitive Domain + Difficulty + Marks */}
@@ -459,80 +685,98 @@ export default function QuestionsPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-neutral-500 mb-1">নম্বর</label>
-              <input type="number" value={form.marks} onChange={(e) => setForm({ ...form, marks: e.target.value })}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" min="0" />
+              <input type="number" value={form.type === 'CQ' ? form.subParts.reduce((acc, p) => acc + (Number(p.marks) || 0), 0) : form.marks}
+                onChange={(e) => setForm({ ...form, marks: e.target.value })}
+                disabled={form.type === 'CQ'}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-neutral-50 disabled:opacity-85" min="0" />
             </div>
           </div>
 
           {/* MCQ Options */}
           {form.type === 'MCQ' && (
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">বিকল্প *</label>
+              <label className="block text-sm font-medium text-neutral-700 mb-2">বিকল্প সমূহ *</label>
               <div className="space-y-2">
                 {form.options.map((opt, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <button type="button" onClick={() => updateOption(idx, 'isCorrect', true)}
+                    <button type="button" onClick={() => updateOption(idx, 'isCorrect')}
                       className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all ${
                         opt.isCorrect ? 'bg-emerald-500 text-white ring-2 ring-emerald-200' : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200'
-                      }`}>
+                      }`}
+                      disabled={form.format === 'true_false'}
+                    >
                       {opt.isCorrect ? <HiOutlineCheck className="h-4 w-4" /> : String.fromCharCode(2453 + idx)}
                     </button>
                     <input type="text" value={opt.text} onChange={(e) => updateOption(idx, 'text', e.target.value)}
                       className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-                      placeholder={`বিকল্প ${String.fromCharCode(2453 + idx)}`} required />
-                    {form.options.length > 2 && (
+                      placeholder={`বিকল্প ${String.fromCharCode(2453 + idx)}`}
+                      required
+                      disabled={form.format === 'true_false'}
+                    />
+                    {form.options.length > 2 && form.format !== 'true_false' && (
                       <button type="button" onClick={() => removeOption(idx)} className="p-1.5 text-neutral-400 hover:text-red-500">
                         <HiOutlineX className="h-4 w-4" />
                       </button>
                     )}
                   </div>
                 ))}
-                <button type="button" onClick={addOption} className="text-xs text-primary-600 hover:text-primary-700 font-medium">
-                  + আরো বিকল্প
-                </button>
+                {form.format !== 'true_false' && (
+                  <button type="button" onClick={addOption} className="text-xs text-primary-600 hover:text-primary-700 font-medium">
+                    + আরো বিকল্প যোগ করুন
+                  </button>
+                )}
               </div>
             </div>
           )}
 
           {/* CQ Stimulus + Sub-parts */}
           {form.type === 'CQ' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">উদ্দীপক</label>
-                <textarea value={form.stimulus} onChange={(e) => setForm({ ...form, stimulus: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none resize-none"
-                  rows={3} placeholder="উদ্দীপক / প্যাসেজ লিখুন..." />
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-neutral-700">উপ-প্রশ্ন সমূহ *</label>
+                <span className="text-xs font-semibold text-primary-700 bg-primary-50 px-2 py-1 rounded-full">
+                  মোট নম্বর: {form.subParts.reduce((acc, p) => acc + (Number(p.marks) || 0), 0)} (স্বয়ংক্রিয়)
+                </span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-2">উপ-প্রশ্ন *</label>
-                <div className="space-y-3">
-                  {form.subParts.map((sp, idx) => (
-                    <div key={idx} className="bg-neutral-50 rounded-lg p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-neutral-600">{sp.partLabel})</span>
-                        {form.subParts.length > 1 && (
-                          <button type="button" onClick={() => removeSubPart(idx)} className="text-xs text-red-400 hover:text-red-600">মুছুন</button>
-                        )}
-                      </div>
-                      <input type="text" value={sp.text} onChange={(e) => updateSubPart(idx, 'text', e.target.value)}
-                        className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-                        placeholder="উপ-প্রশ্ন লিখুন..." required />
-                      <div className="flex gap-2">
-                        <input type="number" value={sp.marks} onChange={(e) => updateSubPart(idx, 'marks', e.target.value)}
-                          className="w-20 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-                          placeholder="নম্বর" min="0" required />
-                        <input type="text" value={sp.sampleAnswer || ''} onChange={(e) => updateSubPart(idx, 'sampleAnswer', e.target.value)}
-                          className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-                          placeholder="নমুনা উত্তর (ঐচ্ছিক)" />
-                      </div>
+              <div className="space-y-3">
+                {form.subParts.map((sp, idx) => (
+                  <div key={idx} className="bg-neutral-50 rounded-lg p-3 space-y-2 border border-neutral-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-neutral-600">{sp.partLabel})</span>
+                      {form.subParts.length > 1 && (
+                        <button type="button" onClick={() => removeSubPart(idx)} className="text-xs text-red-400 hover:text-red-600">মুছুন</button>
+                      )}
                     </div>
-                  ))}
-                  <button type="button" onClick={addSubPart} className="text-xs text-primary-600 hover:text-primary-700 font-medium">
-                    + আরো উপ-প্রশ্ন
-                  </button>
-                </div>
+                    <input type="text" value={sp.text} onChange={(e) => updateSubPart(idx, 'text', e.target.value)}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                      placeholder={`উপ-প্রশ্ন লিখুন... (যেমন: ${sp.partLabel === 'ক' ? 'জ্ঞানমূলক' : sp.partLabel === 'খ' ? 'অনুধাবনমূলক' : sp.partLabel === 'গ' ? 'প্রয়োগমূলক' : 'উচ্চতর দক্ষতা'})`} required />
+                    <div className="flex gap-2">
+                      <input type="number" value={sp.marks} onChange={(e) => updateSubPart(idx, 'marks', e.target.value)}
+                        className="w-20 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                        placeholder="নম্বর" min="0" required />
+                      <input type="text" value={sp.sampleAnswer || ''} onChange={(e) => updateSubPart(idx, 'sampleAnswer', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                        placeholder="নমুনা উত্তর / মূল্যায়ন নির্দেশিকা (ঐচ্ছিক)" />
+                    </div>
+                  </div>
+                ))}
+                <button type="button" onClick={addSubPart} className="text-xs text-primary-600 hover:text-primary-700 font-medium">
+                  + আরো উপ-প্রশ্ন
+                </button>
               </div>
-            </>
+            </div>
+          )}
+
+          {/* Other/Short Question expectedAnswer fields */}
+          {(form.type === 'OTHER' || form.type === 'SHORT') && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">নমুনা উত্তর / মূল্যায়ন নির্দেশিকা (ঐচ্ছিক)</label>
+                <textarea value={form.expectedAnswer || ''} onChange={(e) => setForm({ ...form, expectedAnswer: e.target.value })}
+                  className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none resize-none"
+                  rows={3} placeholder="সঠিক উত্তর বা মূল্যায়ন নির্দেশিকা লিখুন..." />
+              </div>
+            </div>
           )}
 
           {/* Explanation */}
