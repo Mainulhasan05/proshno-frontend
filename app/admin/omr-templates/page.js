@@ -10,6 +10,7 @@ import {
 } from '@/store/slices/adminSlice';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import Pagination from '@/components/ui/Pagination';
 import {
   HiOutlinePlus, HiOutlinePencil, HiOutlineTrash,
   HiOutlineEye, HiOutlineEyeOff, HiOutlineDocumentText,
@@ -18,7 +19,8 @@ import {
 
 export default function OMRTemplatesPage() {
   const dispatch = useDispatch();
-  const { omrTemplates = [], isLoading } = useSelector((state) => state.admin);
+  const { omrTemplates = [], pagination = {}, isLoading } = useSelector((state) => state.admin);
+  const [page, setPage] = useState(1);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -29,8 +31,8 @@ export default function OMRTemplatesPage() {
   });
 
   useEffect(() => {
-    dispatch(fetchOMRTemplates());
-  }, [dispatch]);
+    dispatch(fetchOMRTemplates({ page }));
+  }, [dispatch, page]);
 
   const openModal = (item = null) => {
     setEditItem(item);
@@ -184,6 +186,15 @@ export default function OMRTemplatesPage() {
           </motion.div>
         ))}
       </div>
+
+      <Pagination
+        meta={pagination.omrTemplates}
+        disabled={isLoading}
+        onPageChange={(nextPage) => {
+          setPage(nextPage);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
 
       {/* Modal */}
       <Modal isOpen={modalOpen} onClose={closeModal} title={editItem ? 'টেমপ্লেট সম্পাদনা' : 'নতুন OMR টেমপ্লেট'} maxWidth="max-w-lg">

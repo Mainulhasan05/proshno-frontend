@@ -10,6 +10,7 @@ import {
 import { fetchClasses, fetchVersions, fetchSubjects } from '@/store/slices/hierarchySlice';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import Pagination from '@/components/ui/Pagination';
 import {
   HiOutlinePlus, HiOutlinePencil, HiOutlineTrash,
   HiOutlineEye, HiOutlineEyeOff, HiOutlineCube,
@@ -18,9 +19,10 @@ import {
 
 export default function PackagesPage() {
   const dispatch = useDispatch();
-  const { packages = [], isLoading } = useSelector((state) => state.admin);
+  const { packages = [], pagination = {}, isLoading } = useSelector((state) => state.admin);
   const { classes = [], versions = [], subjects = [] } = useSelector((state) => state.hierarchy || {});
 
+  const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [formData, setFormData] = useState({
@@ -29,9 +31,9 @@ export default function PackagesPage() {
   const [newItem, setNewItem] = useState({ itemType: 'class', classId: '', versionId: '', subjectId: '' });
 
   useEffect(() => {
-    dispatch(fetchPackages());
+    dispatch(fetchPackages({ page }));
     dispatch(fetchClasses());
-  }, [dispatch]);
+  }, [dispatch, page]);
 
   const openModal = (item = null) => {
     setEditItem(item);
@@ -213,6 +215,15 @@ export default function PackagesPage() {
           </motion.div>
         ))}
       </div>
+
+      <Pagination
+        meta={pagination.packages}
+        disabled={isLoading}
+        onPageChange={(nextPage) => {
+          setPage(nextPage);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
 
       {/* Modal */}
       <Modal isOpen={modalOpen} onClose={closeModal} title={editItem ? 'প্যাকেজ সম্পাদনা' : 'নতুন প্যাকেজ'} maxWidth="max-w-lg">

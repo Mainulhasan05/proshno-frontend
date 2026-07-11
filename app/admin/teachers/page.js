@@ -152,6 +152,15 @@ export default function TeachersPage() {
           </motion.div>
         ))}
       </div>
+
+      <Pagination
+        meta={pagination.teachers}
+        disabled={isLoading}
+        onPageChange={(nextPage) => {
+          setPage(nextPage);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
     </div>
   );
 }

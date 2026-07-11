@@ -86,6 +86,7 @@ export default function SubjectsPage() {
       await dispatch(toggleSubjectActive(id)).unwrap();
       const params = {};
       if (versionId) params.versionId = versionId;
+      else if (classId) params.classId = classId;
       dispatch(fetchSubjects(params));
       toast.success('স্ট্যাটাস আপডেট হয়েছে');
     } catch (err) {
@@ -99,6 +100,7 @@ export default function SubjectsPage() {
       await dispatch(deleteSubject(id)).unwrap();
       const params = {};
       if (versionId) params.versionId = versionId;
+      else if (classId) params.classId = classId;
       dispatch(fetchSubjects(params));
       toast.success('মুছে ফেলা হয়েছে');
     } catch (err) {

@@ -9,6 +9,7 @@ import {
 } from '@/store/slices/adminSlice';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import Pagination from '@/components/ui/Pagination';
 import {
   HiOutlinePlus, HiOutlinePencil, HiOutlineTrash,
   HiOutlineGlobe, HiOutlineEyeOff, HiOutlineDocumentText,
@@ -17,7 +18,8 @@ import {
 
 export default function PagesAdminPage() {
   const dispatch = useDispatch();
-  const { pages = [], isLoading } = useSelector((state) => state.admin);
+  const { pages = [], pagination = {}, isLoading } = useSelector((state) => state.admin);
+  const [page, setPage] = useState(1);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -26,8 +28,8 @@ export default function PagesAdminPage() {
   });
 
   useEffect(() => {
-    dispatch(fetchPages());
-  }, [dispatch]);
+    dispatch(fetchPages({ page }));
+  }, [dispatch, page]);
 
   const generateSlug = (title) => {
     return title
@@ -230,6 +232,15 @@ export default function PagesAdminPage() {
           </motion.div>
         ))}
       </div>
+
+      <Pagination
+        meta={pagination.pages}
+        disabled={isLoading}
+        onPageChange={(nextPage) => {
+          setPage(nextPage);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
 
       {/* Create/Edit Modal */}
       <Modal isOpen={modalOpen} onClose={closeModal} title={editItem ? 'পেজ সম্পাদনা' : 'নতুন পেজ'} maxWidth="max-w-2xl">
