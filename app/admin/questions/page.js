@@ -112,6 +112,7 @@ export default function QuestionsPage() {
       cognitiveDomain: 'knowledge',
       difficulty: 'medium',
       marks: 1,
+      negativeMarks: 0,
       explanation: '',
       chapterId: '',
       options: [
@@ -138,6 +139,7 @@ export default function QuestionsPage() {
         cognitiveDomain: item.cognitiveDomain,
         difficulty: item.difficulty,
         marks: item.marks,
+        negativeMarks: item.negativeMarks || 0,
         explanation: item.explanation || '',
         chapterId: item.chapterId?._id || item.chapterId,
         options: item.options?.length > 0 ? item.options : [
@@ -217,6 +219,7 @@ export default function QuestionsPage() {
 
       if (form.type === 'MCQ') {
         body.options = form.options.map((o, i) => ({ text: o.text, isCorrect: o.isCorrect, order: i + 1 }));
+        body.negativeMarks = Number(form.negativeMarks) || 0;
         if (form.format === 'passage_mcq') {
           body.stimulus = form.stimulus || undefined;
           body.stimulusImage = form.stimulusImage || undefined;
@@ -398,6 +401,9 @@ export default function QuestionsPage() {
                     {DIFFICULTIES.find((d) => d.value === q.difficulty)?.label}
                   </span>
                   <span className="text-xs text-neutral-500 font-semibold bg-neutral-100 px-2 py-0.5 rounded">{q.marks} নম্বর</span>
+                  {q.type === 'MCQ' && q.negativeMarks > 0 && (
+                    <span className="text-xs text-red-500 font-semibold bg-red-50 border border-red-100 px-2 py-0.5 rounded ml-1.5">নেগেটিভ মার্ক: -{q.negativeMarks}</span>
+                  )}
                 </div>
 
                 {/* Stimulus Section if present */}
@@ -572,6 +578,13 @@ export default function QuestionsPage() {
                       { text: 'সত্য', isCorrect: true, order: 1 },
                       { text: 'মিথ্যা', isCorrect: false, order: 2 }
                     ];
+                  } else if (fmt === 'assertion_reason') {
+                    updatedOpts = [
+                      { text: 'দৃঢ়োক্তি ও যুক্তি উভয়ই সঠিক এবং যুক্তিটি দৃঢ়োক্তির সঠিক ব্যাখ্যা', isCorrect: true, order: 1 },
+                      { text: 'দৃঢ়োক্তি ও যুক্তি উভয়ই সঠিক কিন্তু যুক্তিটি দৃঢ়োক্তির সঠিক ব্যাখ্যা নয়', isCorrect: false, order: 2 },
+                      { text: 'দৃঢ়োক্তি সঠিক কিন্তু যুক্তিটি ভুল', isCorrect: false, order: 3 },
+                      { text: 'দৃঢ়োক্তি ভুল কিন্তু যুক্তিটি সঠিক', isCorrect: false, order: 4 }
+                    ];
                   }
                   setForm({ ...form, format: fmt, options: updatedOpts });
                 }}
@@ -688,8 +701,16 @@ export default function QuestionsPage() {
               <input type="number" value={form.type === 'CQ' ? form.subParts.reduce((acc, p) => acc + (Number(p.marks) || 0), 0) : form.marks}
                 onChange={(e) => setForm({ ...form, marks: e.target.value })}
                 disabled={form.type === 'CQ'}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-neutral-50 disabled:opacity-85" min="0" />
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-neutral-50 disabled:opacity-85" min="0" step="any" />
             </div>
+            {form.type === 'MCQ' && (
+              <div>
+                <label className="block text-xs font-medium text-neutral-500 mb-1">নেগেটিভ মার্কস</label>
+                <input type="number" value={form.negativeMarks ?? 0}
+                  onChange={(e) => setForm({ ...form, negativeMarks: e.target.value })}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-white" min="0" step="any" />
+              </div>
+            )}
           </div>
 
           {/* MCQ Options */}

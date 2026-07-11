@@ -150,7 +150,7 @@ export default function ClassesPage() {
     setModalType(type);
     setEditItem(item);
     if (item) {
-      setFormData({ name: item.name, order: item.order || 0, code: item.code || '' });
+      setFormData({ name: item.name, order: item.order ?? 0, code: item.code || '' });
     } else {
       setFormData({ name: '', order: 0, code: '' });
     }
@@ -181,7 +181,7 @@ export default function ClassesPage() {
         }
         dispatch(fetchClasses());
       } else if (modalType === 'version') {
-        const body = { name, classId: selectedClassId };
+        const body = { name, order, classId: selectedClassId };
         if (editItem) {
           await dispatch(updateVersion({ id: editItem._id, body })).unwrap();
           toast.success('ভার্সন আপডেট হয়েছে');
@@ -191,7 +191,7 @@ export default function ClassesPage() {
         }
         dispatch(fetchVersions({ classId: selectedClassId }));
       } else if (modalType === 'subject') {
-        const body = { name, code: formData.code, versionId: selectedVersionId };
+        const body = { name, code: formData.code, order, versionId: selectedVersionId };
         if (editItem) {
           await dispatch(updateSubject({ id: editItem._id, body })).unwrap();
           toast.success('বিষয় আপডেট হয়েছে');
@@ -380,7 +380,7 @@ export default function ClassesPage() {
                 {chapters.map((ch) => (
                   <PanelItem
                     key={ch._id}
-                    item={{ ...ch, order: ch.order || undefined }}
+                    item={ch}
                     isSelected={false}
                     onSelect={() => {}}
                     onEdit={(item) => openModal('chapter', item)}
@@ -434,19 +434,17 @@ export default function ClassesPage() {
             />
           </div>
 
-          {/* Order (for class & chapter) */}
-          {(modalType === 'class' || modalType === 'chapter') && (
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">ক্রম</label>
-              <input
-                type="number"
-                value={formData.order ?? 0}
-                onChange={(e) => setFormData({ ...formData, order: e.target.value })}
-                className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                min="0"
-              />
-            </div>
-          )}
+          {/* Order */}
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">ক্রম</label>
+            <input
+              type="number"
+              value={formData.order ?? 0}
+              onChange={(e) => setFormData({ ...formData, order: e.target.value })}
+              className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none"
+              min="0"
+            />
+          </div>
 
           {/* Code (for subject) */}
           {modalType === 'subject' && (

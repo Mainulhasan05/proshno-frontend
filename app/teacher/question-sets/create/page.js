@@ -20,6 +20,7 @@ import {
   HiOutlineCheck,
   HiOutlinePlus,
   HiOutlineMinus,
+  HiOutlineCube,
 } from 'react-icons/hi';
 
 const typeLabels = { MCQ: 'MCQ', CQ: 'সৃজনশীল', SHORT: 'সংক্ষিপ্ত' };
@@ -135,64 +136,88 @@ export default function CreateQuestionSetPage() {
       {/* Step 1: Name + Filters */}
       {step === 1 && (
         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-          <div className="bg-white rounded-xl border border-neutral-200 p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-neutral-800">প্রশ্ন সেটের তথ্য</h2>
-            <Input label="নাম *" value={name} onChange={(e) => setName(e.target.value)} placeholder="যেমন: অধ্যায় ১ MCQ পরীক্ষা" />
-            <div className="w-full">
-              <label className="block text-sm font-medium text-neutral-700 mb-1.5">বিবরণ</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="ঐচ্ছিক বিবরণ..."
-                rows={3}
-                className="w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-              />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-neutral-200 p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-neutral-800">কন্টেন্ট ফিল্টার</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1.5">ক্লাস</label>
-                <select value={selectedClassId} onChange={(e) => { setSelectedClassId(e.target.value); setSelectedVersionId(''); setSelectedSubjectId(''); setSelectedChapterIds([]); }}
-                  className="w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500">
-                  <option value="">নির্বাচন করুন</option>
-                  {content.classes.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
-                </select>
+          {!isLoading && content.classes.length === 0 ? (
+            <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center max-w-2xl mx-auto my-8 space-y-5">
+              <div className="h-16 w-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto">
+                <HiOutlineCube className="h-8 w-8" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1.5">ভার্সন</label>
-                <select value={selectedVersionId} onChange={(e) => { setSelectedVersionId(e.target.value); setSelectedSubjectId(''); setSelectedChapterIds([]); }}
-                  className="w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" disabled={!selectedClassId}>
-                  <option value="">নির্বাচন করুন</option>
-                  {content.versions.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
-                </select>
+              <div className="space-y-2">
+                <h2 className="text-xl font-bold text-neutral-800">কোনো সক্রিয় প্যাকেজ পাওয়া যায়নি</h2>
+                <p className="text-sm text-neutral-500 leading-relaxed">
+                  প্রশ্ন সেট তৈরি করার জন্য আপনার কোনো সক্রিয় প্যাকেজ বা অ্যাক্সেস নেই। অনুগ্রহ করে প্রথমে একটি প্যাকেজ কিনুন অথবা আপনার পেন্ডিং পেমেন্ট অ্যাপ্রুভ হওয়ার জন্য অপেক্ষা করুন।
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1.5">বিষয়</label>
-                <select value={selectedSubjectId} onChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedChapterIds([]); }}
-                  className="w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" disabled={!selectedVersionId}>
-                  <option value="">নির্বাচন করুন</option>
-                  {content.subjects.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1.5">অধ্যায়</label>
-                <select value={selectedChapterIds[0] || ''} onChange={(e) => setSelectedChapterIds(e.target.value ? [e.target.value] : [])}
-                  className="w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" disabled={!selectedSubjectId}>
-                  <option value="">সকল অধ্যায়</option>
-                  {content.chapters.map((ch) => <option key={ch._id} value={ch._id}>{ch.name}</option>)}
-                </select>
+              <div className="flex justify-center gap-3 pt-2">
+                <Button variant="primary" onClick={() => router.push('/teacher/packages')}>
+                  প্যাকেজ ব্রাউজ করুন
+                </Button>
+                <Button variant="outline" onClick={() => router.push('/teacher/purchases')}>
+                  পেমেন্ট হিস্ট্রি দেখুন
+                </Button>
               </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="bg-white rounded-xl border border-neutral-200 p-6 space-y-4">
+                <h2 className="text-lg font-semibold text-neutral-800">প্রশ্ন সেটের তথ্য</h2>
+                <Input label="নাম *" value={name} onChange={(e) => setName(e.target.value)} placeholder="যেমন: অধ্যায় ১ MCQ পরীক্ষা" />
+                <div className="w-full">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1.5">বিবরণ</label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="ঐচ্ছিক বিবরণ..."
+                    rows={3}
+                    className="w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                  />
+                </div>
+              </div>
 
-          <div className="flex justify-end">
-            <Button variant="primary" onClick={() => { loadQuestions(); }} disabled={!selectedSubjectId}>
-              প্রশ্ন লোড করুন →
-            </Button>
-          </div>
+              <div className="bg-white rounded-xl border border-neutral-200 p-6 space-y-4">
+                <h2 className="text-lg font-semibold text-neutral-800">কন্টেন্ট ফিল্টার</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">ক্লাস</label>
+                    <select value={selectedClassId} onChange={(e) => { setSelectedClassId(e.target.value); setSelectedVersionId(''); setSelectedSubjectId(''); setSelectedChapterIds([]); }}
+                      className="w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500">
+                      <option value="">নির্বাচন করুন</option>
+                      {content.classes.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">ভার্সন</label>
+                    <select value={selectedVersionId} onChange={(e) => { setSelectedVersionId(e.target.value); setSelectedSubjectId(''); setSelectedChapterIds([]); }}
+                      className="w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" disabled={!selectedClassId}>
+                      <option value="">নির্বাচন করুন</option>
+                      {content.versions.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">বিষয়</label>
+                    <select value={selectedSubjectId} onChange={(e) => { setSelectedSubjectId(e.target.value); setSelectedChapterIds([]); }}
+                      className="w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" disabled={!selectedVersionId}>
+                      <option value="">নির্বাচন করুন</option>
+                      {content.subjects.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">অধ্যায়</label>
+                    <select value={selectedChapterIds[0] || ''} onChange={(e) => setSelectedChapterIds(e.target.value ? [e.target.value] : [])}
+                      className="w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" disabled={!selectedSubjectId}>
+                      <option value="">সকল অধ্যায়</option>
+                      {content.chapters.map((ch) => <option key={ch._id} value={ch._id}>{ch.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="primary" onClick={() => { loadQuestions(); }} disabled={!selectedSubjectId}>
+                  প্রশ্ন লোড করুন →
+                </Button>
+              </div>
+            </>
+          )}
         </motion.div>
       )}
 
