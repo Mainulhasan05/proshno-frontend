@@ -117,9 +117,14 @@ export default function PackagesPage() {
   };
 
   const getItemLabel = (item) => {
-    const cls = item.classId?.name || item.classId;
-    const ver = item.versionId?.name || '';
-    const sub = item.subjectId?.name || '';
+    const classObj = typeof item.classId === 'object' ? item.classId : classes.find((c) => c._id === item.classId);
+    const versionObj = typeof item.versionId === 'object' ? item.versionId : versions.find((v) => v._id === item.versionId);
+    const subjectObj = typeof item.subjectId === 'object' ? item.subjectId : subjects.find((s) => s._id === item.subjectId);
+
+    const cls = classObj?.name || item.classId || '';
+    const ver = versionObj?.name || '';
+    const sub = subjectObj?.name || '';
+
     if (item.itemType === 'subject' && sub) return `${sub} (${cls})`;
     return `${cls}${ver ? ` — ${ver}` : ''}`;
   };
