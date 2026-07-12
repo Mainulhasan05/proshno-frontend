@@ -154,7 +154,7 @@ const softwareSchema = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="bn" className="h-full">
+    <html lang="bn" className="h-full" data-scroll-behavior="smooth">
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />

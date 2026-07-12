@@ -26,6 +26,20 @@ export default function TeacherPackagesPage() {
     dispatch(fetchAvailablePackages());
   }, [dispatch]);
 
+  // Auto-open checkout modal if packageId is passed via redirect
+  useEffect(() => {
+    if (typeof window !== 'undefined' && packages.length > 0 && !purchaseModal) {
+      const params = new URLSearchParams(window.location.search);
+      const pkgId = params.get('packageId');
+      if (pkgId) {
+        const targetPkg = packages.find(p => p._id === pkgId);
+        if (targetPkg && !targetPkg.isPurchased && !targetPkg.isPending) {
+          setPurchaseModal(targetPkg);
+        }
+      }
+    }
+  }, [packages, purchaseModal]);
+
   const handlePurchase = async (paymentMethod = 'manual') => {
     if (!purchaseModal) return;
     setPurchasing(true);

@@ -27,6 +27,7 @@ const primaryTabs = [
 const moreItems = [
   { label: 'আমার ক্রয়', href: '/teacher/purchases', icon: HiOutlineCube },
   { label: 'OMR শিট', href: '/teacher/omr', icon: HiOutlineClipboardList },
+  { label: 'অফলাইন পরীক্ষা', href: '/teacher/offline-exams', icon: HiOutlineClipboardList },
   { label: 'শিক্ষার্থী', href: '/teacher/students', icon: HiOutlineUsers },
 ];
 

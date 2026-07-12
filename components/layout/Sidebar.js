@@ -6,6 +6,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { setSidebarOpen } from '@/store/slices/uiSlice';
+import useAuth from '@/hooks/useAuth';
 import {
   HiOutlineHome,
   HiOutlineAcademicCap,
@@ -43,6 +44,7 @@ const teacherMenu = [
   { label: 'আমার কন্টেন্ট', href: '/teacher/my-content', icon: HiOutlineBookOpen },
   { label: 'প্রশ্ন সেট', href: '/teacher/question-sets', icon: HiOutlineClipboardList },
   { label: 'OMR শিট', href: '/teacher/omr', icon: HiOutlineDocumentText },
+  { label: 'অফলাইন পরীক্ষা', href: '/teacher/offline-exams', icon: HiOutlineDocumentText },
   { label: 'শিক্ষার্থী', href: '/teacher/students', icon: HiOutlineUsers },
 ];
 
@@ -50,6 +52,7 @@ export default function Sidebar({ role }) {
   const pathname = usePathname();
   const dispatch = useDispatch();
   const { sidebarOpen } = useSelector((state) => state.ui);
+  const { user } = useAuth();
   const menu = role === 'admin' ? adminMenu : teacherMenu;
 
   const isActive = (href) => {
@@ -134,6 +137,14 @@ export default function Sidebar({ role }) {
             );
           })}
         </nav>
+
+        {/* Token Balance */}
+        {role === 'teacher' && user && (
+          <div className="mx-4 mb-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl shrink-0">
+            <p className="text-[10px] uppercase font-extrabold text-emerald-800 tracking-wider">OMR মূল্যায়ন ব্যালেন্স</p>
+            <p className="text-lg font-black text-[#0B3B24] mt-0.5">{user.omrTokens ?? 0} টি টোকেন</p>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="p-4 border-t border-neutral-200 shrink-0">
