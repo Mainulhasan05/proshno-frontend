@@ -20,6 +20,7 @@ import {
   HiOutlineClipboardList,
   HiOutlineX,
   HiOutlineClipboardCheck,
+  HiOutlineCloud,
 } from 'react-icons/hi';
 
 const adminMenu = [
@@ -33,6 +34,7 @@ const adminMenu = [
   { label: 'ক্রয় ব্যবস্থাপনা', href: '/admin/purchases', icon: HiOutlineShoppingCart },
   { label: 'OMR টেমপ্লেট', href: '/admin/omr-templates', icon: HiOutlineDocumentText },
   { label: 'পেজ ব্যবস্থাপনা', href: '/admin/pages', icon: HiOutlineDocumentText },
+  { label: 'স্টোরেজ', href: '/admin/storage', icon: HiOutlineCloud },
   { label: 'কার্যক্রম', href: '/admin/activity', icon: HiOutlineClipboardCheck },
   { label: 'সেটিংস', href: '/admin/settings', icon: HiOutlineCog },
 ];

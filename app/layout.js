@@ -1,6 +1,7 @@
 import "./globals.css";
 import Providers from "@/components/Providers";
 import JsonLd from "@/components/shared/JsonLd";
+import TawkTo from "@/components/shared/TawkTo";
 
 export const viewport = {
   width: 'device-width',
@@ -161,7 +162,10 @@ export default function RootLayout({ children }) {
         <JsonLd data={[organizationSchema, websiteSchema, softwareSchema]} />
       </head>
       <body className="min-h-full bg-neutral-50 text-neutral-800 antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <TawkTo />
+        </Providers>
       </body>
     </html>
   );

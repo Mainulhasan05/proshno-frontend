@@ -9,6 +9,7 @@ import {
   fetchVersions, createVersion, updateVersion, toggleVersionActive, deleteVersion,
   fetchSubjects, createSubject, updateSubject, toggleSubjectActive, deleteSubject,
   fetchChapters, createChapter, updateChapter, toggleChapterActive, deleteChapter,
+  fetchTree,
 } from '@/store/slices/hierarchySlice';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -79,7 +80,10 @@ function PanelHeader({ title, count, onAdd, icon: Icon }) {
 
 export default function ClassesPage() {
   const dispatch = useDispatch();
-  const { classes = [], versions = [], subjects = [], chapters = [], isLoading = false } = useSelector((state) => state.hierarchy || {});
+  const { classes = [], versions = [], subjects = [], chapters = [], tree = [], isLoading = false } = useSelector((state) => state.hierarchy || {});
+
+  // ── View mode ──
+  const [viewMode, setViewMode] = useState('columns'); // 'columns' | 'summary'
 
   // ── Selection state ──
   const [selectedClassId, _setSelectedClassId] = useState(null);
@@ -105,6 +109,13 @@ export default function ClassesPage() {
 
   // ── Load classes on mount ──
   useEffect(() => { dispatch(fetchClasses()); }, [dispatch]);
+
+  // ── Load tree when summary view is active ──
+  useEffect(() => {
+    if (viewMode === 'summary') {
+      dispatch(fetchTree());
+    }
+  }, [dispatch, viewMode]);
 
   // ── Load versions when class selected ──
   useEffect(() => {
@@ -255,151 +266,267 @@ export default function ClassesPage() {
   const emptyMsg = 'text-center text-neutral-400 text-xs py-8';
 
   return (
-    <div>
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-neutral-800">কন্টেন্ট হায়ারার্কি</h1>
-        <p className="text-sm text-neutral-500 mt-1">ক্লাস → ভার্সন → বিষয় → অধ্যায় — সব এক জায়গায় পরিচালনা করুন</p>
-      </div>
-
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-xs text-neutral-400 mb-4 flex-wrap">
-        <span className={selectedClassId ? 'text-primary-600 font-medium' : ''}>{selectedClass?.name || 'ক্লাস নির্বাচন করুন'}</span>
-        {selectedClassId && (
-          <>
-            <HiOutlineChevronRight className="h-3 w-3" />
-            <span className={selectedVersionId ? 'text-primary-600 font-medium' : ''}>{selectedVersion?.name || 'ভার্সন নির্বাচন করুন'}</span>
-          </>
-        )}
-        {selectedVersionId && (
-          <>
-            <HiOutlineChevronRight className="h-3 w-3" />
-            <span className={selectedSubjectId ? 'text-primary-600 font-medium' : ''}>{selectedSubject?.name || 'বিষয় নির্বাচন করুন'}</span>
-          </>
-        )}
-        {selectedSubjectId && (
-          <>
-            <HiOutlineChevronRight className="h-3 w-3" />
-            <span>অধ্যায়</span>
-          </>
-        )}
-      </div>
-
-      {/* 4-Panel Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-
-        {/* ── Panel 1: Classes ── */}
-        <div className={panelBase}>
-          <PanelHeader title="ক্লাস" count={classes.length} onAdd={() => openModal('class')} icon={HiOutlineAcademicCap} />
-          {classes.length === 0 && !isLoading && <p className={emptyMsg}>কোনো ক্লাস নেই</p>}
-          <div className="space-y-1 max-h-[400px] overflow-y-auto">
-            {classes.map((cls) => (
-              <PanelItem
-                key={cls._id}
-                item={cls}
-                isSelected={selectedClassId === cls._id}
-                onSelect={setSelectedClassId}
-                onEdit={(item) => openModal('class', item)}
-                onToggle={(id) => handleToggle('class', id)}
-                onDelete={(id, name) => handleDelete('class', id, name)}
-                icon={HiOutlineAcademicCap}
-                colorActive="bg-primary-50 text-primary-600"
-                colorInactive="bg-neutral-100 text-neutral-400"
-              />
-            ))}
-          </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b pb-5 border-neutral-200">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-800">কন্টেন্ট হায়ারার্কি</h1>
+          <p className="text-sm text-neutral-500 mt-1">ক্লাস → ভার্সন → বিষয় → অধ্যায় — সব এক জায়গায় পরিচালনা করুন</p>
         </div>
-
-        {/* ── Panel 2: Versions ── */}
-        <AnimatePresence mode="wait">
-          {selectedClassId ? (
-            <motion.div key="versions" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className={panelBase}>
-              <PanelHeader title="ভার্সন" count={classVersions.length} onAdd={() => openModal('version')} icon={HiOutlineCollection} />
-              {classVersions.length === 0 && <p className={emptyMsg}>এই ক্লাসে কোনো ভার্সন নেই</p>}
-              <div className="space-y-1 max-h-[400px] overflow-y-auto">
-                {classVersions.map((ver) => (
-                  <PanelItem
-                    key={ver._id}
-                    item={ver}
-                    isSelected={selectedVersionId === ver._id}
-                    onSelect={setSelectedVersionId}
-                    onEdit={(item) => openModal('version', item)}
-                    onToggle={(id) => handleToggle('version', id)}
-                    onDelete={(id, name) => handleDelete('version', id, name)}
-                    icon={HiOutlineCollection}
-                    colorActive="bg-blue-50 text-blue-600"
-                    colorInactive="bg-neutral-100 text-neutral-400"
-                  />
-                ))}
-              </div>
-            </motion.div>
-          ) : (
-            <div className={`${panelBase} flex items-center justify-center`}>
-              <p className="text-neutral-300 text-sm text-center">← ক্লাস নির্বাচন করুন</p>
-            </div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Panel 3: Subjects ── */}
-        <AnimatePresence mode="wait">
-          {selectedVersionId ? (
-            <motion.div key="subjects" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className={panelBase}>
-              <PanelHeader title="বিষয়" count={versionSubjects.length} onAdd={() => openModal('subject')} icon={HiOutlineBookOpen} />
-              {versionSubjects.length === 0 && <p className={emptyMsg}>এই ভার্সনে কোনো বিষয় নেই</p>}
-              <div className="space-y-1 max-h-[400px] overflow-y-auto">
-                {versionSubjects.map((sub) => (
-                  <PanelItem
-                    key={sub._id}
-                    item={sub}
-                    isSelected={selectedSubjectId === sub._id}
-                    onSelect={setSelectedSubjectId}
-                    onEdit={(item) => openModal('subject', item)}
-                    onToggle={(id) => handleToggle('subject', id)}
-                    onDelete={(id, name) => handleDelete('subject', id, name)}
-                    icon={HiOutlineBookOpen}
-                    colorActive="bg-emerald-50 text-emerald-600"
-                    colorInactive="bg-neutral-100 text-neutral-400"
-                  />
-                ))}
-              </div>
-            </motion.div>
-          ) : (
-            <div className={`${panelBase} flex items-center justify-center`}>
-              <p className="text-neutral-300 text-sm text-center">{selectedClassId ? '← ভার্সন নির্বাচন করুন' : ''}</p>
-            </div>
-          )}
-        </AnimatePresence>
-
-        {/* ── Panel 4: Chapters ── */}
-        <AnimatePresence mode="wait">
-          {selectedSubjectId ? (
-            <motion.div key="chapters" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className={panelBase}>
-              <PanelHeader title="অধ্যায়" count={chapters.length} onAdd={() => openModal('chapter')} icon={HiOutlineClipboardList} />
-              {chapters.length === 0 && <p className={emptyMsg}>এই বিষয়ে কোনো অধ্যায় নেই</p>}
-              <div className="space-y-1 max-h-[400px] overflow-y-auto">
-                {chapters.map((ch) => (
-                  <PanelItem
-                    key={ch._id}
-                    item={ch}
-                    isSelected={false}
-                    onSelect={() => {}}
-                    onEdit={(item) => openModal('chapter', item)}
-                    onToggle={(id) => handleToggle('chapter', id)}
-                    onDelete={(id, name) => handleDelete('chapter', id, name)}
-                    icon={HiOutlineClipboardList}
-                    colorActive="bg-amber-50 text-amber-600"
-                    colorInactive="bg-neutral-100 text-neutral-400"
-                  />
-                ))}
-              </div>
-            </motion.div>
-          ) : (
-            <div className={`${panelBase} flex items-center justify-center`}>
-              <p className="text-neutral-300 text-sm text-center">{selectedVersionId ? '← বিষয় নির্বাচন করুন' : ''}</p>
-            </div>
-          )}
-        </AnimatePresence>
+        
+        {/* View Mode Switcher */}
+        <div className="flex bg-neutral-100 p-1 rounded-xl w-fit border border-neutral-200 shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewMode('columns')}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              viewMode === 'columns'
+                ? 'bg-white text-neutral-800 shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+          >
+            কলাম ভিউ
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('summary')}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+              viewMode === 'summary'
+                ? 'bg-white text-neutral-800 shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+          >
+            একনজরে পরিসংখ্যান
+          </button>
+        </div>
       </div>
+
+      {viewMode === 'summary' ? (
+        <div className="space-y-6">
+          {isLoading && tree.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 bg-white rounded-xl border border-neutral-200">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+              <p className="text-neutral-500 text-xs mt-3">পরিসংখ্যান লোড হচ্ছে...</p>
+            </div>
+          ) : tree.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-xl border border-neutral-200">
+              <p className="text-neutral-400 text-sm">কোনো পরিসংখ্যান পাওয়া যায়নি।</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {tree.map((cls) => {
+                // Calculate subject/chapter counts
+                let totalSubs = 0;
+                let totalChaps = 0;
+                cls.versions?.forEach((v) => {
+                  totalSubs += v.subjects?.length || 0;
+                  v.subjects?.forEach((s) => {
+                    totalChaps += s.chapters?.length || 0;
+                  });
+                });
+
+                return (
+                  <motion.div
+                    key={cls._id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-xl border border-neutral-200 p-5 shadow-sm space-y-4"
+                  >
+                    <div className="flex justify-between items-start border-b pb-3 border-neutral-100">
+                      <div>
+                        <h2 className="text-base font-bold text-neutral-800 flex items-center gap-2">
+                          <HiOutlineAcademicCap className="h-5 w-5 text-primary-500" />
+                          {cls.name}
+                        </h2>
+                        {cls.nameEn && <p className="text-xs text-neutral-400 font-mono mt-0.5">{cls.nameEn}</p>}
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="text-[10px] bg-primary-50 text-primary-700 font-bold px-2 py-0.5 rounded border border-primary-100">
+                          {totalSubs} বিষয়
+                        </span>
+                        <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded border border-amber-100">
+                          {totalChaps} অধ্যায়
+                        </span>
+                      </div>
+                    </div>
+
+                    {cls.versions?.length === 0 ? (
+                      <p className="text-xs text-neutral-400 py-2">কোনো ভার্সন যুক্ত নেই</p>
+                    ) : (
+                      <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
+                        {cls.versions.map((ver) => (
+                          <div key={ver._id} className="space-y-2">
+                            <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
+                              <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+                              {ver.name}
+                            </h3>
+                            
+                            {ver.subjects?.length === 0 ? (
+                              <p className="text-[11px] text-neutral-400 pl-4 py-1">কোনো বিষয় নেই</p>
+                            ) : (
+                              <div className="bg-neutral-50 rounded-lg overflow-hidden border border-neutral-100 pl-3 pr-3 divide-y divide-neutral-100">
+                                {ver.subjects.map((sub) => (
+                                  <div key={sub._id} className="flex justify-between items-center py-2 text-xs">
+                                    <span className="font-medium text-neutral-700">{sub.name}</span>
+                                    <span className="text-[10px] bg-neutral-200/70 text-neutral-600 px-2 py-0.5 rounded-full font-bold">
+                                      {sub.chapters?.length || 0} অধ্যায়
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-1.5 text-xs text-neutral-400 mb-4 flex-wrap">
+            <span className={selectedClassId ? 'text-primary-600 font-medium' : ''}>{selectedClass?.name || 'ক্লাস নির্বাচন করুন'}</span>
+            {selectedClassId && (
+              <>
+                <HiOutlineChevronRight className="h-3 w-3" />
+                <span className={selectedVersionId ? 'text-primary-600 font-medium' : ''}>{selectedVersion?.name || 'ভার্সন নির্বাচন করুন'}</span>
+              </>
+            )}
+            {selectedVersionId && (
+              <>
+                <HiOutlineChevronRight className="h-3 w-3" />
+                <span className={selectedSubjectId ? 'text-primary-600 font-medium' : ''}>{selectedSubject?.name || 'বিষয় নির্বাচন করুন'}</span>
+              </>
+            )}
+            {selectedSubjectId && (
+              <>
+                <HiOutlineChevronRight className="h-3 w-3" />
+                <span>অধ্যায়</span>
+              </>
+            )}
+          </div>
+
+          {/* 4-Panel Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+
+            {/* ── Panel 1: Classes ── */}
+            <div className={panelBase}>
+              <PanelHeader title="ক্লাস" count={classes.length} onAdd={() => openModal('class')} icon={HiOutlineAcademicCap} />
+              {classes.length === 0 && !isLoading && <p className={emptyMsg}>কোনো ক্লাস নেই</p>}
+              <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                {classes.map((cls) => (
+                  <PanelItem
+                    key={cls._id}
+                    item={cls}
+                    isSelected={selectedClassId === cls._id}
+                    onSelect={setSelectedClassId}
+                    onEdit={(item) => openModal('class', item)}
+                    onToggle={(id) => handleToggle('class', id)}
+                    onDelete={(id, name) => handleDelete('class', id, name)}
+                    icon={HiOutlineAcademicCap}
+                    colorActive="bg-primary-50 text-primary-600"
+                    colorInactive="bg-neutral-100 text-neutral-400"
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* ── Panel 2: Versions ── */}
+            <AnimatePresence mode="wait">
+              {selectedClassId ? (
+                <motion.div key="versions" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className={panelBase}>
+                  <PanelHeader title="ভার্সন" count={classVersions.length} onAdd={() => openModal('version')} icon={HiOutlineCollection} />
+                  {classVersions.length === 0 && <p className={emptyMsg}>এই ক্লাসে কোনো ভার্সন নেই</p>}
+                  <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                    {classVersions.map((ver) => (
+                      <PanelItem
+                        key={ver._id}
+                        item={ver}
+                        isSelected={selectedVersionId === ver._id}
+                        onSelect={setSelectedVersionId}
+                        onEdit={(item) => openModal('version', item)}
+                        onToggle={(id) => handleToggle('version', id)}
+                        onDelete={(id, name) => handleDelete('version', id, name)}
+                        icon={HiOutlineCollection}
+                        colorActive="bg-blue-50 text-blue-600"
+                        colorInactive="bg-neutral-100 text-neutral-400"
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              ) : (
+                <div className={`${panelBase} flex items-center justify-center`}>
+                  <p className="text-neutral-300 text-sm text-center">← ক্লাস নির্বাচন করুন</p>
+                </div>
+              )}
+            </AnimatePresence>
+
+            {/* ── Panel 3: Subjects ── */}
+            <AnimatePresence mode="wait">
+              {selectedVersionId ? (
+                <motion.div key="subjects" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className={panelBase}>
+                  <PanelHeader title="বিষয়" count={versionSubjects.length} onAdd={() => openModal('subject')} icon={HiOutlineBookOpen} />
+                  {versionSubjects.length === 0 && <p className={emptyMsg}>এই ভার্সনে কোনো বিষয় নেই</p>}
+                  <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                    {versionSubjects.map((sub) => (
+                      <PanelItem
+                        key={sub._id}
+                        item={sub}
+                        isSelected={selectedSubjectId === sub._id}
+                        onSelect={setSelectedSubjectId}
+                        onEdit={(item) => openModal('subject', item)}
+                        onToggle={(id) => handleToggle('subject', id)}
+                        onDelete={(id, name) => handleDelete('subject', id, name)}
+                        icon={HiOutlineBookOpen}
+                        colorActive="bg-emerald-50 text-emerald-600"
+                        colorInactive="bg-neutral-100 text-neutral-400"
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              ) : (
+                <div className={`${panelBase} flex items-center justify-center`}>
+                  <p className="text-neutral-300 text-sm text-center">{selectedClassId ? '← ভার্সন নির্বাচন করুন' : ''}</p>
+                </div>
+              )}
+            </AnimatePresence>
+
+            {/* ── Panel 4: Chapters ── */}
+            <AnimatePresence mode="wait">
+              {selectedSubjectId ? (
+                <motion.div key="chapters" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className={panelBase}>
+                  <PanelHeader title="অধ্যায়" count={chapters.length} onAdd={() => openModal('chapter')} icon={HiOutlineClipboardList} />
+                  {chapters.length === 0 && <p className={emptyMsg}>এই বিষয়ে কোনো অধ্যায় নেই</p>}
+                  <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                    {chapters.map((ch) => (
+                      <PanelItem
+                        key={ch._id}
+                        item={ch}
+                        isSelected={false}
+                        onSelect={() => {}}
+                        onEdit={(item) => openModal('chapter', item)}
+                        onToggle={(id) => handleToggle('chapter', id)}
+                        onDelete={(id, name) => handleDelete('chapter', id, name)}
+                        icon={HiOutlineClipboardList}
+                        colorActive="bg-amber-50 text-amber-600"
+                        colorInactive="bg-neutral-100 text-neutral-400"
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              ) : (
+                <div className={`${panelBase} flex items-center justify-center`}>
+                  <p className="text-neutral-300 text-sm text-center">{selectedVersionId ? '← বিষয় নির্বাচন করুন' : ''}</p>
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
+        </>
+      )}
 
       {/* ══════════════════════════════════════ */}
       {/*  UNIFIED MODAL                        */}

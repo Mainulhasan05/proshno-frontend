@@ -188,4 +188,5 @@ nav, button, a {
 
 @layer components {
   .admin-setting-input { @apply min-h-11 w-full rounded-xl border border-neutral-300 px-3.5 text-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10; }
+  .modal-input { @apply min-h-11 w-full rounded-xl border border-neutral-200 px-3.5 text-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100; }
 }
