@@ -21,33 +21,35 @@ import {
   HiOutlineX,
   HiOutlineClipboardCheck,
   HiOutlineCloud,
+  HiOutlinePhotograph,
 } from 'react-icons/hi';
 
 const adminMenu = [
-  { label: 'ড্যাশবোর্ড', href: '/admin', icon: HiOutlineHome },
-  { label: 'ক্লাস', href: '/admin/classes', icon: HiOutlineAcademicCap },
-  { label: 'বিষয়', href: '/admin/subjects', icon: HiOutlineBookOpen },
-  { label: 'অধ্যায়', href: '/admin/chapters', icon: HiOutlineClipboardList },
-  { label: 'প্রশ্ন ব্যাংক', href: '/admin/questions', icon: HiOutlineQuestionMarkCircle },
-  { label: 'প্যাকেজ', href: '/admin/packages', icon: HiOutlineCube },
-  { label: 'শিক্ষক', href: '/admin/teachers', icon: HiOutlineUsers },
-  { label: 'ক্রয় ব্যবস্থাপনা', href: '/admin/purchases', icon: HiOutlineShoppingCart },
-  { label: 'OMR টেমপ্লেট', href: '/admin/omr-templates', icon: HiOutlineDocumentText },
-  { label: 'পেজ ব্যবস্থাপনা', href: '/admin/pages', icon: HiOutlineDocumentText },
-  { label: 'স্টোরেজ', href: '/admin/storage', icon: HiOutlineCloud },
-  { label: 'কার্যক্রম', href: '/admin/activity', icon: HiOutlineClipboardCheck },
-  { label: 'সেটিংস', href: '/admin/settings', icon: HiOutlineCog },
+  { label: 'Dashboard', href: '/admin', icon: HiOutlineHome },
+  { label: 'Classes', href: '/admin/classes', icon: HiOutlineAcademicCap },
+  { label: 'Subjects', href: '/admin/subjects', icon: HiOutlineBookOpen },
+  { label: 'Chapters', href: '/admin/chapters', icon: HiOutlineClipboardList },
+  { label: 'Question Bank', href: '/admin/questions', icon: HiOutlineQuestionMarkCircle },
+  { label: 'Packages', href: '/admin/packages', icon: HiOutlineCube },
+  { label: 'Teachers', href: '/admin/teachers', icon: HiOutlineUsers },
+  { label: 'Purchases', href: '/admin/purchases', icon: HiOutlineShoppingCart },
+  { label: 'OMR Templates', href: '/admin/omr-templates', icon: HiOutlineDocumentText },
+  { label: 'Pages', href: '/admin/pages', icon: HiOutlineDocumentText },
+  { label: 'Storage', href: '/admin/storage', icon: HiOutlineCloud },
+  { label: 'Media Gallery', href: '/admin/media', icon: HiOutlinePhotograph },
+  { label: 'Activity Log', href: '/admin/activity', icon: HiOutlineClipboardCheck },
+  { label: 'Settings', href: '/admin/settings', icon: HiOutlineCog },
 ];
 
 const teacherMenu = [
-  { label: 'ড্যাশবোর্ড', href: '/teacher', icon: HiOutlineHome },
-  { label: 'প্যাকেজ ব্রাউজ', href: '/teacher/packages', icon: HiOutlineCube },
-  { label: 'আমার ক্রয়', href: '/teacher/purchases', icon: HiOutlineShoppingCart },
-  { label: 'আমার কন্টেন্ট', href: '/teacher/my-content', icon: HiOutlineBookOpen },
-  { label: 'প্রশ্ন সেট', href: '/teacher/question-sets', icon: HiOutlineClipboardList },
-  { label: 'OMR শিট', href: '/teacher/omr', icon: HiOutlineDocumentText },
-  { label: 'অফলাইন পরীক্ষা', href: '/teacher/offline-exams', icon: HiOutlineDocumentText },
-  { label: 'শিক্ষার্থী', href: '/teacher/students', icon: HiOutlineUsers },
+  { label: 'Dashboard', href: '/teacher', icon: HiOutlineHome },
+  { label: 'Browse Packages', href: '/teacher/packages', icon: HiOutlineCube },
+  { label: 'My Purchases', href: '/teacher/purchases', icon: HiOutlineShoppingCart },
+  { label: 'My Content', href: '/teacher/my-content', icon: HiOutlineBookOpen },
+  { label: 'Question Sets', href: '/teacher/question-sets', icon: HiOutlineClipboardList },
+  { label: 'OMR Sheets', href: '/teacher/omr', icon: HiOutlineDocumentText },
+  { label: 'Offline Exams', href: '/teacher/offline-exams', icon: HiOutlineDocumentText },
+  { label: 'Students', href: '/teacher/students', icon: HiOutlineUsers },
 ];
 
 export default function Sidebar({ role }) {
@@ -90,9 +92,9 @@ export default function Sidebar({ role }) {
         <div className="flex items-center justify-between h-16 px-5 border-b border-neutral-200 shrink-0">
           <Link href={`/${role}`} className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary-600 to-primary-700 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">প্র</span>
+              <span className="text-white font-bold text-sm">P</span>
             </div>
-            <span className="text-base font-bold text-neutral-800">প্রশ্নপিডিয়া</span>
+            <span className="text-base font-bold text-neutral-800">ProshnoPedia</span>
           </Link>
           <button
             onClick={() => dispatch(setSidebarOpen(false))}
@@ -143,15 +145,15 @@ export default function Sidebar({ role }) {
         {/* Token Balance */}
         {role === 'teacher' && user && (
           <div className="mx-4 mb-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl shrink-0">
-            <p className="text-[10px] uppercase font-extrabold text-emerald-800 tracking-wider">OMR মূল্যায়ন ব্যালেন্স</p>
-            <p className="text-lg font-black text-[#0B3B24] mt-0.5">{user.omrTokens ?? 0} টি টোকেন</p>
+            <p className="text-[10px] uppercase font-extrabold text-emerald-800 tracking-wider">OMR Evaluation Balance</p>
+            <p className="text-lg font-black text-[#0B3B24] mt-0.5">{user.omrTokens ?? 0} Tokens</p>
           </div>
         )}
 
         {/* Footer */}
         <div className="p-4 border-t border-neutral-200 shrink-0">
           <p className="text-xs text-neutral-400 text-center">
-            ProshnoPedia © ২০২৬
+            ProshnoPedia © 2026
           </p>
         </div>
       </aside>

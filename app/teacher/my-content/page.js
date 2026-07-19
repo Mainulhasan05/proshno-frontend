@@ -19,6 +19,7 @@ import {
   HiOutlineQuestionMarkCircle,
   HiOutlineCube,
 } from 'react-icons/hi';
+import MathRenderer from '@/components/shared/MathRenderer';
 
 const typeLabels = { MCQ: 'MCQ', CQ: 'সৃজনশীল', SHORT: 'সংক্ষিপ্ত' };
 const typeColors = {
@@ -240,40 +241,84 @@ export default function TeacherMyContentPage() {
                     <span className="text-xs text-neutral-400 ml-auto">{q.marks} নম্বর</span>
                   </div>
 
-                  <p className="text-sm text-neutral-800 leading-relaxed">{q.questionText}</p>
+                   {q.stimulus && (
+                     <div className="mb-3 bg-neutral-50 border-l-4 border-primary-500 p-3 rounded-lg text-sm text-neutral-700 leading-relaxed font-serif">
+                       <span className="font-bold block text-neutral-800 mb-1">উদ্দীপক:</span>
+                       <MathRenderer text={q.stimulus} />
+                       {q.stimulusImage && (
+                         <div className="mt-2">
+                           <img src={q.stimulusImage} alt="উদ্দীপক চিত্র" className="max-h-48 object-contain rounded border border-neutral-200 bg-white" />
+                         </div>
+                       )}
+                     </div>
+                   )}
 
-                  {/* MCQ Options */}
-                  {q.type === 'MCQ' && q.options?.length > 0 && (
-                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {q.options.map((opt, oi) => (
-                        <div
-                          key={oi}
-                          className={`text-sm px-3 py-2 rounded-lg border ${opt.isCorrect ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-neutral-200 bg-neutral-50 text-neutral-600'}`}
-                        >
-                          <span className="font-medium mr-1.5">{String.fromCharCode(2453 + oi)}.</span>
-                          {opt.text}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                   <div className="text-sm sm:text-base text-neutral-800 font-medium leading-relaxed">
+                     <MathRenderer text={q.questionText} />
+                   </div>
 
-                  {/* CQ Sub-parts */}
-                  {q.type === 'CQ' && q.subParts?.length > 0 && (
-                    <div className="mt-3 space-y-1.5">
-                      {q.subParts.map((sp, si) => (
-                        <div key={si} className="text-sm text-neutral-600 pl-3 border-l-2 border-primary-200">
-                          <span className="font-medium text-primary-600">{sp.partLabel}.</span> {sp.text}
-                          <span className="text-xs text-neutral-400 ml-2">({sp.marks} নম্বর)</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                   {q.questionImage && (
+                     <div className="mt-2 mb-3">
+                       <img src={q.questionImage} alt="প্রশ্ন চিত্র" className="max-h-32 object-contain rounded border border-neutral-200 bg-white" />
+                     </div>
+                   )}
 
-                  {q.explanation && (
-                    <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 p-3 rounded-lg border border-neutral-100">
-                      <span className="font-medium text-neutral-600">ব্যাখ্যা:</span> {q.explanation}
-                    </div>
-                  )}
+                   {/* MCQ Options */}
+                   {q.type === 'MCQ' && q.options?.length > 0 && (
+                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                       {q.options.map((opt, oi) => (
+                         <div
+                           key={oi}
+                           className={`text-sm px-3 py-2 rounded-lg border flex items-center justify-between gap-2 ${opt.isCorrect ? 'border-emerald-300 bg-emerald-50 text-emerald-700 font-medium' : 'border-neutral-200 bg-neutral-50 text-neutral-600'}`}
+                         >
+                           <div className="flex items-center gap-1.5">
+                             <span className="font-bold text-neutral-400">{String.fromCharCode(2453 + oi)})</span>
+                             <MathRenderer text={opt.text} />
+                           </div>
+                           {opt.image && (
+                             <div className="ml-2 shrink-0">
+                               <img src={opt.image} alt="" className="h-10 w-10 object-contain rounded border bg-white" />
+                             </div>
+                           )}
+                         </div>
+                       ))}
+                     </div>
+                   )}
+
+                   {/* CQ Sub-parts */}
+                   {q.type === 'CQ' && q.subParts?.length > 0 && (
+                     <div className="mt-3 space-y-2 border-t border-neutral-100 pt-3">
+                       {q.subParts.map((sp, si) => (
+                         <div key={si} className="text-sm text-neutral-700 pl-3 border-l-2 border-primary-300 space-y-1">
+                           <div className="flex flex-wrap items-center gap-1">
+                             <span className="font-bold text-primary-700">{sp.partLabel})</span>
+                             <MathRenderer text={sp.text} />
+                             <span className="text-xs text-neutral-400">({sp.marks} নম্বর)</span>
+                           </div>
+                           {sp.sampleAnswer && (
+                             <div className="text-xs text-neutral-500 bg-neutral-50 p-2 rounded">
+                               <span className="font-semibold text-neutral-600 block mb-0.5">নমুনা উত্তর / মূল্যায়ন নির্দেশিকা:</span>
+                               <MathRenderer text={sp.sampleAnswer} />
+                             </div>
+                           )}
+                         </div>
+                       ))}
+                     </div>
+                   )}
+
+                   {/* Short Answer expectedAnswer */}
+                   {(q.type === 'OTHER' || q.type === 'SHORT') && q.expectedAnswer && (
+                     <div className="mt-3 text-xs text-neutral-600 bg-neutral-50 p-3 rounded-lg border border-neutral-150">
+                       <span className="font-semibold text-neutral-700 block mb-1">নমুনা উত্তর / মূল্যায়ন নির্দেশিকা:</span>
+                       <MathRenderer text={q.expectedAnswer} />
+                     </div>
+                   )}
+
+                   {q.explanation && (
+                     <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 p-2.5 rounded-lg border border-neutral-100">
+                       <span className="font-medium text-neutral-600">ব্যাখ্যা:</span> <MathRenderer text={q.explanation} />
+                     </div>
+                   )}
                 </motion.div>
               ))}
             </div>

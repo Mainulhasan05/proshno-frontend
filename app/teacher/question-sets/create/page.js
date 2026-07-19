@@ -22,6 +22,7 @@ import {
   HiOutlineMinus,
   HiOutlineCube,
 } from 'react-icons/hi';
+import MathRenderer from '@/components/shared/MathRenderer';
 
 const typeLabels = { MCQ: 'MCQ', CQ: 'সৃজনশীল', SHORT: 'সংক্ষিপ্ত' };
 const typeColors = { MCQ: 'bg-indigo-100 text-indigo-700', CQ: 'bg-amber-100 text-amber-700', SHORT: 'bg-emerald-100 text-emerald-700' };
@@ -269,7 +270,9 @@ export default function CreateQuestionSetPage() {
                             </span>
                             <span className="text-xs text-neutral-400">{q.marks} নম্বর</span>
                           </div>
-                          <p className="text-sm text-neutral-800 line-clamp-2">{q.questionText}</p>
+                           <div className="text-sm text-neutral-800 line-clamp-2">
+                             <MathRenderer text={q.questionText} />
+                           </div>
                         </div>
                       </div>
                     </motion.div>

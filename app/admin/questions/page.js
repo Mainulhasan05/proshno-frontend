@@ -16,6 +16,8 @@ import {
 } from 'react-icons/hi';
 
 import MathRenderer from '@/components/shared/MathRenderer';
+import ImageUpload from '@/components/ui/ImageUpload';
+import MathInput from '@/components/ui/MathInput';
 
 const COGNITIVE_DOMAINS = [
   { value: 'knowledge', label: 'জ্ঞান', color: 'bg-blue-100 text-blue-700' },
@@ -80,6 +82,7 @@ export default function QuestionsPage() {
     ],
     stimulus: '',
     stimulusImage: '',
+    questionImage: '',
     expectedAnswer: '',
     subParts: [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
   });
@@ -148,6 +151,7 @@ export default function QuestionsPage() {
         ],
         stimulus: item.stimulus || '',
         stimulusImage: item.stimulusImage || '',
+        questionImage: item.questionImage || '',
         expectedAnswer: item.expectedAnswer || '',
         subParts: item.subParts?.length > 0 ? item.subParts : [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
       });
@@ -210,6 +214,7 @@ export default function QuestionsPage() {
         type: form.type,
         format: form.format,
         questionText: form.questionText,
+        questionImage: form.questionImage || undefined,
         cognitiveDomain: form.cognitiveDomain,
         difficulty: form.difficulty,
         marks: Number(form.marks),
@@ -218,7 +223,7 @@ export default function QuestionsPage() {
       };
 
       if (form.type === 'MCQ') {
-        body.options = form.options.map((o, i) => ({ text: o.text, isCorrect: o.isCorrect, order: i + 1 }));
+        body.options = form.options.map((o, i) => ({ text: o.text, isCorrect: o.isCorrect, image: o.image || undefined, order: i + 1 }));
         body.negativeMarks = Number(form.negativeMarks) || 0;
         if (form.format === 'passage_mcq') {
           body.stimulus = form.stimulus || undefined;
@@ -464,9 +469,10 @@ export default function QuestionsPage() {
                           <span className="text-xs text-neutral-400">({sp.marks} নম্বর)</span>
                         </div>
                         {sp.sampleAnswer && (
-                          <p className="text-xs text-neutral-500 bg-neutral-50 p-2 rounded">
-                            <span className="font-semibold">নমুনা উত্তর:</span> {sp.sampleAnswer}
-                          </p>
+                          <div className="text-xs text-neutral-500 bg-neutral-50 p-2 rounded">
+                            <span className="font-semibold text-neutral-600 block mb-0.5">নমুনা উত্তর / মূল্যায়ন নির্দেশিকা:</span>
+                            <MathRenderer text={sp.sampleAnswer} />
+                          </div>
                         )}
                       </div>
                     ))}
@@ -477,14 +483,14 @@ export default function QuestionsPage() {
                 {(q.type === 'OTHER' || q.type === 'SHORT') && q.expectedAnswer && (
                   <div className="mt-3 text-xs text-neutral-600 bg-neutral-50 p-3 rounded-lg border border-neutral-150">
                     <span className="font-semibold text-neutral-700 block mb-1">নমুনা উত্তর / মূল্যায়ন নির্দেশিকা:</span>
-                    <p>{q.expectedAnswer}</p>
+                    <MathRenderer text={q.expectedAnswer} />
                   </div>
                 )}
 
                 {/* Explanation */}
                 {q.explanation && (
                   <div className="mt-3 text-xs text-neutral-500 bg-neutral-50 p-2.5 rounded-lg border border-neutral-100">
-                    <span className="font-medium text-neutral-600">ব্যাখ্যা:</span> {q.explanation}
+                    <span className="font-medium text-neutral-600">ব্যাখ্যা:</span> <MathRenderer text={q.explanation} />
                   </div>
                 )}
 
@@ -649,36 +655,40 @@ export default function QuestionsPage() {
           {(form.type === 'CQ' || form.format === 'passage_mcq') && (
             <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200 space-y-3">
               <h3 className="text-sm font-semibold text-neutral-700">উদ্দীপক / অনুচ্ছেদ (Stimulus)</h3>
-              <div>
-                <label className="block text-xs font-medium text-neutral-500 mb-1">উদ্দীপক টেক্সট</label>
-                <textarea value={form.stimulus} onChange={(e) => setForm({ ...form, stimulus: e.target.value })}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none resize-none"
-                  rows={3} placeholder="উদ্দীপক বা অনুচ্ছেদটি লিখুন..." />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-neutral-500 mb-1">উদ্দীপকের ছবি/ডায়াগ্রাম ইউআরএল (ঐচ্ছিক)</label>
-                <input type="text" value={form.stimulusImage} onChange={(e) => setForm({ ...form, stimulusImage: e.target.value })}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-                  placeholder="যেমন: https://example.com/diagram.png" />
-              </div>
+              <MathInput
+                label="উদ্দীপক টেক্সট"
+                value={form.stimulus}
+                onChange={(val) => setForm({ ...form, stimulus: val })}
+                rows={3}
+                placeholder="উদ্দীপক বা অনুচ্ছেদটি লিখুন..."
+              />
+              <ImageUpload
+                value={form.stimulusImage}
+                onChange={(url) => setForm({ ...form, stimulusImage: url })}
+                sourceType="question"
+                sourceField="stimulusImage"
+              />
             </div>
           )}
 
           {/* Question text */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">প্রশ্ন টেক্সট *</label>
-            <textarea value={form.questionText} onChange={(e) => setForm({ ...form, questionText: e.target.value })}
-              className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none resize-none"
-              rows={3} placeholder="প্রশ্ন লিখুন..." required />
-          </div>
+          <MathInput
+            label="প্রশ্ন টেক্সট"
+            value={form.questionText}
+            onChange={(val) => setForm({ ...form, questionText: val })}
+            rows={3}
+            placeholder="প্রশ্ন লিখুন..."
+            required
+          />
 
-          {/* Question image URL */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">প্রশ্নের ছবি/চিত্র ইউআরএল (ঐচ্ছিক)</label>
-            <input type="text" value={form.questionImage || ''} onChange={(e) => setForm({ ...form, questionImage: e.target.value })}
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-              placeholder="যেমন: https://example.com/graph.png" />
-          </div>
+          {/* Question image upload */}
+          <ImageUpload
+            value={form.questionImage || ''}
+            onChange={(url) => setForm({ ...form, questionImage: url })}
+            sourceType="question"
+            sourceField="questionImage"
+            label="প্রশ্নের ছবি/চিত্র (ঐচ্ছিক)"
+          />
 
           {/* Cognitive Domain + Difficulty + Marks */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -728,11 +738,21 @@ export default function QuestionsPage() {
                     >
                       {opt.isCorrect ? <HiOutlineCheck className="h-4 w-4" /> : String.fromCharCode(2453 + idx)}
                     </button>
-                    <input type="text" value={opt.text} onChange={(e) => updateOption(idx, 'text', e.target.value)}
-                      className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                    <MathInput
+                      value={opt.text}
+                      onChange={(val) => updateOption(idx, 'text', val)}
+                      rows={1}
                       placeholder={`বিকল্প ${String.fromCharCode(2453 + idx)}`}
                       required
                       disabled={form.format === 'true_false'}
+                      className="flex-1"
+                    />
+                    <ImageUpload
+                      value={opt.image || ''}
+                      onChange={(url) => updateOption(idx, 'image', url)}
+                      sourceType="question"
+                      sourceField={`options.${idx}.image`}
+                      compact
                     />
                     {form.options.length > 2 && form.format !== 'true_false' && (
                       <button type="button" onClick={() => removeOption(idx)} className="p-1.5 text-neutral-400 hover:text-red-500">
@@ -768,16 +788,24 @@ export default function QuestionsPage() {
                         <button type="button" onClick={() => removeSubPart(idx)} className="text-xs text-red-400 hover:text-red-600">মুছুন</button>
                       )}
                     </div>
-                    <input type="text" value={sp.text} onChange={(e) => updateSubPart(idx, 'text', e.target.value)}
-                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-                      placeholder={`উপ-প্রশ্ন লিখুন... (যেমন: ${sp.partLabel === 'ক' ? 'জ্ঞানমূলক' : sp.partLabel === 'খ' ? 'অনুধাবনমূলক' : sp.partLabel === 'গ' ? 'প্রয়োগমূলক' : 'উচ্চতর দক্ষতা'})`} required />
+                    <MathInput
+                      value={sp.text}
+                      onChange={(val) => updateSubPart(idx, 'text', val)}
+                      rows={1}
+                      placeholder={`উপ-প্রশ্ন লিখুন... (যেমন: ${sp.partLabel === 'ক' ? 'জ্ঞানমূলক' : sp.partLabel === 'খ' ? 'অনুধাবনমূলক' : sp.partLabel === 'গ' ? 'প্রয়োগমূলক' : 'উচ্চতর দক্ষতা'})`}
+                      required
+                    />
                     <div className="flex gap-2">
                       <input type="number" value={sp.marks} onChange={(e) => updateSubPart(idx, 'marks', e.target.value)}
                         className="w-20 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
                         placeholder="নম্বর" min="0" required />
-                      <input type="text" value={sp.sampleAnswer || ''} onChange={(e) => updateSubPart(idx, 'sampleAnswer', e.target.value)}
-                        className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-                        placeholder="নমুনা উত্তর / মূল্যায়ন নির্দেশিকা (ঐচ্ছিক)" />
+                      <MathInput
+                        value={sp.sampleAnswer || ''}
+                        onChange={(val) => updateSubPart(idx, 'sampleAnswer', val)}
+                        rows={1}
+                        placeholder="নমুনা উত্তর / মূল্যায়ন নির্দেশিকা (ঐচ্ছিক)"
+                        className="flex-1"
+                      />
                     </div>
                   </div>
                 ))}
@@ -791,22 +819,24 @@ export default function QuestionsPage() {
           {/* Other/Short Question expectedAnswer fields */}
           {(form.type === 'OTHER' || form.type === 'SHORT') && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">নমুনা উত্তর / মূল্যায়ন নির্দেশিকা (ঐচ্ছিক)</label>
-                <textarea value={form.expectedAnswer || ''} onChange={(e) => setForm({ ...form, expectedAnswer: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none resize-none"
-                  rows={3} placeholder="সঠিক উত্তর বা মূল্যায়ন নির্দেশিকা লিখুন..." />
-              </div>
+              <MathInput
+                label="নমুনা উত্তর / মূল্যায়ন নির্দেশিকা (ঐচ্ছিক)"
+                value={form.expectedAnswer || ''}
+                onChange={(val) => setForm({ ...form, expectedAnswer: val })}
+                rows={2}
+                placeholder="সঠিক উত্তর বা মূল্যায়ন নির্দেশিকা লিখুন..."
+              />
             </div>
           )}
 
           {/* Explanation */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">ব্যাখ্যা (ঐচ্ছিক)</label>
-            <textarea value={form.explanation} onChange={(e) => setForm({ ...form, explanation: e.target.value })}
-              className="w-full px-3 py-2.5 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none resize-none"
-              rows={2} placeholder="সঠিক উত্তরের ব্যাখ্যা..." />
-          </div>
+          <MathInput
+            label="ব্যাখ্যা (ঐচ্ছিক)"
+            value={form.explanation}
+            onChange={(val) => setForm({ ...form, explanation: val })}
+            rows={2}
+            placeholder="সঠিক উত্তরের ব্যাখ্যা..."
+          />
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
