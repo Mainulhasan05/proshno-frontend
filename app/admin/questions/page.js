@@ -12,7 +12,7 @@ import Pagination from '@/components/ui/Pagination';
 import {
   HiOutlinePlus, HiOutlinePencil, HiOutlineTrash,
   HiOutlineEye, HiOutlineEyeOff, HiOutlineFilter,
-  HiOutlineCheck, HiOutlineX,
+  HiOutlineCheck, HiOutlineX, HiOutlineClipboardCopy,
 } from 'react-icons/hi';
 
 import MathRenderer from '@/components/shared/MathRenderer';
@@ -24,6 +24,7 @@ const COGNITIVE_DOMAINS = [
   { value: 'comprehension', label: 'অনুধাবন', color: 'bg-green-100 text-green-700' },
   { value: 'application', label: 'প্রয়োগ', color: 'bg-amber-100 text-amber-700' },
   { value: 'higher_skills', label: 'উচ্চতর দক্ষতা', color: 'bg-purple-100 text-purple-700' },
+  { value: 'none', label: 'প্রযোজ্য নয়', color: 'bg-neutral-100 text-neutral-600' },
 ];
 
 const DIFFICULTIES = [
@@ -51,6 +52,52 @@ const FORMAT_LABELS = {
   other_format: 'অন্যান্য ফরম্যাট'
 };
 
+const IMPORT_TEMPLATES = {
+  mcq: [
+    {
+      question: "একটি সমবাহু ত্রিভুজের প্রতিটি কোণের মান কত?",
+      type: "MCQ",
+      format: "single_correct",
+      options: [
+        "৪৫ ডিগ্রি",
+        "৬০ ডিগ্রি",
+        "৯০ ডিগ্রি",
+        "১৮০ ডিগ্রি"
+      ],
+      mcqAns: 1,
+      cognitiveDomain: "none",
+      difficulty: "easy",
+      explanation: "সমবাহু ত্রিভুজের তিনটি কোণ সমান এবং সমষ্টি ১৮০ ডিগ্রি, তাই প্রতিটি কোণ ৬০ ডিগ্রি।"
+    }
+  ],
+  cq: [
+    {
+      question: "উদ্দীপক: রহিম সাহেব তার জমিতে রাসায়নিক সারের পরিবর্তে জৈব সার ব্যবহার করলেন। এতে তার জমির উর্বরতা বৃদ্ধি পেল এবং পরিবেশের ক্ষতি কম হলো।",
+      type: "CQ",
+      format: "creative_default",
+      subParts: [
+        { "partLabel": "ক", "text": "জৈব সার কী?", "marks": 1 },
+        { "partLabel": "খ", "text": "রাসায়নিক সারের অতিরিক্ত ব্যবহারের ক্ষতিকর দিক ব্যাখ্যা করো।", "marks": 2 },
+        { "partLabel": "গ", "text": "রহিম সাহেবের জমিতে উর্বরতা বৃদ্ধির কারণ ব্যাখ্যা করো।", "marks": 3 },
+        { "partLabel": "ঘ", "text": "পরিবেশ রক্ষায় রহিম সাহেবের সিদ্ধান্তের যৌক্তিকতা বিশ্লেষণ করো।", "marks": 4 }
+      ],
+      cognitiveDomain: "none",
+      difficulty: "medium",
+      explanation: "জৈব সার মাটির গঠন উন্নত করে এবং পরিবেশবান্ধব।"
+    }
+  ],
+  short: [
+    {
+      question: "সালোকসংশ্লেষণ প্রক্রিয়ার মূল উপাদান কয়টি ও কী কী?",
+      type: "OTHER",
+      format: "short_answer",
+      expectedAnswer: "মূল উপাদান ৪টি: আলোক, ক্লোরোফিল, পানি ও কার্বন ডাই অক্সাইড।",
+      cognitiveDomain: "none",
+      difficulty: "medium"
+    }
+  ]
+};
+
 export default function QuestionsPage() {
   const dispatch = useDispatch();
   const { questions = [], pagination, isLoading } = useSelector((s) => s.questions || {});
@@ -69,6 +116,12 @@ export default function QuestionsPage() {
   const [importJson, setImportJson] = useState('');
   const [importError, setImportError] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [activeTemplateTab, setActiveTemplateTab] = useState('mcq');
+
+  // Input states for sources sub-forms
+  const [newBoard, setNewBoard] = useState({ shortForm: '', year: '', questionNo: '' });
+  const [newAdmission, setNewAdmission] = useState({ name: '', year: '', questionNo: '' });
+  const [newSchool, setNewSchool] = useState({ name: '', year: '', questionNo: '' });
 
   // Selected hierarchy for bulk import
   const [impClass, setImpClass] = useState('');
@@ -101,6 +154,10 @@ export default function QuestionsPage() {
     questionImage: '',
     expectedAnswer: '',
     subParts: [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
+    sources: [],
+    boardInfo: [],
+    topSchool: [],
+    university: [],
   });
 
   // Selected hierarchy for chapter picker (in modal)
@@ -144,6 +201,10 @@ export default function QuestionsPage() {
       stimulusImage: '',
       expectedAnswer: '',
       subParts: [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
+      sources: [],
+      boardInfo: [],
+      topSchool: [],
+      university: [],
     });
     setSelClass(''); setSelVersion(''); setSelSubject('');
   };
@@ -170,6 +231,10 @@ export default function QuestionsPage() {
         questionImage: item.questionImage || '',
         expectedAnswer: item.expectedAnswer || '',
         subParts: item.subParts?.length > 0 ? item.subParts : [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
+        sources: item.sources || [],
+        boardInfo: item.boardInfo || [],
+        topSchool: item.topSchool || [],
+        university: item.university || [],
       });
       // Set hierarchy selectors
       setSelClass(item.classId?._id || item.classId || '');
@@ -221,6 +286,73 @@ export default function QuestionsPage() {
     const parts = [...form.subParts];
     parts[idx] = { ...parts[idx], [field]: value };
     setForm({ ...form, subParts: parts });
+  };
+
+  const handleCopyTemplate = (key) => {
+    const templateStr = JSON.stringify(IMPORT_TEMPLATES[key], null, 2);
+    navigator.clipboard.writeText(templateStr);
+    toast.success('টেমপ্লেট কপি করা হয়েছে!');
+  };
+
+  const toggleSource = (src) => {
+    const next = form.sources.includes(src)
+      ? form.sources.filter(s => s !== src)
+      : [...form.sources, src];
+    setForm({ ...form, sources: next });
+  };
+
+  const addBoardInfo = () => {
+    if (!newBoard.shortForm || !newBoard.year) {
+      toast.error('বোর্ডের নাম ও বছর প্রদান করুন');
+      return;
+    }
+    const item = {
+      boardId: { shortForm: newBoard.shortForm },
+      year: Number(newBoard.year) || 0,
+      questionNo: newBoard.questionNo || undefined,
+    };
+    setForm({ ...form, boardInfo: [...form.boardInfo, item] });
+    setNewBoard({ shortForm: '', year: '', questionNo: '' });
+  };
+
+  const removeBoardInfo = (idx) => {
+    setForm({ ...form, boardInfo: form.boardInfo.filter((_, i) => i !== idx) });
+  };
+
+  const addAdmissionInfo = () => {
+    if (!newAdmission.name || !newAdmission.year) {
+      toast.error('প্রতিষ্ঠানের নাম ও বছর প্রদান করুন');
+      return;
+    }
+    const item = {
+      universityId: { name: newAdmission.name },
+      year: Number(newAdmission.year) || 0,
+      questionNo: newAdmission.questionNo || undefined,
+    };
+    setForm({ ...form, university: [...form.university, item] });
+    setNewAdmission({ name: '', year: '', questionNo: '' });
+  };
+
+  const removeAdmissionInfo = (idx) => {
+    setForm({ ...form, university: form.university.filter((_, i) => i !== idx) });
+  };
+
+  const addSchoolInfo = () => {
+    if (!newSchool.name || !newSchool.year) {
+      toast.error('স্কুল/কলেজের নাম ও বছর প্রদান করুন');
+      return;
+    }
+    const item = {
+      schoolId: { name: newSchool.name },
+      year: Number(newSchool.year) || 0,
+      questionNo: newSchool.questionNo || undefined,
+    };
+    setForm({ ...form, topSchool: [...form.topSchool, item] });
+    setNewSchool({ name: '', year: '', questionNo: '' });
+  };
+
+  const removeSchoolInfo = (idx) => {
+    setForm({ ...form, topSchool: form.topSchool.filter((_, i) => i !== idx) });
   };
 
   const handleBulkImport = async (e) => {
@@ -303,6 +435,11 @@ export default function QuestionsPage() {
       if (form.type === 'OTHER' || form.type === 'SHORT') {
         body.expectedAnswer = form.expectedAnswer || undefined;
       }
+
+      body.sources = form.sources || [];
+      body.boardInfo = form.sources.includes('Board') ? form.boardInfo : [];
+      body.university = form.sources.includes('Admission') ? form.university : [];
+      body.topSchool = form.sources.includes('Top School/College') ? form.topSchool : [];
 
       if (editItem) {
         await dispatch(updateQuestion({ id: editItem._id, body })).unwrap();
@@ -911,6 +1048,179 @@ export default function QuestionsPage() {
             </div>
           )}
 
+          {/* Sources Section */}
+          <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200 space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-neutral-700 mb-2">উৎস (Source)</label>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                {[
+                  { value: 'Board', label: 'বোর্ড (Board)' },
+                  { value: 'Admission', label: 'ভর্তি পরীক্ষা (Admission)' },
+                  { value: 'Top School/College', label: 'শীর্ষ স্কুল/কলেজ (Top School/College)' },
+                  { value: 'Main Book', label: 'মূল বই (Main Book)' },
+                  { value: 'Onusiloni', label: 'অনুশীলনী (Onusiloni)' }
+                ].map((src) => (
+                  <label key={src.value} className="flex items-center gap-2 text-sm text-neutral-600 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={form.sources?.includes(src.value)}
+                      onChange={() => toggleSource(src.value)}
+                      className="rounded border-neutral-355 text-primary-600 focus:ring-primary-500 h-4 w-4"
+                    />
+                    {src.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Board Sub-form */}
+            {form.sources?.includes('Board') && (
+              <div className="border-t border-neutral-200 pt-3 space-y-2">
+                <span className="block text-xs font-bold text-neutral-600 uppercase tracking-wider">বোর্ড তথ্য (Board Info)</span>
+                
+                {form.boardInfo?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {form.boardInfo.map((bi, idx) => (
+                      <span key={idx} className="bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded text-xs flex items-center gap-1.5 font-medium">
+                        {bi.boardId?.shortForm} ({bi.year}) {bi.questionNo ? `[প্রশ্ন: ${bi.questionNo}]` : ''}
+                        <button type="button" onClick={() => removeBoardInfo(idx)} className="text-sky-400 hover:text-sky-600 font-bold">×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="বোর্ড (যেমন: ঢা.বোঃ)"
+                    value={newBoard.shortForm}
+                    onChange={(e) => setNewBoard({ ...newBoard, shortForm: e.target.value })}
+                    className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="বছর (যেমন: ১৬)"
+                    value={newBoard.year}
+                    onChange={(e) => setNewBoard({ ...newBoard, year: e.target.value })}
+                    className="w-20 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="প্রশ্ন নং (ঐচ্ছিক)"
+                    value={newBoard.questionNo}
+                    onChange={(e) => setNewBoard({ ...newBoard, questionNo: e.target.value })}
+                    className="w-24 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={addBoardInfo}
+                    className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-semibold shrink-0 transition-colors"
+                  >
+                    যোগ করুন
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Admission Sub-form */}
+            {form.sources?.includes('Admission') && (
+              <div className="border-t border-neutral-200 pt-3 space-y-2">
+                <span className="block text-xs font-bold text-neutral-600 uppercase tracking-wider">ভর্তি পরীক্ষা তথ্য (Admission Info)</span>
+                
+                {form.university?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {form.university.map((uni, idx) => (
+                      <span key={idx} className="bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded text-xs flex items-center gap-1.5 font-medium">
+                        {uni.universityId?.name} ({uni.year}) {uni.questionNo ? `[ইউনিট/প্রশ্ন: ${uni.questionNo}]` : ''}
+                        <button type="button" onClick={() => removeAdmissionInfo(idx)} className="text-purple-400 hover:text-purple-600 font-bold">×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="প্রতিষ্ঠান (যেমন: DU)"
+                    value={newAdmission.name}
+                    onChange={(e) => setNewAdmission({ ...newAdmission, name: e.target.value })}
+                    className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="বছর (যেমন: ১২)"
+                    value={newAdmission.year}
+                    onChange={(e) => setNewAdmission({ ...newAdmission, year: e.target.value })}
+                    className="w-20 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="ইউনিট/প্রশ্ন নং (ঐচ্ছিক)"
+                    value={newAdmission.questionNo}
+                    onChange={(e) => setNewAdmission({ ...newAdmission, questionNo: e.target.value })}
+                    className="w-32 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={addAdmissionInfo}
+                    className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-semibold shrink-0 transition-colors"
+                  >
+                    যোগ করুন
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Top School/College Sub-form */}
+            {form.sources?.includes('Top School/College') && (
+              <div className="border-t border-neutral-200 pt-3 space-y-2">
+                <span className="block text-xs font-bold text-neutral-600 uppercase tracking-wider">শীর্ষ স্কুল/কলেজ তথ্য (School/College Info)</span>
+                
+                {form.topSchool?.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {form.topSchool.map((ts, idx) => (
+                      <span key={idx} className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-xs flex items-center gap-1.5 font-medium">
+                        {ts.schoolId?.name} ({ts.year}) {ts.questionNo ? `[প্রশ্ন: ${ts.questionNo}]` : ''}
+                        <button type="button" onClick={() => removeSchoolInfo(idx)} className="text-emerald-400 hover:text-emerald-600 font-bold">×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="স্কুল/কলেজ নাম (যেমন: রাজউক)"
+                    value={newSchool.name}
+                    onChange={(e) => setNewSchool({ ...newSchool, name: e.target.value })}
+                    className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="বছর (যেমন: ২৩)"
+                    value={newSchool.year}
+                    onChange={(e) => setNewSchool({ ...newSchool, year: e.target.value })}
+                    className="w-20 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="প্রশ্ন নং (ঐচ্ছিক)"
+                    value={newSchool.questionNo}
+                    onChange={(e) => setNewSchool({ ...newSchool, questionNo: e.target.value })}
+                    className="w-24 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={addSchoolInfo}
+                    className="px-3 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-semibold shrink-0 transition-colors"
+                  >
+                    যোগ করুন
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Explanation */}
           <MathInput
             label="ব্যাখ্যা (ঐচ্ছিক)"
@@ -935,6 +1245,49 @@ export default function QuestionsPage() {
             <span className="font-bold block mb-1">নির্দেশনাবলী:</span>
             ১. প্রথমে প্রশ্নগুলো কোন অধ্যায়ে যুক্ত হবে তা নির্বাচন করুন।<br />
             ২. নিচে প্রশ্নোত্তর সম্বলিত JSON অবজেক্ট বা অ্যারে পেস্ট করুন। JSON-এ `question` (প্রশ্ন), `type` (mcq/cq) এবং `options` (অপশনগুলোর অ্যারে) থাকা আবশ্যক। MCQ-এর ক্ষেত্রে `mcqAns` (০-ভিত্তিক সঠিক উত্তরের সূচক) প্রদান করুন।
+          </div>
+
+          {/* Template Copy Section */}
+          <div className="border border-neutral-200 rounded-xl p-3 bg-neutral-50/50 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-neutral-600">টেমপ্লেট কপি করুন:</span>
+              <button
+                type="button"
+                onClick={() => handleCopyTemplate(activeTemplateTab)}
+                className="flex items-center gap-1.5 text-xs text-primary-600 hover:text-primary-700 font-semibold px-2.5 py-1 bg-white border border-neutral-200 rounded-lg hover:shadow-sm transition-all"
+                title="টেমপ্লেট কোড কপি করুন"
+              >
+                <HiOutlineClipboardCopy className="h-3.5 w-3.5" />
+                কপি করুন
+              </button>
+            </div>
+            
+            <div className="flex gap-1 border-b border-neutral-200 pb-1.5">
+              {[
+                { id: 'mcq', label: 'বহুনির্বাচনী (MCQ)' },
+                { id: 'cq', label: 'সৃজনশীল (CQ)' },
+                { id: 'short', label: 'সংক্ষিপ্ত / অন্যান্য' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTemplateTab(tab.id)}
+                  className={`text-xs px-2.5 py-1.5 rounded-lg font-medium transition-all ${
+                    activeTemplateTab === tab.id
+                      ? 'bg-primary-600 text-white shadow-sm'
+                      : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative rounded-lg overflow-hidden border border-neutral-200">
+              <pre className="text-[10px] leading-relaxed font-mono bg-neutral-900 text-neutral-200 p-3 overflow-x-auto max-h-[140px] select-all">
+                {JSON.stringify(IMPORT_TEMPLATES[activeTemplateTab], null, 2)}
+              </pre>
+            </div>
           </div>
 
           {/* Chapter Selector */}

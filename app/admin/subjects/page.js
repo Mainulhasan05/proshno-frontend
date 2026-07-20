@@ -263,8 +263,18 @@ export default function SubjectsPage() {
             <h3 className="font-semibold text-neutral-800 text-sm">{sub.name}</h3>
             {/* Show class/version context */}
             <p className="text-xs text-neutral-400 mt-1">{getSubjectContext(sub)}</p>
-            <div className="flex items-center gap-1.5 mt-2">
+            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
               {sub.code && <span className="text-xs bg-neutral-100 text-neutral-500 px-2 py-0.5 rounded-full">{sub.code}</span>}
+              <span
+                onClick={() => {
+                  navigator.clipboard.writeText(sub._id);
+                  toast.success('বিষয় ID কপি করা হয়েছে!');
+                }}
+                className="text-[9px] text-neutral-450 hover:text-primary-600 bg-neutral-100 hover:bg-primary-50 px-2 py-0.5 rounded-full font-mono transition-all cursor-pointer select-all border border-neutral-200/50"
+                title="ID কপি করতে ক্লিক করুন"
+              >
+                ID: {sub._id}
+              </span>
               {!sub.isActive && <span className="text-xs bg-red-50 text-red-400 px-2 py-0.5 rounded-full">নিষ্ক্রিয়</span>}
             </div>
           </motion.div>

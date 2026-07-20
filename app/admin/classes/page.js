@@ -40,8 +40,21 @@ function PanelItem({ item, isSelected, onSelect, onEdit, onToggle, onDelete, ico
         </div>
         <div className="min-w-0">
           <p className={`text-sm font-medium truncate ${isSelected ? 'text-primary-700' : 'text-neutral-800'}`}>{item.name}</p>
-          {item.code && <p className="text-[10px] text-neutral-400 font-mono">{item.code}</p>}
-          {!item.isActive && <span className="text-[10px] text-red-400">নিষ্ক্রিয়</span>}
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            {item.code && <p className="text-[10px] text-neutral-400 font-mono">{item.code}</p>}
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(item._id);
+                toast.success('ID কপি করা হয়েছে!');
+              }}
+              className="text-[9px] text-neutral-400 hover:text-primary-600 bg-neutral-100 hover:bg-primary-50 px-1 py-0.5 rounded font-mono transition-all cursor-pointer inline-flex items-center gap-0.5 select-all border border-neutral-200/60"
+              title="ID কপি করতে ক্লিক করুন"
+            >
+              ID: {item._id}
+            </span>
+            {!item.isActive && <span className="text-[10px] text-red-400">নিষ্ক্রিয়</span>}
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-0.5 shrink-0">
@@ -338,7 +351,19 @@ export default function ClassesPage() {
                           <HiOutlineAcademicCap className="h-5 w-5 text-primary-500" />
                           {cls.name}
                         </h2>
-                        {cls.nameEn && <p className="text-xs text-neutral-400 font-mono mt-0.5">{cls.nameEn}</p>}
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          {cls.nameEn && <span className="text-xs text-neutral-400 font-mono">{cls.nameEn}</span>}
+                          <span
+                            onClick={() => {
+                              navigator.clipboard.writeText(cls._id);
+                              toast.success('ক্লাস ID কপি করা হয়েছে!');
+                            }}
+                            className="text-[9px] text-neutral-400 hover:text-primary-600 bg-neutral-100 hover:bg-primary-50 px-1 py-0.5 rounded font-mono transition-all cursor-pointer select-all border border-neutral-200/60"
+                            title="ID কপি করতে ক্লিক করুন"
+                          >
+                            ID: {cls._id}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <span className="text-[10px] bg-primary-50 text-primary-700 font-bold px-2 py-0.5 rounded border border-primary-100">
@@ -356,19 +381,43 @@ export default function ClassesPage() {
                       <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
                         {cls.versions.map((ver) => (
                           <div key={ver._id} className="space-y-2">
-                            <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
-                              <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
-                              {ver.name}
-                            </h3>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
+                                <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+                                {ver.name}
+                              </h3>
+                              <span
+                                onClick={() => {
+                                  navigator.clipboard.writeText(ver._id);
+                                  toast.success('ভার্সন ID কপি করা হয়েছে!');
+                                }}
+                                className="text-[9px] text-neutral-400 hover:text-primary-600 bg-neutral-100 hover:bg-primary-50 px-1 py-0.5 rounded font-mono transition-all cursor-pointer select-all border border-neutral-200/60"
+                                title="ID কপি করতে ক্লিক করুন"
+                              >
+                                ID: {ver._id}
+                              </span>
+                            </div>
                             
                             {ver.subjects?.length === 0 ? (
                               <p className="text-[11px] text-neutral-400 pl-4 py-1">কোনো বিষয় নেই</p>
                             ) : (
                               <div className="bg-neutral-50 rounded-lg overflow-hidden border border-neutral-100 pl-3 pr-3 divide-y divide-neutral-100">
                                 {ver.subjects.map((sub) => (
-                                  <div key={sub._id} className="flex justify-between items-center py-2 text-xs">
-                                    <span className="font-medium text-neutral-700">{sub.name}</span>
-                                    <span className="text-[10px] bg-neutral-200/70 text-neutral-600 px-2 py-0.5 rounded-full font-bold">
+                                  <div key={sub._id} className="flex justify-between items-center py-2 text-xs gap-3">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="font-medium text-neutral-700 truncate">{sub.name}</span>
+                                      <span
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(sub._id);
+                                          toast.success('বিষয় ID কপি করা হয়েছে!');
+                                        }}
+                                        className="text-[9px] text-neutral-400 hover:text-primary-600 bg-neutral-150/50 hover:bg-primary-50 px-1 py-0.5 rounded font-mono transition-all cursor-pointer select-all border border-neutral-200/40 shrink-0"
+                                        title="ID কপি করতে ক্লিক করুন"
+                                      >
+                                        ID: {sub._id}
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] bg-neutral-200/70 text-neutral-600 px-2 py-0.5 rounded-full font-bold shrink-0">
                                       {sub.chapters?.length || 0} অধ্যায়
                                     </span>
                                   </div>

@@ -300,7 +300,19 @@ export default function ChaptersPage() {
                 <div>
                   <p className="font-semibold text-neutral-800 text-sm">{ch.name}</p>
                   <p className="text-xs text-neutral-400 mt-0.5">{getChapterContext(ch)}</p>
-                  {!ch.isActive && <span className="text-xs bg-red-50 text-red-400 px-2 py-0.5 rounded-full">নিষ্ক্রিয়</span>}
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <span
+                      onClick={() => {
+                        navigator.clipboard.writeText(ch._id);
+                        toast.success('অধ্যায় ID কপি করা হয়েছে!');
+                      }}
+                      className="text-[9px] text-neutral-450 hover:text-primary-600 bg-neutral-100 hover:bg-primary-50 px-2 py-0.5 rounded-full font-mono transition-all cursor-pointer select-all border border-neutral-200/50"
+                      title="ID কপি করতে ক্লিক করুন"
+                    >
+                      ID: {ch._id}
+                    </span>
+                    {!ch.isActive && <span className="text-xs bg-red-50 text-red-400 px-2 py-0.5 rounded-full">নিষ্ক্রিয়</span>}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
