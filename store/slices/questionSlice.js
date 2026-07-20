@@ -21,6 +21,15 @@ export const createQuestion = createAsyncThunk('questions/createQuestion', async
   }
 });
 
+export const bulkImportQuestions = createAsyncThunk('questions/bulkImportQuestions', async (body, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.post('/questions/bulk-import', body);
+    return response;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Failed to bulk import questions');
+  }
+});
+
 export const updateQuestion = createAsyncThunk('questions/updateQuestion', async ({ id, body }, { rejectWithValue }) => {
   try {
     const response = await apiClient.put(`/questions/${id}`, body);

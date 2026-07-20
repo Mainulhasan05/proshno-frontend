@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { fetchQuestions, createQuestion, updateQuestion, toggleQuestionActive, deleteQuestion } from '@/store/slices/questionSlice';
+import { fetchQuestions, createQuestion, bulkImportQuestions, updateQuestion, toggleQuestionActive, deleteQuestion } from '@/store/slices/questionSlice';
 import { fetchTree } from '@/store/slices/hierarchySlice';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -63,6 +63,22 @@ export default function QuestionsPage() {
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
+
+  // Bulk Import Modal
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importJson, setImportJson] = useState('');
+  const [importError, setImportError] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+
+  // Selected hierarchy for bulk import
+  const [impClass, setImpClass] = useState('');
+  const [impVersion, setImpVersion] = useState('');
+  const [impSubject, setImpSubject] = useState('');
+  const [impChapter, setImpChapter] = useState('');
+
+  const impVersions = tree.find((c) => c._id === impClass)?.versions || [];
+  const impSubjects = impVersions.find((v) => v._id === impVersion)?.subjects || [];
+  const impChapters = impSubjects.find((s) => s._id === impSubject)?.chapters || [];
 
   // Form
   const [form, setForm] = useState({
@@ -207,6 +223,48 @@ export default function QuestionsPage() {
     setForm({ ...form, subParts: parts });
   };
 
+  const handleBulkImport = async (e) => {
+    e.preventDefault();
+    setImportError('');
+    setIsImporting(true);
+
+    if (!impChapter) {
+      setImportError('অনুগ্রহ করে অধ্যায় নির্বাচন করুন');
+      setIsImporting(false);
+      return;
+    }
+
+    let parsedJson;
+    try {
+      parsedJson = JSON.parse(importJson);
+      if (parsedJson && parsedJson.result && Array.isArray(parsedJson.result.questions)) {
+        parsedJson = parsedJson.result.questions;
+      } else if (parsedJson && Array.isArray(parsedJson.questions)) {
+        parsedJson = parsedJson.questions;
+      }
+      if (!Array.isArray(parsedJson)) {
+        throw new Error('JSON format is invalid. It must be an array of questions.');
+      }
+    } catch (err) {
+      setImportError(`JSON পার্স করতে ব্যর্থ: ${err.message}`);
+      setIsImporting(false);
+      return;
+    }
+
+    try {
+      await dispatch(bulkImportQuestions({ questions: parsedJson, chapterId: impChapter })).unwrap();
+      toast.success(`${parsedJson.length}টি প্রশ্ন সফলভাবে ইমপোর্ট করা হয়েছে`);
+      setImportModalOpen(false);
+      setImportJson('');
+      setImportError('');
+      dispatch(fetchQuestions(filters));
+    } catch (err) {
+      setImportError(err || 'ইমপোর্ট করতে ব্যর্থ হয়েছে');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -293,6 +351,9 @@ export default function QuestionsPage() {
           <Button variant="ghost" size="sm" onClick={() => setShowFilters(!showFilters)}>
             <HiOutlineFilter className="h-4 w-4" />
             ফিল্টার
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setImportModalOpen(true)}>
+            বাল্ক ইমপোর্ট
           </Button>
           <Button size="sm" onClick={() => openModal()}>
             <HiOutlinePlus className="h-4 w-4" />
@@ -504,6 +565,27 @@ export default function QuestionsPage() {
                   <span>→</span>
                   <span className="text-neutral-400">{q.chapterId?.name || 'Unknown Chapter'}</span>
                 </p>
+
+                {/* Board / School / University Info Badges */}
+                {((q.boardInfo && q.boardInfo.length > 0) || (q.topSchool && q.topSchool.length > 0) || (q.university && q.university.length > 0)) && (
+                  <div className="flex flex-wrap gap-1.5 mt-2.5">
+                    {q.boardInfo?.map((bi, idx) => (
+                      <span key={`board-${idx}`} className="bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                        {bi.boardId?.shortForm || 'বোর্ড'} ({bi.year}) {bi.questionNo ? `[প্রশ্ন: ${bi.questionNo}]` : ''}
+                      </span>
+                    ))}
+                    {q.topSchool?.map((ts, idx) => (
+                      <span key={`school-${idx}`} className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                        {ts.schoolId?.name || 'স্কুল'} ({ts.year}) {ts.questionNo ? `[প্রশ্ন: ${ts.questionNo}]` : ''}
+                      </span>
+                    ))}
+                    {q.university?.map((uni, idx) => (
+                      <span key={`uni-${idx}`} className="bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                        {uni.universityId?.name || 'বিশ্ববিদ্যালয়'} ({uni.year}) {uni.questionNo ? `[প্রশ্ন: ${uni.questionNo}]` : ''}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Actions */}
@@ -842,6 +924,82 @@ export default function QuestionsPage() {
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="ghost" onClick={closeModal} className="flex-1">বাতিল</Button>
             <Button type="submit" className="flex-1">{editItem ? 'আপডেট করুন' : 'তৈরি করুন'}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Bulk Import Modal */}
+      <Modal isOpen={importModalOpen} onClose={() => { setImportModalOpen(false); setImportJson(''); setImportError(''); }} title="প্রশ্ন বাল্ক ইমপোর্ট (Bulk Import)" maxWidth="max-w-2xl">
+        <form onSubmit={handleBulkImport} className="space-y-4 font-sans">
+          <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs text-blue-700 leading-relaxed">
+            <span className="font-bold block mb-1">নির্দেশনাবলী:</span>
+            ১. প্রথমে প্রশ্নগুলো কোন অধ্যায়ে যুক্ত হবে তা নির্বাচন করুন।<br />
+            ২. নিচে প্রশ্নোত্তর সম্বলিত JSON অবজেক্ট বা অ্যারে পেস্ট করুন। JSON-এ `question` (প্রশ্ন), `type` (mcq/cq) এবং `options` (অপশনগুলোর অ্যারে) থাকা আবশ্যক। MCQ-এর ক্ষেত্রে `mcqAns` (০-ভিত্তিক সঠিক উত্তরের সূচক) প্রদান করুন।
+          </div>
+
+          {/* Chapter Selector */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">ক্লাস নির্বাচন করুন *</label>
+              <select value={impClass} onChange={(e) => { setImpClass(e.target.value); setImpVersion(''); setImpSubject(''); setImpChapter(''); }}
+                className="w-full px-3 py-2 border border-neutral-350 rounded-lg text-sm bg-white focus:ring-1 focus:ring-primary-500 outline-none" required>
+                <option value="">ক্লাস সিলেক্ট করুন</option>
+                {tree.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">ভার্সন নির্বাচন করুন *</label>
+              <select value={impVersion} onChange={(e) => { setImpVersion(e.target.value); setImpSubject(''); setImpChapter(''); }}
+                className="w-full px-3 py-2 border border-neutral-350 rounded-lg text-sm bg-white focus:ring-1 focus:ring-primary-500 outline-none" disabled={!impClass} required>
+                <option value="">ভার্সন সিলেক্ট করুন</option>
+                {impVersions.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">বিষয় নির্বাচন করুন *</label>
+              <select value={impSubject} onChange={(e) => { setImpSubject(e.target.value); setImpChapter(''); }}
+                className="w-full px-3 py-2 border border-neutral-350 rounded-lg text-sm bg-white focus:ring-1 focus:ring-primary-500 outline-none" disabled={!impVersion} required>
+                <option value="">বিষয় সিলেক্ট করুন</option>
+                {impSubjects.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">অধ্যায় নির্বাচন করুন *</label>
+              <select value={impChapter} onChange={(e) => setImpChapter(e.target.value)}
+                className="w-full px-3 py-2 border border-neutral-350 rounded-lg text-sm bg-white focus:ring-1 focus:ring-primary-500 outline-none" disabled={!impSubject} required>
+                <option value="">অধ্যায় সিলেক্ট করুন</option>
+                {impChapters.map((ch) => <option key={ch._id} value={ch._id}>{ch.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* JSON Textarea */}
+          <div>
+            <label className="block text-xs font-semibold text-neutral-600 mb-1">JSON কোড পেস্ট করুন *</label>
+            <textarea
+              value={importJson}
+              onChange={(e) => setImportJson(e.target.value)}
+              placeholder='[ { "question": "উূভল ঔঈঋ গঙ ঘূ?", "type": "mcq", "options": ["ওম", "কুলম্ব", "জুল", "ফ্যারাড"], "mcqAns": 1 } ]'
+              rows={8}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm font-mono focus:ring-1 focus:ring-primary-500 outline-none resize-y"
+              required
+            />
+          </div>
+
+          {importError && (
+            <p className="text-xs text-red-600 font-medium bg-red-50 border border-red-200 p-2.5 rounded-lg">{importError}</p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
+            <Button type="button" variant="ghost" onClick={() => { setImportModalOpen(false); setImportJson(''); setImportError(''); }} disabled={isImporting}>
+              বাতিল
+            </Button>
+            <Button type="submit" disabled={isImporting}>
+              {isImporting ? 'ইমপোর্ট করা হচ্ছে...' : 'ইমপোর্ট সম্পন্ন করুন'}
+            </Button>
           </div>
         </form>
       </Modal>
