@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { fetchQuestions, createQuestion, bulkImportQuestions, updateQuestion, toggleQuestionActive, deleteQuestion } from '@/store/slices/questionSlice';
+import { fetchQuestions, createQuestion, bulkImportQuestions, parseExcelQuestions, updateQuestion, toggleQuestionActive, deleteQuestion } from '@/store/slices/questionSlice';
 import { fetchTree } from '@/store/slices/hierarchySlice';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -13,6 +13,8 @@ import {
   HiOutlinePlus, HiOutlinePencil, HiOutlineTrash,
   HiOutlineEye, HiOutlineEyeOff, HiOutlineFilter,
   HiOutlineCheck, HiOutlineX, HiOutlineClipboardCopy,
+  HiOutlineUpload, HiOutlineDownload, HiOutlineCheckCircle,
+  HiOutlineExclamationCircle, HiOutlineDocumentText, HiOutlinePencilAlt
 } from 'react-icons/hi';
 
 import MathRenderer from '@/components/shared/MathRenderer';
@@ -111,12 +113,23 @@ export default function QuestionsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
 
-  // Bulk Import Modal
+  // Bulk Import Modal (JSON)
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importJson, setImportJson] = useState('');
   const [importError, setImportError] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [activeTemplateTab, setActiveTemplateTab] = useState('mcq');
+
+  // Excel Bulk Upload State
+  const [excelModalOpen, setExcelModalOpen] = useState(false);
+  const [excelFile, setExcelFile] = useState(null);
+  const [isParsingExcel, setIsParsingExcel] = useState(false);
+  const [isImportingExcel, setIsImportingExcel] = useState(false);
+  const [excelError, setExcelError] = useState('');
+  const [excelParsedResult, setExcelParsedResult] = useState(null);
+  const [editingExcelIdx, setEditingExcelIdx] = useState(null);
+  const [editingExcelItem, setEditingExcelItem] = useState(null);
+
 
   // Input states for sources sub-forms
   const [newBoard, setNewBoard] = useState({ shortForm: '', year: '', questionNo: '' });
@@ -407,6 +420,121 @@ export default function QuestionsPage() {
     }
   };
 
+  const handleParseExcelFile = async (fileToParse) => {
+    const file = fileToParse || excelFile;
+    if (!file) {
+      toast.error('অনুগ্রহ করে একটি Excel ফাইল নির্বাচন করুন');
+      return;
+    }
+    setIsParsingExcel(true);
+    setExcelError('');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const params = {};
+      if (impSubject) params.subjectId = impSubject;
+      if (impChapter) params.chapterId = impChapter;
+      if (impTopic) params.topicId = impTopic;
+
+      const res = await dispatch(parseExcelQuestions({ formData, params })).unwrap();
+      setExcelParsedResult(res);
+      toast.success(`${res.totalParsed || 0}টি প্রশ্ন পার্স এবং বিষয়/অধ্যায় নাম রেজোলিউশন সম্পন্ন হয়েছে`);
+    } catch (err) {
+      setExcelError(typeof err === 'string' ? err : 'Excel ফাইল পার্স করতে ব্যর্থ হয়েছে');
+    } finally {
+      setIsParsingExcel(false);
+    }
+  };
+
+  const handleConfirmExcelImport = async () => {
+    if (!excelParsedResult || !excelParsedResult.questions || excelParsedResult.questions.length === 0) {
+      toast.error('ইমপোর্ট করার জন্য কোনো প্রশ্ন নেই');
+      return;
+    }
+    const validQuestions = excelParsedResult.questions.filter((q) => q.status !== 'invalid');
+    if (validQuestions.length === 0) {
+      toast.error('কোনো বৈধ (Valid) প্রশ্ন পাওয়া যায়নি');
+      return;
+    }
+    setIsImportingExcel(true);
+    setExcelError('');
+    try {
+      await dispatch(bulkImportQuestions({ questions: validQuestions, chapterId: impChapter || undefined })).unwrap();
+      toast.success(`${validQuestions.length}টি প্রশ্ন সফলভাবে ডাটাবেজে ইমপোর্ট করা হয়েছে!`);
+      setExcelModalOpen(false);
+      setExcelFile(null);
+      setExcelParsedResult(null);
+      dispatch(fetchQuestions(filters));
+    } catch (err) {
+      setExcelError(err || 'ইমপোর্ট করতে ব্যর্থ হয়েছে');
+    } finally {
+      setIsImportingExcel(false);
+    }
+  };
+
+  const handleDeleteParsedItem = (idx) => {
+    if (!excelParsedResult) return;
+    const updated = [...excelParsedResult.questions];
+    updated.splice(idx, 1);
+    const validCount = updated.filter((q) => q.status === 'valid').length;
+    const warningCount = updated.filter((q) => q.status === 'warning').length;
+    const invalidCount = updated.filter((q) => q.status === 'invalid').length;
+    setExcelParsedResult({
+      ...excelParsedResult,
+      totalParsed: updated.length,
+      validCount,
+      warningCount,
+      invalidCount,
+      questions: updated,
+    });
+  };
+
+  const handleOpenEditParsedItem = (idx) => {
+    setEditingExcelIdx(idx);
+    setEditingExcelItem(JSON.parse(JSON.stringify(excelParsedResult.questions[idx])));
+  };
+
+  const handleSaveEditedParsedItem = () => {
+    if (editingExcelIdx === null || !editingExcelItem) return;
+    const updated = [...excelParsedResult.questions];
+    const errors = [];
+    const warnings = [];
+
+    if (!editingExcelItem.questionText) errors.push('প্রশ্ন আবশ্যক');
+    if (!editingExcelItem.chapterId) errors.push('অধ্যায় আবশ্যক');
+
+    let status = 'valid';
+    if (errors.length > 0) {
+      status = 'invalid';
+    } else if (warnings.length > 0) {
+      status = 'warning';
+    }
+
+    const newItem = {
+      ...editingExcelItem,
+      status,
+      errors,
+      warnings,
+    };
+
+    updated[editingExcelIdx] = newItem;
+    const validCount = updated.filter((q) => q.status === 'valid').length;
+    const warningCount = updated.filter((q) => q.status === 'warning').length;
+    const invalidCount = updated.filter((q) => q.status === 'invalid').length;
+
+    setExcelParsedResult({
+      ...excelParsedResult,
+      totalParsed: updated.length,
+      validCount,
+      warningCount,
+      invalidCount,
+      questions: updated,
+    });
+    setEditingExcelIdx(null);
+    setEditingExcelItem(null);
+    toast.success('প্রশ্ন আপডেট করা হয়েছে');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -501,7 +629,15 @@ export default function QuestionsPage() {
             ফিল্টার
           </Button>
           <Button variant="outline" size="sm" onClick={() => setImportModalOpen(true)}>
-            বাল্ক ইমপোর্ট
+            JSON ইমপোর্ট
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setExcelModalOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex items-center gap-1.5 shadow-sm transition-all"
+          >
+            <HiOutlineUpload className="h-4 w-4" />
+            Excel থেকে আপলোড
           </Button>
           <Button size="sm" onClick={() => openModal()}>
             <HiOutlinePlus className="h-4 w-4" />
@@ -1387,6 +1523,360 @@ export default function QuestionsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Excel Upload & Live Preview Modal */}
+      <Modal
+        isOpen={excelModalOpen}
+        onClose={() => {
+          setExcelModalOpen(false);
+          setExcelFile(null);
+          setExcelParsedResult(null);
+          setExcelError('');
+        }}
+        title="Excel ফাইল থেকে প্রশ্ন বাল্ক আপলোড (Excel Upload & Live Preview)"
+        maxWidth="max-w-5xl"
+      >
+        <div className="space-y-5 font-sans">
+          {/* Instructions & Template Download Banner */}
+          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-emerald-900">
+            <div>
+              <span className="font-bold block mb-1 text-sm text-emerald-800">
+                Excel আপলোড গাইডলাইন:
+              </span>
+              ১. Bangla Excel ফাইল (`.xlsx`) আপলোড করুন। (উদা: HSC-Sample-2.xlsx)<br />
+              ২. কলামসমূহ: `প্রশ্ন`, `অপশন ক`, `অপশন খ`, `অপশন গ`, `অপশন ঘ`, `সঠিক উত্তর`, `বিষয়`, `অধ্যায়`, `টপিক`, `Difficulti level`, `Cognitive Level`, `Source` ইত্যাদি।<br />
+              ৩. বিষয়, অধ্যায় এবং টপিকের নাম স্বয়ংক্রিয়ভাবে ডাটাবেজ থেকে রেজোলিউশন করে দেখানো হবে।
+            </div>
+            <a
+              href="/templates/HSC-Sample-2.xlsx"
+              download="HSC-Sample-2.xlsx"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shrink-0 shadow-sm transition-all text-xs"
+            >
+              <HiOutlineDownload className="h-4 w-4" />
+              স্যাম্পল Excel ডাউনলোড
+            </a>
+          </div>
+
+          {/* File Picker & Action Bar */}
+          <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl space-y-3">
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider">
+              Excel ফাইল নির্বাচন করুন (.xlsx / .xls)
+            </label>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <input
+                type="file"
+                accept=".xlsx, .xls"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setExcelFile(file);
+                    handleParseExcelFile(file);
+                  }
+                }}
+                className="block w-full text-xs text-neutral-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 border border-neutral-300 rounded-lg bg-white p-1"
+              />
+              {excelFile && (
+                <Button
+                  onClick={() => handleParseExcelFile()}
+                  disabled={isParsingExcel}
+                  size="sm"
+                  className="shrink-0 bg-primary-600 text-white"
+                >
+                  {isParsingExcel ? 'পার্স করা হচ্ছে...' : 'পুনরায় পার্স করুন'}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {excelError && (
+            <p className="text-xs text-red-600 font-medium bg-red-50 border border-red-200 p-3 rounded-lg">
+              {excelError}
+            </p>
+          )}
+
+          {/* Parsed Results Banner & Live Preview */}
+          {excelParsedResult && (
+            <div className="space-y-4">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white border border-neutral-200 p-3 rounded-xl shadow-xs">
+                  <span className="text-xs text-neutral-500 block">মোট প্রশ্ন</span>
+                  <span className="text-lg font-bold text-neutral-800">
+                    {excelParsedResult.totalParsed}টি
+                  </span>
+                </div>
+                <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl shadow-xs">
+                  <span className="text-xs text-emerald-600 block font-medium">সঠিক (Valid)</span>
+                  <span className="text-lg font-bold text-emerald-700">
+                    {excelParsedResult.validCount}টি
+                  </span>
+                </div>
+                <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl shadow-xs">
+                  <span className="text-xs text-amber-600 block font-medium">সতর্কতা (Warning)</span>
+                  <span className="text-lg font-bold text-amber-700">
+                    {excelParsedResult.warningCount}টি
+                  </span>
+                </div>
+                <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl shadow-xs">
+                  <span className="text-xs text-rose-600 block font-medium">ত্রুটিপূর্ণ (Invalid)</span>
+                  <span className="text-lg font-bold text-rose-700">
+                    {excelParsedResult.invalidCount}টি
+                  </span>
+                </div>
+              </div>
+
+              {/* Table Preview */}
+              <div className="border border-neutral-200 rounded-xl overflow-hidden shadow-xs bg-white">
+                <div className="p-3 bg-neutral-100/70 border-b border-neutral-200 flex items-center justify-between">
+                  <span className="text-xs font-bold text-neutral-700 uppercase tracking-wider">
+                    পার্সকৃত প্রশ্নের সরাসরি প্রিভিউ ({excelParsedResult.questions?.length}টি)
+                  </span>
+                  <span className="text-[11px] text-neutral-500">
+                    এডিট বাটনে ক্লিক করে প্রশ্নের তথ্য পরিবর্তন করতে পারবেন
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto max-h-[380px] overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-neutral-50 text-neutral-600 border-b border-neutral-200 sticky top-0 font-semibold">
+                      <tr>
+                        <th className="p-3 w-12 text-center">#</th>
+                        <th className="p-3 min-w-[220px]">প্রশ্ন ও অপশন</th>
+                        <th className="p-3 min-w-[180px]">বিষয়, অধ্যায় ও টপিক (Actual Names)</th>
+                        <th className="p-3 w-28 text-center">টাইপ ও ডোমেইন</th>
+                        <th className="p-3 w-24 text-center">স্ট্যাটাস</th>
+                        <th className="p-3 w-20 text-center">অ্যাকশন</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200 bg-white">
+                      {excelParsedResult.questions?.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-neutral-50/80 transition-colors">
+                          <td className="p-3 text-center text-neutral-400 font-mono">
+                            {idx + 1}
+                          </td>
+                          <td className="p-3 space-y-1">
+                            <div className="font-medium text-neutral-900 leading-snug">
+                              <MathRenderer text={item.questionText} />
+                            </div>
+                            {item.type === 'MCQ' && (
+                              <div className="grid grid-cols-2 gap-1 text-[11px] pt-1">
+                                {item.options?.map((opt, oIdx) => (
+                                  <span
+                                    key={oIdx}
+                                    className={`px-1.5 py-0.5 rounded border ${
+                                      opt.isCorrect
+                                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-semibold'
+                                        : 'bg-neutral-50 border-neutral-200 text-neutral-600'
+                                    }`}
+                                  >
+                                    {['ক', 'খ', 'গ', 'ঘ'][oIdx] || oIdx + 1}. {opt.text}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {item.type === 'CQ' && (
+                              <div className="space-y-0.5 text-[11px] pt-1 text-neutral-600">
+                                {item.subParts?.map((sp, spIdx) => (
+                                  <div key={spIdx} className="truncate">
+                                    <span className="font-bold text-neutral-800">{sp.partLabel}.</span> {sp.text} ({sp.marks} নম্বর)
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3 space-y-1">
+                            <div className="flex flex-wrap gap-1">
+                              <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded text-[11px] font-semibold">
+                                {item.subjectName || item.subjectRaw || 'বিষয় নেই'}
+                              </span>
+                              <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded text-[11px] font-semibold">
+                                {item.chapterName || item.chapterRaw || 'অধ্যায় নেই'}
+                              </span>
+                              {item.topicName && (
+                                <span className="bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded text-[11px]">
+                                  {item.topicName}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 text-center space-y-1">
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${TYPE_COLORS[item.type]}`}>
+                              {item.type}
+                            </span>
+                            <div>
+                              <span className="bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded text-[10px] uppercase font-mono">
+                                {COGNITIVE_DOMAINS.find(d => d.value === item.cognitiveDomain)?.label || item.cognitiveDomain}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-3 text-center">
+                            {item.status === 'valid' && (
+                              <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                <HiOutlineCheckCircle className="h-3 w-3" /> Valid
+                              </span>
+                            )}
+                            {item.status === 'warning' && (
+                              <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] font-bold" title={item.warnings?.join(', ')}>
+                                <HiOutlineExclamationCircle className="h-3 w-3" /> Warning
+                              </span>
+                            )}
+                            {item.status === 'invalid' && (
+                              <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full text-[10px] font-bold" title={item.errors?.join(', ')}>
+                                <HiOutlineX className="h-3 w-3" /> Invalid
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-center space-x-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditParsedItem(idx)}
+                              className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                              title="এডিট করুন"
+                            >
+                              <HiOutlinePencilAlt className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteParsedItem(idx)}
+                              className="p-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded"
+                              title="মুছে ফেলুন"
+                            >
+                              <HiOutlineTrash className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal Footer Actions */}
+          <div className="flex justify-between items-center pt-3 border-t border-neutral-200">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setExcelModalOpen(false);
+                setExcelFile(null);
+                setExcelParsedResult(null);
+                setExcelError('');
+              }}
+              disabled={isImportingExcel}
+            >
+              বাতিল
+            </Button>
+
+            {excelParsedResult && (
+              <Button
+                type="button"
+                onClick={handleConfirmExcelImport}
+                disabled={isImportingExcel || excelParsedResult.validCount + excelParsedResult.warningCount === 0}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-2"
+              >
+                {isImportingExcel
+                  ? 'ইমপোর্ট করা হচ্ছে...'
+                  : `নিশ্চিত করুন এবং ${excelParsedResult.validCount + excelParsedResult.warningCount}টি প্রশ্ন ইমপোর্ট করুন`}
+              </Button>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Item Edit Sub-Modal (For Excel Preview Items) */}
+      {editingExcelItem && (
+        <Modal
+          isOpen={!!editingExcelItem}
+          onClose={() => setEditingExcelItem(null)}
+          title="প্রিভিউ প্রশ্নের তথ্য সংশোধন"
+          maxWidth="max-w-xl"
+        >
+          <div className="space-y-4 font-sans text-xs">
+            <div>
+              <label className="block font-semibold text-neutral-700 mb-1">প্রশ্ন *</label>
+              <textarea
+                value={editingExcelItem.questionText || ''}
+                onChange={(e) => setEditingExcelItem({ ...editingExcelItem, questionText: e.target.value })}
+                rows={3}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg outline-none focus:ring-1 focus:ring-primary-500"
+              />
+            </div>
+
+            {editingExcelItem.type === 'MCQ' && editingExcelItem.options && (
+              <div className="space-y-2">
+                <label className="block font-semibold text-neutral-700">অপশন ও সঠিক উত্তর *</label>
+                {editingExcelItem.options.map((opt, oIdx) => (
+                  <div key={oIdx} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="editingCorrectOpt"
+                      checked={opt.isCorrect}
+                      onChange={() => {
+                        const opts = editingExcelItem.options.map((o, i) => ({ ...o, isCorrect: i === oIdx }));
+                        setEditingExcelItem({ ...editingExcelItem, options: opts, mcqAns: oIdx });
+                      }}
+                    />
+                    <input
+                      type="text"
+                      value={opt.text}
+                      onChange={(e) => {
+                        const opts = [...editingExcelItem.options];
+                        opts[oIdx].text = e.target.value;
+                        setEditingExcelItem({ ...editingExcelItem, options: opts });
+                      }}
+                      className="flex-1 px-3 py-1.5 border border-neutral-300 rounded-lg outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-neutral-700 mb-1">জ্ঞানীয় ডোমেইন</label>
+                <select
+                  value={editingExcelItem.cognitiveDomain}
+                  onChange={(e) => setEditingExcelItem({ ...editingExcelItem, cognitiveDomain: e.target.value })}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg bg-white outline-none"
+                >
+                  {COGNITIVE_DOMAINS.map(d => (
+                    <option key={d.value} value={d.value}>{d.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-neutral-700 mb-1">ডিফিকাল্টি</label>
+                <select
+                  value={editingExcelItem.difficulty}
+                  onChange={(e) => setEditingExcelItem({ ...editingExcelItem, difficulty: e.target.value })}
+                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg bg-white outline-none"
+                >
+                  {DIFFICULTIES.map(d => (
+                    <option key={d.value} value={d.value}>{d.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-neutral-700 mb-1">ব্যাখ্যা</label>
+              <textarea
+                value={editingExcelItem.explanation || ''}
+                onChange={(e) => setEditingExcelItem({ ...editingExcelItem, explanation: e.target.value })}
+                rows={2}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
+              <Button variant="ghost" onClick={() => setEditingExcelItem(null)}>বাতিল</Button>
+              <Button onClick={handleSaveEditedParsedItem}>সংরক্ষণ করুন</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

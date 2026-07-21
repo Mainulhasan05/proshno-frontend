@@ -30,6 +30,19 @@ export const bulkImportQuestions = createAsyncThunk('questions/bulkImportQuestio
   }
 });
 
+export const parseExcelQuestions = createAsyncThunk('questions/parseExcelQuestions', async ({ formData, params }, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.post('/questions/parse-excel', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      params,
+    });
+    return response.data;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Failed to parse Excel file');
+  }
+});
+
+
 export const updateQuestion = createAsyncThunk('questions/updateQuestion', async ({ id, body }, { rejectWithValue }) => {
   try {
     const response = await apiClient.put(`/questions/${id}`, body);
