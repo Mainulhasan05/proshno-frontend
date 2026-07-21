@@ -29,27 +29,34 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
 
     // Token expired — try refresh
+    const isAuthEndpoint = originalRequest.url?.includes('/login') || originalRequest.url?.includes('/refresh');
     if (
       error.response?.status === 401 &&
-      error.response?.data?.error?.code === 'TOKEN_EXPIRED' &&
+      !isAuthEndpoint &&
       !originalRequest._retry
     ) {
       originalRequest._retry = true;
       const isSystemAdmin = typeof window !== 'undefined' && sessionStorage.getItem('sessionType') === 'admin';
+      const storedRefreshToken = typeof window !== 'undefined' ? localStorage.getItem(isSystemAdmin ? 'adminRefreshToken' : 'userRefreshToken') : null;
       try {
         const refreshEndpoint = isSystemAdmin ? '/admin-auth/refresh' : '/auth/refresh';
         const res = await axios.post(
           `${apiClient.defaults.baseURL}${refreshEndpoint}`,
-          {},
+          { refreshToken: storedRefreshToken || undefined },
           { withCredentials: true }
         );
         const newToken = res.data.data.accessToken;
+        const newRefreshToken = res.data.data.refreshToken;
         localStorage.setItem(isSystemAdmin ? 'adminAccessToken' : 'userAccessToken', newToken);
+        if (newRefreshToken) {
+          localStorage.setItem(isSystemAdmin ? 'adminRefreshToken' : 'userRefreshToken', newRefreshToken);
+        }
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
         // Refresh failed — force logout
         localStorage.removeItem(isSystemAdmin ? 'adminAccessToken' : 'userAccessToken');
+        localStorage.removeItem(isSystemAdmin ? 'adminRefreshToken' : 'userRefreshToken');
         sessionStorage.removeItem('sessionType');
         if (typeof window !== 'undefined') {
           window.location.href = isSystemAdmin ? '/portal/k7x9m2p4' : '/login';

@@ -9,6 +9,9 @@ export const loginUser = createAsyncThunk(
     try {
       const response = await apiClient.post('/auth/login', credentials);
       localStorage.setItem('userAccessToken', response.data.accessToken);
+      if (response.data.refreshToken) {
+        localStorage.setItem('userRefreshToken', response.data.refreshToken);
+      }
       sessionStorage.setItem('sessionType', 'user');
       return response.data;
     } catch (error) {
@@ -66,11 +69,13 @@ export const logoutUser = createAsyncThunk(
       await apiClient.post(endpoint);
       const sessionType = sessionStorage.getItem('sessionType');
       localStorage.removeItem(sessionType === 'admin' ? 'adminAccessToken' : 'userAccessToken');
+      localStorage.removeItem(sessionType === 'admin' ? 'adminRefreshToken' : 'userRefreshToken');
       sessionStorage.removeItem('sessionType');
       return null;
     } catch (error) {
       const sessionType = sessionStorage.getItem('sessionType');
       localStorage.removeItem(sessionType === 'admin' ? 'adminAccessToken' : 'userAccessToken');
+      localStorage.removeItem(sessionType === 'admin' ? 'adminRefreshToken' : 'userRefreshToken');
       sessionStorage.removeItem('sessionType');
       return rejectWithValue(error.error || { message: 'Logout failed' });
     }
@@ -84,6 +89,9 @@ export const adminLogin = createAsyncThunk(
     try {
       const response = await apiClient.post('/admin-auth/login', credentials);
       localStorage.setItem('adminAccessToken', response.data.accessToken);
+      if (response.data.refreshToken) {
+        localStorage.setItem('adminRefreshToken', response.data.refreshToken);
+      }
       sessionStorage.setItem('sessionType', 'admin');
       return response.data;
     } catch (error) {
