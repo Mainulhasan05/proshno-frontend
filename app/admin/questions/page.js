@@ -128,10 +128,12 @@ export default function QuestionsPage() {
   const [impVersion, setImpVersion] = useState('');
   const [impSubject, setImpSubject] = useState('');
   const [impChapter, setImpChapter] = useState('');
+  const [impTopic, setImpTopic] = useState('');
 
   const impVersions = tree.find((c) => c._id === impClass)?.versions || [];
   const impSubjects = impVersions.find((v) => v._id === impVersion)?.subjects || [];
   const impChapters = impSubjects.find((s) => s._id === impSubject)?.chapters || [];
+  const impTopics = impChapters.find((ch) => ch._id === impChapter)?.topics || [];
 
   // Form
   const [form, setForm] = useState({
@@ -143,6 +145,7 @@ export default function QuestionsPage() {
     marks: 1,
     explanation: '',
     chapterId: '',
+    topicId: '',
     options: [
       { text: '', isCorrect: true, order: 1 },
       { text: '', isCorrect: false, order: 2 },
@@ -179,6 +182,7 @@ export default function QuestionsPage() {
   const filterVersions = tree.find((c) => c._id === filters.classId)?.versions || [];
   const filterSubjects = filterVersions.find((v) => v._id === filters.versionId)?.subjects || [];
   const filterChapters = filterSubjects.find((s) => s._id === filters.subjectId)?.chapters || [];
+  const filterTopics = filterChapters.find((ch) => ch._id === filters.chapterId)?.topics || [];
 
   const resetForm = () => {
     setForm({
@@ -191,6 +195,7 @@ export default function QuestionsPage() {
       negativeMarks: 0,
       explanation: '',
       chapterId: '',
+      topicId: '',
       options: [
         { text: '', isCorrect: true, order: 1 },
         { text: '', isCorrect: false, order: 2 },
@@ -222,6 +227,7 @@ export default function QuestionsPage() {
         negativeMarks: item.negativeMarks || 0,
         explanation: item.explanation || '',
         chapterId: item.chapterId?._id || item.chapterId,
+        topicId: item.topicId?._id || item.topicId || '',
         options: item.options?.length > 0 ? item.options : [
           { text: '', isCorrect: true, order: 1 }, { text: '', isCorrect: false, order: 2 },
           { text: '', isCorrect: false, order: 3 }, { text: '', isCorrect: false, order: 4 },
@@ -384,7 +390,11 @@ export default function QuestionsPage() {
     }
 
     try {
-      await dispatch(bulkImportQuestions({ questions: parsedJson, chapterId: impChapter })).unwrap();
+      const formattedQuestions = parsedJson.map((q) => ({
+        ...q,
+        topicId: q.topicId || impTopic || undefined,
+      }));
+      await dispatch(bulkImportQuestions({ questions: formattedQuestions, chapterId: impChapter })).unwrap();
       toast.success(`${parsedJson.length}টি প্রশ্ন সফলভাবে ইমপোর্ট করা হয়েছে`);
       setImportModalOpen(false);
       setImportJson('');
@@ -410,6 +420,7 @@ export default function QuestionsPage() {
         marks: Number(form.marks),
         explanation: form.explanation || undefined,
         chapterId: form.chapterId,
+        topicId: form.topicId || undefined,
       };
 
       if (form.type === 'MCQ') {
@@ -557,10 +568,17 @@ export default function QuestionsPage() {
               </select>
 
               {/* Chapter Filter */}
-              <select value={filters.chapterId || ''} onChange={(e) => setFilters({ ...filters, page: 1, chapterId: e.target.value || undefined })}
+              <select value={filters.chapterId || ''} onChange={(e) => setFilters({ ...filters, page: 1, chapterId: e.target.value || undefined, topicId: undefined })}
                 className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full" disabled={!filters.subjectId}>
                 <option value="">সব অধ্যায়</option>
                 {filterChapters.map((ch) => <option key={ch._id} value={ch._id}>{ch.name}</option>)}
+              </select>
+
+              {/* Topic Filter */}
+              <select value={filters.topicId || ''} onChange={(e) => setFilters({ ...filters, page: 1, topicId: e.target.value || undefined })}
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full" disabled={!filters.chapterId}>
+                <option value="">সব টপিক/পাঠ</option>
+                {filterTopics.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
               </select>
 
               <Button variant="ghost" size="sm" onClick={() => setFilters({})} className="w-full">রিসেট</Button>
@@ -600,6 +618,11 @@ export default function QuestionsPage() {
                   <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${COGNITIVE_DOMAINS.find((d) => d.value === q.cognitiveDomain)?.color || 'bg-blue-50 text-blue-600'}`}>
                     {COGNITIVE_DOMAINS.find((d) => d.value === q.cognitiveDomain)?.label}
                   </span>
+                  {q.topicId && (
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium border border-purple-200">
+                      📌 {typeof q.topicId === 'object' ? q.topicId.name : 'টপিক'}
+                    </span>
+                  )}
                   <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${DIFFICULTIES.find((d) => d.value === q.difficulty)?.color || 'bg-amber-50 text-amber-600'}`}>
                     {DIFFICULTIES.find((d) => d.value === q.difficulty)?.label}
                   </span>
@@ -1310,10 +1333,10 @@ export default function QuestionsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-neutral-600 mb-1">বিষয় নির্বাচন করুন *</label>
-              <select value={impSubject} onChange={(e) => { setImpSubject(e.target.value); setImpChapter(''); }}
+              <select value={impSubject} onChange={(e) => { setImpSubject(e.target.value); setImpChapter(''); setImpTopic(''); }}
                 className="w-full px-3 py-2 border border-neutral-350 rounded-lg text-sm bg-white focus:ring-1 focus:ring-primary-500 outline-none" disabled={!impVersion} required>
                 <option value="">বিষয় সিলেক্ট করুন</option>
                 {impSubjects.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
@@ -1321,10 +1344,18 @@ export default function QuestionsPage() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-neutral-600 mb-1">অধ্যায় নির্বাচন করুন *</label>
-              <select value={impChapter} onChange={(e) => setImpChapter(e.target.value)}
+              <select value={impChapter} onChange={(e) => { setImpChapter(e.target.value); setImpTopic(''); }}
                 className="w-full px-3 py-2 border border-neutral-350 rounded-lg text-sm bg-white focus:ring-1 focus:ring-primary-500 outline-none" disabled={!impSubject} required>
                 <option value="">অধ্যায় সিলেক্ট করুন</option>
                 {impChapters.map((ch) => <option key={ch._id} value={ch._id}>{ch.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">টপিক / পাঠ (ঐচ্ছিক)</label>
+              <select value={impTopic} onChange={(e) => setImpTopic(e.target.value)}
+                className="w-full px-3 py-2 border border-neutral-350 rounded-lg text-sm bg-white focus:ring-1 focus:ring-primary-500 outline-none" disabled={!impChapter}>
+                <option value="">সব টপিক</option>
+                {impTopics.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
               </select>
             </div>
           </div>

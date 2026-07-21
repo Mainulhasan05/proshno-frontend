@@ -9,6 +9,7 @@ import {
   fetchVersions, createVersion, updateVersion, toggleVersionActive, deleteVersion,
   fetchSubjects, createSubject, updateSubject, toggleSubjectActive, deleteSubject,
   fetchChapters, createChapter, updateChapter, toggleChapterActive, deleteChapter,
+  fetchTopics, createTopic, updateTopic, toggleTopicActive, deleteTopic,
   fetchTree,
 } from '@/store/slices/hierarchySlice';
 import Button from '@/components/ui/Button';
@@ -17,6 +18,7 @@ import {
   HiOutlinePlus, HiOutlinePencil, HiOutlineTrash,
   HiOutlineEye, HiOutlineEyeOff, HiOutlineChevronRight,
   HiOutlineAcademicCap, HiOutlineCollection, HiOutlineBookOpen, HiOutlineClipboardList,
+  HiOutlineDocumentText,
 } from 'react-icons/hi';
 
 // ── Reusable panel item component ──
@@ -93,7 +95,7 @@ function PanelHeader({ title, count, onAdd, icon: Icon }) {
 
 export default function ClassesPage() {
   const dispatch = useDispatch();
-  const { classes = [], versions = [], subjects = [], chapters = [], tree = [], isLoading = false } = useSelector((state) => state.hierarchy || {});
+  const { classes = [], versions = [], subjects = [], chapters = [], topics = [], tree = [], isLoading = false } = useSelector((state) => state.hierarchy || {});
 
   // ── View mode ──
   const [viewMode, setViewMode] = useState('columns'); // 'columns' | 'summary'
@@ -101,22 +103,29 @@ export default function ClassesPage() {
   // ── Selection state ──
   const [selectedClassId, _setSelectedClassId] = useState(null);
   const [selectedVersionId, _setSelectedVersionId] = useState(null);
-  const [selectedSubjectId, setSelectedSubjectId] = useState(null);
+  const [selectedSubjectId, _setSelectedSubjectId] = useState(null);
+  const [selectedChapterId, setSelectedChapterId] = useState(null);
 
   // Wrapped setters that cascade-reset children
   const setSelectedClassId = (id) => {
     _setSelectedClassId(id);
     _setSelectedVersionId(null);
-    setSelectedSubjectId(null);
+    _setSelectedSubjectId(null);
+    setSelectedChapterId(null);
   };
   const setSelectedVersionId = (id) => {
     _setSelectedVersionId(id);
-    setSelectedSubjectId(null);
+    _setSelectedSubjectId(null);
+    setSelectedChapterId(null);
+  };
+  const setSelectedSubjectId = (id) => {
+    _setSelectedSubjectId(id);
+    setSelectedChapterId(null);
   };
 
   // ── Modal state ──
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalType, setModalType] = useState(null); // 'class' | 'version' | 'subject' | 'chapter'
+  const [modalType, setModalType] = useState(null); // 'class' | 'version' | 'subject' | 'chapter' | 'topic'
   const [editItem, setEditItem] = useState(null);
   const [formData, setFormData] = useState({});
 
@@ -151,6 +160,13 @@ export default function ClassesPage() {
     }
   }, [dispatch, selectedSubjectId]);
 
+  // ── Load topics when chapter selected ──
+  useEffect(() => {
+    if (selectedChapterId) {
+      dispatch(fetchTopics({ chapterId: selectedChapterId }));
+    }
+  }, [dispatch, selectedChapterId]);
+
   // ── Filtered data ──
   const classVersions = useMemo(() =>
     versions.filter((v) => (v.classId?._id || v.classId) === selectedClassId),
@@ -160,11 +176,20 @@ export default function ClassesPage() {
     subjects.filter((s) => (s.versionId?._id || s.versionId) === selectedVersionId),
     [subjects, selectedVersionId]
   );
+  const subjectChapters = useMemo(() =>
+    chapters.filter((ch) => (ch.subjectId?._id || ch.subjectId) === selectedSubjectId),
+    [chapters, selectedSubjectId]
+  );
+  const chapterTopics = useMemo(() =>
+    topics.filter((t) => (t.chapterId?._id || t.chapterId) === selectedChapterId),
+    [topics, selectedChapterId]
+  );
 
   // ── Breadcrumb ──
   const selectedClass = classes.find((c) => c._id === selectedClassId);
   const selectedVersion = classVersions.find((v) => v._id === selectedVersionId);
   const selectedSubject = versionSubjects.find((s) => s._id === selectedSubjectId);
+  const selectedChapter = subjectChapters.find((ch) => ch._id === selectedChapterId);
 
   // ══════════════════════════════════════
   //  MODAL HANDLERS
@@ -184,7 +209,7 @@ export default function ClassesPage() {
   const closeModal = () => { setModalOpen(false); setEditItem(null); setFormData({}); };
 
   const getModalTitle = () => {
-    const labels = { class: 'ক্লাস', version: 'ভার্সন', subject: 'বিষয়', chapter: 'অধ্যায়' };
+    const labels = { class: 'ক্লাস', version: 'ভার্সন', subject: 'বিষয়', chapter: 'অধ্যায়', topic: 'টপিক / পাঠ' };
     return editItem ? `${labels[modalType]} সম্পাদনা` : `নতুন ${labels[modalType]}`;
   };
 
@@ -234,6 +259,16 @@ export default function ClassesPage() {
           toast.success('অধ্যায় তৈরি হয়েছে');
         }
         dispatch(fetchChapters({ subjectId: selectedSubjectId }));
+      } else if (modalType === 'topic') {
+        const body = { name, order, chapterId: selectedChapterId };
+        if (editItem) {
+          await dispatch(updateTopic({ id: editItem._id, body })).unwrap();
+          toast.success('টপিক/পাঠ আপডেট হয়েছে');
+        } else {
+          await dispatch(createTopic(body)).unwrap();
+          toast.success('টপিক/পাঠ তৈরি হয়েছে');
+        }
+        dispatch(fetchTopics({ chapterId: selectedChapterId }));
       }
       closeModal();
     } catch (err) {
@@ -248,6 +283,7 @@ export default function ClassesPage() {
       else if (type === 'version') { await dispatch(toggleVersionActive(id)).unwrap(); dispatch(fetchVersions({ classId: selectedClassId })); }
       else if (type === 'subject') { await dispatch(toggleSubjectActive(id)).unwrap(); dispatch(fetchSubjects({ versionId: selectedVersionId })); }
       else if (type === 'chapter') { await dispatch(toggleChapterActive(id)).unwrap(); dispatch(fetchChapters({ subjectId: selectedSubjectId })); }
+      else if (type === 'topic') { await dispatch(toggleTopicActive(id)).unwrap(); dispatch(fetchTopics({ chapterId: selectedChapterId })); }
       toast.success('স্ট্যাটাস আপডেট হয়েছে');
     } catch (err) { toast.error(err || 'ত্রুটি হয়েছে'); }
   };
@@ -257,15 +293,18 @@ export default function ClassesPage() {
     try {
       if (type === 'class') {
         await dispatch(deleteClass(id)).unwrap(); dispatch(fetchClasses());
-        if (selectedClassId === id) { setSelectedClassId(null); setSelectedVersionId(null); setSelectedSubjectId(null); }
+        if (selectedClassId === id) { setSelectedClassId(null); setSelectedVersionId(null); setSelectedSubjectId(null); setSelectedChapterId(null); }
       } else if (type === 'version') {
         await dispatch(deleteVersion(id)).unwrap(); dispatch(fetchVersions({ classId: selectedClassId }));
-        if (selectedVersionId === id) { setSelectedVersionId(null); setSelectedSubjectId(null); }
+        if (selectedVersionId === id) { setSelectedVersionId(null); setSelectedSubjectId(null); setSelectedChapterId(null); }
       } else if (type === 'subject') {
         await dispatch(deleteSubject(id)).unwrap(); dispatch(fetchSubjects({ versionId: selectedVersionId }));
-        if (selectedSubjectId === id) setSelectedSubjectId(null);
+        if (selectedSubjectId === id) { setSelectedSubjectId(null); setSelectedChapterId(null); }
       } else if (type === 'chapter') {
         await dispatch(deleteChapter(id)).unwrap(); dispatch(fetchChapters({ subjectId: selectedSubjectId }));
+        if (selectedChapterId === id) setSelectedChapterId(null);
+      } else if (type === 'topic') {
+        await dispatch(deleteTopic(id)).unwrap(); dispatch(fetchTopics({ chapterId: selectedChapterId }));
       }
       toast.success('মুছে ফেলা হয়েছে');
     } catch (err) { toast.error(err || 'মুছে ফেলা যায়নি'); }
@@ -284,7 +323,7 @@ export default function ClassesPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b pb-5 border-neutral-200">
         <div>
           <h1 className="text-2xl font-bold text-neutral-800">কন্টেন্ট হায়ারার্কি</h1>
-          <p className="text-sm text-neutral-500 mt-1">ক্লাস → ভার্সন → বিষয় → অধ্যায় — সব এক জায়গায় পরিচালনা করুন</p>
+          <p className="text-sm text-neutral-500 mt-1">ক্লাস → ভার্সন → বিষয় → অধ্যায় → টপিক/পাঠ — সব এক জায়গায় পরিচালনা করুন</p>
         </div>
         
         {/* View Mode Switcher */}
@@ -328,13 +367,17 @@ export default function ClassesPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {tree.map((cls) => {
-                // Calculate subject/chapter counts
+                // Calculate subject/chapter/topic counts
                 let totalSubs = 0;
                 let totalChaps = 0;
+                let totalTopics = 0;
                 cls.versions?.forEach((v) => {
                   totalSubs += v.subjects?.length || 0;
                   v.subjects?.forEach((s) => {
                     totalChaps += s.chapters?.length || 0;
+                    s.chapters?.forEach((ch) => {
+                      totalTopics += ch.topics?.length || 0;
+                    });
                   });
                 });
 
@@ -365,12 +408,15 @@ export default function ClassesPage() {
                           </span>
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1.5 flex-wrap justify-end">
                         <span className="text-[10px] bg-primary-50 text-primary-700 font-bold px-2 py-0.5 rounded border border-primary-100">
                           {totalSubs} বিষয়
                         </span>
                         <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded border border-amber-100">
                           {totalChaps} অধ্যায়
+                        </span>
+                        <span className="text-[10px] bg-purple-50 text-purple-700 font-bold px-2 py-0.5 rounded border border-purple-100">
+                          {totalTopics} পাঠ/টপিক
                         </span>
                       </div>
                     </div>
@@ -378,7 +424,7 @@ export default function ClassesPage() {
                     {cls.versions?.length === 0 ? (
                       <p className="text-xs text-neutral-400 py-2">কোনো ভার্সন যুক্ত নেই</p>
                     ) : (
-                      <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
+                      <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
                         {cls.versions.map((ver) => (
                           <div key={ver._id} className="space-y-2">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -403,23 +449,63 @@ export default function ClassesPage() {
                             ) : (
                               <div className="bg-neutral-50 rounded-lg overflow-hidden border border-neutral-100 pl-3 pr-3 divide-y divide-neutral-100">
                                 {ver.subjects.map((sub) => (
-                                  <div key={sub._id} className="flex justify-between items-center py-2 text-xs gap-3">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <span className="font-medium text-neutral-700 truncate">{sub.name}</span>
-                                      <span
-                                        onClick={() => {
-                                          navigator.clipboard.writeText(sub._id);
-                                          toast.success('বিষয় ID কপি করা হয়েছে!');
-                                        }}
-                                        className="text-[9px] text-neutral-400 hover:text-primary-600 bg-neutral-150/50 hover:bg-primary-50 px-1 py-0.5 rounded font-mono transition-all cursor-pointer select-all border border-neutral-200/40 shrink-0"
-                                        title="ID কপি করতে ক্লিক করুন"
-                                      >
-                                        ID: {sub._id}
-                                      </span>
+                                  <div key={sub._id} className="py-2 text-xs space-y-1.5">
+                                    <div className="flex justify-between items-center gap-3">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className="font-semibold text-neutral-700 truncate">{sub.name}</span>
+                                        <span
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(sub._id);
+                                            toast.success('বিষয় ID কপি করা হয়েছে!');
+                                          }}
+                                          className="text-[9px] text-neutral-400 hover:text-primary-600 bg-neutral-150/50 hover:bg-primary-50 px-1 py-0.5 rounded font-mono transition-all cursor-pointer select-all border border-neutral-200/40 shrink-0"
+                                          title="ID কপি করতে ক্লিক করুন"
+                                        >
+                                          ID: {sub._id}
+                                        </span>
+                                      </div>
+                                      <div className="flex gap-1 shrink-0">
+                                        <span className="text-[10px] bg-neutral-200/70 text-neutral-600 px-2 py-0.5 rounded-full font-bold">
+                                          {sub.chapters?.length || 0} অধ্যায়
+                                        </span>
+                                      </div>
                                     </div>
-                                    <span className="text-[10px] bg-neutral-200/70 text-neutral-600 px-2 py-0.5 rounded-full font-bold shrink-0">
-                                      {sub.chapters?.length || 0} অধ্যায়
-                                    </span>
+
+                                    {/* Chapters & Topics Breakdown */}
+                                    {sub.chapters?.length > 0 && (
+                                      <div className="pl-3 border-l-2 border-amber-200/60 space-y-1 my-1">
+                                        {sub.chapters.map((ch) => (
+                                          <div key={ch._id} className="text-[11px] text-neutral-600">
+                                            <div className="flex items-center justify-between gap-2">
+                                              <span className="font-medium text-neutral-700 truncate">📖 {ch.name}</span>
+                                              {ch.topics?.length > 0 && (
+                                                <span className="text-[9px] bg-purple-50 text-purple-600 px-1.5 py-0.2 rounded font-medium shrink-0">
+                                                  {ch.topics.length} টপিক
+                                                </span>
+                                              )}
+                                            </div>
+                                            {ch.topics?.length > 0 && (
+                                              <div className="pl-3 space-y-0.5 mt-0.5 border-l border-purple-100">
+                                                {ch.topics.map((t) => (
+                                                  <div key={t._id} className="flex items-center justify-between text-[10px] text-neutral-500">
+                                                    <span className="truncate">▫ {t.name}</span>
+                                                    <span
+                                                      onClick={() => {
+                                                        navigator.clipboard.writeText(t._id);
+                                                        toast.success('টপিক ID কপি করা হয়েছে!');
+                                                      }}
+                                                      className="text-[8px] text-neutral-400 hover:text-purple-600 font-mono cursor-pointer"
+                                                    >
+                                                      ID: {t._id}
+                                                    </span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -454,13 +540,19 @@ export default function ClassesPage() {
             {selectedSubjectId && (
               <>
                 <HiOutlineChevronRight className="h-3 w-3" />
-                <span>অধ্যায়</span>
+                <span className={selectedChapterId ? 'text-primary-600 font-medium' : ''}>{selectedChapter?.name || 'অধ্যায় নির্বাচন করুন'}</span>
+              </>
+            )}
+            {selectedChapterId && (
+              <>
+                <HiOutlineChevronRight className="h-3 w-3" />
+                <span>টপিক / পাঠ</span>
               </>
             )}
           </div>
 
-          {/* 4-Panel Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {/* 5-Panel Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
 
             {/* ── Panel 1: Classes ── */}
             <div className={panelBase}>
@@ -548,15 +640,15 @@ export default function ClassesPage() {
             <AnimatePresence mode="wait">
               {selectedSubjectId ? (
                 <motion.div key="chapters" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className={panelBase}>
-                  <PanelHeader title="অধ্যায়" count={chapters.length} onAdd={() => openModal('chapter')} icon={HiOutlineClipboardList} />
-                  {chapters.length === 0 && <p className={emptyMsg}>এই বিষয়ে কোনো অধ্যায় নেই</p>}
+                  <PanelHeader title="অধ্যায়" count={subjectChapters.length} onAdd={() => openModal('chapter')} icon={HiOutlineClipboardList} />
+                  {subjectChapters.length === 0 && <p className={emptyMsg}>এই বিষয়ে কোনো অধ্যায় নেই</p>}
                   <div className="space-y-1 max-h-[400px] overflow-y-auto">
-                    {chapters.map((ch) => (
+                    {subjectChapters.map((ch) => (
                       <PanelItem
                         key={ch._id}
                         item={ch}
-                        isSelected={false}
-                        onSelect={() => {}}
+                        isSelected={selectedChapterId === ch._id}
+                        onSelect={setSelectedChapterId}
                         onEdit={(item) => openModal('chapter', item)}
                         onToggle={(id) => handleToggle('chapter', id)}
                         onDelete={(id, name) => handleDelete('chapter', id, name)}
@@ -570,6 +662,36 @@ export default function ClassesPage() {
               ) : (
                 <div className={`${panelBase} flex items-center justify-center`}>
                   <p className="text-neutral-300 text-sm text-center">{selectedVersionId ? '← বিষয় নির্বাচন করুন' : ''}</p>
+                </div>
+              )}
+            </AnimatePresence>
+
+            {/* ── Panel 5: Topics / Lessons ── */}
+            <AnimatePresence mode="wait">
+              {selectedChapterId ? (
+                <motion.div key="topics" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className={panelBase}>
+                  <PanelHeader title="টপিক / পাঠ" count={chapterTopics.length} onAdd={() => openModal('topic')} icon={HiOutlineDocumentText} />
+                  {chapterTopics.length === 0 && <p className={emptyMsg}>এই অধ্যায়ে কোনো টপিক/পাঠ নেই</p>}
+                  <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                    {chapterTopics.map((t) => (
+                      <PanelItem
+                        key={t._id}
+                        item={t}
+                        isSelected={false}
+                        onSelect={() => {}}
+                        onEdit={(item) => openModal('topic', item)}
+                        onToggle={(id) => handleToggle('topic', id)}
+                        onDelete={(id, name) => handleDelete('topic', id, name)}
+                        icon={HiOutlineDocumentText}
+                        colorActive="bg-purple-50 text-purple-600"
+                        colorInactive="bg-neutral-100 text-neutral-400"
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              ) : (
+                <div className={`${panelBase} flex items-center justify-center`}>
+                  <p className="text-neutral-300 text-sm text-center">{selectedSubjectId ? '← অধ্যায় নির্বাচন করুন' : ''}</p>
                 </div>
               )}
             </AnimatePresence>
@@ -588,6 +710,7 @@ export default function ClassesPage() {
               {modalType === 'version' && <span>ক্লাস: <strong className="text-neutral-700">{selectedClass?.name}</strong></span>}
               {modalType === 'subject' && <span>ক্লাস: <strong className="text-neutral-700">{selectedClass?.name}</strong> → ভার্সন: <strong className="text-neutral-700">{selectedVersion?.name}</strong></span>}
               {modalType === 'chapter' && <span>ক্লাস: <strong className="text-neutral-700">{selectedClass?.name}</strong> → ভার্সন: <strong className="text-neutral-700">{selectedVersion?.name}</strong> → বিষয়: <strong className="text-neutral-700">{selectedSubject?.name}</strong></span>}
+              {modalType === 'topic' && <span>ক্লাস: <strong className="text-neutral-700">{selectedClass?.name}</strong> → ভার্সন: <strong className="text-neutral-700">{selectedVersion?.name}</strong> → বিষয়: <strong className="text-neutral-700">{selectedSubject?.name}</strong> → অধ্যায়: <strong className="text-neutral-700">{selectedChapter?.name}</strong></span>}
             </div>
           )}
 
@@ -603,7 +726,8 @@ export default function ClassesPage() {
                 modalType === 'class' ? 'যেমন: তৃতীয় শ্রেণি' :
                 modalType === 'version' ? 'যেমন: বাংলা মাধ্যম' :
                 modalType === 'subject' ? 'যেমন: গণিত' :
-                'যেমন: সংখ্যা ও গণনা'
+                modalType === 'chapter' ? 'যেমন: সংখ্যা ও গণনা' :
+                'যেমন: ১ম পাঠ / যোগ-বিয়োগ ধারণা'
               }
               required
               autoFocus

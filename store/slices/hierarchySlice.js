@@ -189,6 +189,53 @@ export const deleteChapter = createAsyncThunk('hierarchy/deleteChapter', async (
   }
 });
 
+// ── Topics ──
+
+export const fetchTopics = createAsyncThunk('hierarchy/fetchTopics', async (params = {}, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.get('/hierarchy/topics', { params: { includeInactive: 'true', ...params } });
+    return response;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Failed to fetch topics');
+  }
+});
+
+export const createTopic = createAsyncThunk('hierarchy/createTopic', async (body, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.post('/hierarchy/topics', body);
+    return response;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Failed to create topic');
+  }
+});
+
+export const updateTopic = createAsyncThunk('hierarchy/updateTopic', async ({ id, body }, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.put(`/hierarchy/topics/${id}`, body);
+    return response;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Failed to update topic');
+  }
+});
+
+export const toggleTopicActive = createAsyncThunk('hierarchy/toggleTopicActive', async (id, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.patch(`/hierarchy/topics/${id}/toggle`);
+    return response;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Failed to toggle topic');
+  }
+});
+
+export const deleteTopic = createAsyncThunk('hierarchy/deleteTopic', async (id, { rejectWithValue }) => {
+  try {
+    await apiClient.delete(`/hierarchy/topics/${id}`);
+    return id;
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.message || 'Failed to delete topic');
+  }
+});
+
 // ── Full Tree ──
 
 export const fetchTree = createAsyncThunk('hierarchy/fetchTree', async (params = {}, { rejectWithValue }) => {
@@ -209,6 +256,7 @@ const hierarchySlice = createSlice({
     versions: [],
     subjects: [],
     chapters: [],
+    topics: [],
     tree: [],
     isLoading: false,
     error: null,
@@ -308,6 +356,28 @@ const hierarchySlice = createSlice({
       })
       .addCase(deleteChapter.fulfilled, (state, action) => {
         state.chapters = state.chapters.filter((ch) => ch._id !== action.payload);
+      })
+
+      // Topics
+      .addCase(fetchTopics.pending, pending)
+      .addCase(fetchTopics.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.topics = action.payload.data;
+      })
+      .addCase(fetchTopics.rejected, rejected)
+      .addCase(createTopic.fulfilled, (state, action) => {
+        state.topics.push(action.payload.data);
+      })
+      .addCase(updateTopic.fulfilled, (state, action) => {
+        const idx = state.topics.findIndex((t) => t._id === action.payload.data._id);
+        if (idx !== -1) state.topics[idx] = action.payload.data;
+      })
+      .addCase(toggleTopicActive.fulfilled, (state, action) => {
+        const idx = state.topics.findIndex((t) => t._id === action.payload.data._id);
+        if (idx !== -1) state.topics[idx] = action.payload.data;
+      })
+      .addCase(deleteTopic.fulfilled, (state, action) => {
+        state.topics = state.topics.filter((t) => t._id !== action.payload);
       })
 
       // Tree
