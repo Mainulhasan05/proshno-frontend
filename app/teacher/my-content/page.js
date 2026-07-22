@@ -18,8 +18,19 @@ import {
   HiOutlineAcademicCap,
   HiOutlineQuestionMarkCircle,
   HiOutlineCube,
+  HiOutlinePlus,
+  HiOutlineCheck,
+  HiOutlineX,
 } from 'react-icons/hi';
 import MathRenderer from '@/components/shared/MathRenderer';
+import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
+import toast from 'react-hot-toast';
+import apiClient from '@/store/api/apiClient';
+import dynamic from 'next/dynamic';
+
+const ImageUpload = dynamic(() => import('@/components/ui/ImageUpload'), { ssr: false });
+const MathInput = dynamic(() => import('@/components/ui/MathInput'), { ssr: false });
 
 const typeLabels = { MCQ: 'MCQ', CQ: 'সৃজনশীল', SHORT: 'সংক্ষিপ্ত' };
 const typeColors = {
@@ -42,6 +53,33 @@ export default function TeacherMyContentPage() {
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [selectedChapter, setSelectedChapter] = useState(null);
   const [filters, setFilters] = useState({ type: '', difficulty: '' });
+
+  // Modal & Create Question state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    type: 'MCQ',
+    format: 'single_correct',
+    questionText: '',
+    cognitiveDomain: 'knowledge',
+    difficulty: 'easy',
+    marks: 1,
+    negativeMarks: 0,
+    explanation: '',
+    bookReference: '',
+    sources: ['Main Book'],
+    options: [
+      { text: '', isCorrect: true, order: 1 },
+      { text: '', isCorrect: false, order: 2 },
+      { text: '', isCorrect: false, order: 3 },
+      { text: '', isCorrect: false, order: 4 },
+    ],
+    stimulus: '',
+    stimulusImage: '',
+    questionImage: '',
+    subParts: [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
+  });
 
   useEffect(() => {
     dispatch(fetchTeacherClasses());
@@ -98,6 +136,41 @@ export default function TeacherMyContentPage() {
     selectedSubject && { label: selectedSubject.name || selectedSubject.nameEn, onClick: () => { setSelectedSubject(null); setSelectedChapter(null); handleVersionSelect(selectedVersion); } },
     selectedChapter && { label: selectedChapter.name || selectedChapter.nameEn },
   ].filter(Boolean);
+  const handleCreateQuestion = async (e) => {
+    e.preventDefault();
+    if (!selectedChapter) {
+      toast.error('অধ্যায় নির্বাচন করুন');
+      return;
+    }
+    if (!form.questionText.trim()) {
+      toast.error('প্রশ্ন টেক্সট প্রদান করুন');
+      return;
+    }
+    try {
+      setIsSubmitting(true);
+      const payload = {
+        ...form,
+        chapterId: selectedChapter._id,
+        classId: selectedClass._id,
+        versionId: selectedVersion._id,
+        subjectId: selectedSubject._id,
+        marks: Number(form.marks),
+        negativeMarks: Number(form.negativeMarks || 0),
+      };
+      await apiClient.post('/questions', payload);
+      toast.success('প্রশ্ন সফলভাবে তৈরি করা হয়েছে!');
+      setModalOpen(false);
+      dispatch(fetchTeacherQuestions({
+        chapterId: selectedChapter._id,
+        ...(filters.type && { type: filters.type }),
+        ...(filters.difficulty && { difficulty: filters.difficulty }),
+      }));
+    } catch (err) {
+      toast.error(err?.error?.message || 'প্রশ্ন তৈরি করতে ব্যর্থ হয়েছে');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div>
@@ -182,33 +255,63 @@ export default function TeacherMyContentPage() {
       {/* Step 5: Questions */}
       {selectedChapter && (
         <div>
-          {/* Filters */}
-          <div className="flex flex-wrap gap-3 mb-5">
-            <select
-              value={filters.type}
-              onChange={(e) => handleFilterChange('type', e.target.value)}
-              className="text-sm border border-neutral-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          {/* Action Bar & Filters */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <div className="flex flex-wrap gap-3">
+              <select
+                value={filters.type}
+                onChange={(e) => handleFilterChange('type', e.target.value)}
+                className="text-sm border border-neutral-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 font-medium"
+              >
+                <option value="">সকল ধরন</option>
+                <option value="MCQ">MCQ</option>
+                <option value="CQ">সৃজনশীল</option>
+                <option value="SHORT">সংক্ষিপ্ত</option>
+              </select>
+              <select
+                value={filters.difficulty}
+                onChange={(e) => handleFilterChange('difficulty', e.target.value)}
+                className="text-sm border border-neutral-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 font-medium"
+              >
+                <option value="">সকল ডিফিকাল্টি</option>
+                <option value="easy">সহজ</option>
+                <option value="medium">মাঝারি</option>
+                <option value="hard">কঠিন</option>
+              </select>
+            </div>
+
+            <Button
+              onClick={() => {
+                setForm({
+                  type: 'MCQ',
+                  format: 'single_correct',
+                  questionText: '',
+                  cognitiveDomain: 'knowledge',
+                  difficulty: 'easy',
+                  marks: 1,
+                  negativeMarks: 0,
+                  explanation: '',
+                  bookReference: '',
+                  sources: ['Main Book'],
+                  options: [
+                    { text: '', isCorrect: true, order: 1 },
+                    { text: '', isCorrect: false, order: 2 },
+                    { text: '', isCorrect: false, order: 3 },
+                    { text: '', isCorrect: false, order: 4 },
+                  ],
+                  stimulus: '',
+                  stimulusImage: '',
+                  questionImage: '',
+                  subParts: [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
+                });
+                setShowAdvanced(false);
+                setModalOpen(true);
+              }}
+              className="bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs py-2 px-4 rounded-lg flex items-center gap-1.5 shadow-sm"
             >
-              <option value="">সকল ধরন</option>
-              <option value="MCQ">MCQ</option>
-              <option value="CQ">সৃজনশীল</option>
-              <option value="SHORT">সংক্ষিপ্ত</option>
-            </select>
-            <select
-              value={filters.difficulty}
-              onChange={(e) => handleFilterChange('difficulty', e.target.value)}
-              className="text-sm border border-neutral-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            >
-              <option value="">সকল মান</option>
-              <option value="easy">সহজ</option>
-              <option value="medium">মাঝারি</option>
-              <option value="hard">কঠিন</option>
-            </select>
-            {content.questionsPagination && (
-              <span className="text-sm text-neutral-500 flex items-center">
-                মোট {content.questionsPagination.total} প্রশ্ন
-              </span>
-            )}
+              <HiOutlinePlus className="h-4 w-4" />
+              নতুন প্রশ্ন যোগ করুন
+            </Button>
           </div>
 
           {/* Question List */}
@@ -325,6 +428,194 @@ export default function TeacherMyContentPage() {
           )}
         </div>
       )}
+
+      {/* Teacher Create Question Modal */}
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={`নতুন প্রশ্ন যোগ করুন (${selectedChapter?.name || ''})`}
+        maxWidth="max-w-3xl"
+      >
+        <form onSubmit={handleCreateQuestion} className="space-y-4 font-sans text-xs">
+          {/* Question Type */}
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">প্রশ্নের ধরন *</label>
+            <div className="flex gap-3">
+              {[
+                { value: 'MCQ', label: 'বহুনির্বাচনী (MCQ)' },
+                { value: 'CQ', label: 'সৃজনশীল (CQ)' },
+                { value: 'SHORT', label: 'সংক্ষিপ্ত (Short Answer)' },
+              ].map((t) => (
+                <label key={t.value} className="flex items-center gap-1.5 cursor-pointer font-medium">
+                  <input
+                    type="radio"
+                    name="teacherQType"
+                    value={t.value}
+                    checked={form.type === t.value}
+                    onChange={(e) => {
+                      const type = e.target.value;
+                      setForm({
+                        ...form,
+                        type,
+                        format: type === 'CQ' ? 'creative_default' : type === 'SHORT' ? 'short_answer' : 'single_correct',
+                      });
+                    }}
+                  />
+                  {t.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Structural Level / Format */}
+          {form.type === 'MCQ' && (
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">Structural Level / কাঠামোগত স্তর *</label>
+              <select
+                value={form.format}
+                onChange={(e) => setForm({ ...form, format: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs font-medium bg-white outline-none"
+              >
+                <option value="single_correct">সাধারণ বহুনির্বাচনি</option>
+                <option value="multiple_correct">বহুপদী সমাপ্তিসূচক</option>
+                <option value="passage_mcq">অভিন্ন তথ্যভিত্তিক</option>
+                <option value="none">প্রযোজ্য নয়</option>
+              </select>
+            </div>
+          )}
+
+          {/* Question Text */}
+          <MathInput
+            label="প্রশ্ন টেক্সট *"
+            value={form.questionText}
+            onChange={(val) => setForm({ ...form, questionText: val })}
+            rows={3}
+            placeholder="প্রশ্ন লিখুন..."
+            required
+          />
+
+          {/* MCQ Options */}
+          {form.type === 'MCQ' && (
+            <div className="space-y-2">
+              <label className="block font-semibold text-neutral-700">অপশন ও সঠিক উত্তর *</label>
+              {form.options.map((opt, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const opts = form.options.map((o, i) => ({ ...o, isCorrect: i === idx }));
+                      setForm({ ...form, options: opts });
+                    }}
+                    className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all ${
+                      opt.isCorrect ? 'bg-emerald-500 text-white ring-2 ring-emerald-200' : 'bg-neutral-100 text-neutral-400 hover:bg-neutral-200'
+                    }`}
+                  >
+                    {opt.isCorrect ? <HiOutlineCheck className="h-3.5 w-3.5" /> : String.fromCharCode(2453 + idx)}
+                  </button>
+                  <MathInput
+                    value={opt.text}
+                    onChange={(val) => {
+                      const opts = [...form.options];
+                      opts[idx].text = val;
+                      setForm({ ...form, options: opts });
+                    }}
+                    rows={1}
+                    placeholder={`বিকল্প ${String.fromCharCode(2453 + idx)}`}
+                    required
+                    className="flex-1"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Cognitive Level & Marks */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">Cognitive Level / জ্ঞানীয় স্তর *</label>
+              <select
+                value={form.cognitiveDomain}
+                onChange={(e) => setForm({ ...form, cognitiveDomain: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs font-medium bg-white outline-none"
+              >
+                <option value="knowledge">জ্ঞান</option>
+                <option value="comprehension">অনুধাবন</option>
+                <option value="application">প্রয়োগ</option>
+                <option value="higher_skills">উচ্চতর দক্ষতা</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">নম্বর (Marks)</label>
+              <input
+                type="number"
+                value={form.marks}
+                onChange={(e) => setForm({ ...form, marks: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white"
+                min="0"
+                step="any"
+              />
+            </div>
+          </div>
+
+          {/* Advanced Options Toggle */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="w-full flex items-center justify-between px-3.5 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-semibold rounded-lg text-xs transition-all border border-neutral-300"
+            >
+              <span>{showAdvanced ? '⚙️ বিস্তারিত অপশনসমূহ লুকান' : '⚙️ বিস্তারিত অপশনসমূহ (বই রেফারেন্স, ব্যাখ্যা, ডিফিকাল্টি...)'}</span>
+              <span>{showAdvanced ? '▲' : '▼'}</span>
+            </button>
+          </div>
+
+          {showAdvanced && (
+            <div className="space-y-3 pt-2 border-t border-dashed border-neutral-300">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Book Reference / বই</label>
+                  <input
+                    type="text"
+                    value={form.bookReference || ''}
+                    onChange={(e) => setForm({ ...form, bookReference: e.target.value })}
+                    placeholder="যেমন: আবুল হাসান, আজমল"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">ডিফিকাল্টি</label>
+                  <select
+                    value={form.difficulty}
+                    onChange={(e) => setForm({ ...form, difficulty: e.target.value })}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs font-medium bg-white outline-none"
+                  >
+                    <option value="easy">সহজ</option>
+                    <option value="medium">মাঝারি</option>
+                    <option value="hard">কঠিন</option>
+                  </select>
+                </div>
+              </div>
+              <MathInput
+                label="ব্যাখ্যা (ঐচ্ছিক)"
+                value={form.explanation}
+                onChange={(val) => setForm({ ...form, explanation: val })}
+                rows={2}
+                placeholder="সঠিক উত্তরের ব্যাখ্যা..."
+              />
+            </div>
+          )}
+
+          {/* Form Actions */}
+          <div className="flex gap-2 pt-3 border-t border-neutral-200">
+            <Button type="button" variant="ghost" onClick={() => setModalOpen(false)} disabled={isSubmitting} className="flex-1">
+              বাতিল
+            </Button>
+            <Button type="submit" disabled={isSubmitting} className="flex-1 bg-primary-600 hover:bg-primary-700 text-white">
+              {isSubmitting ? 'সংরক্ষণ করা হচ্ছে...' : 'প্রশ্ন তৈরি করুন'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
