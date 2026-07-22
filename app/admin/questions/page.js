@@ -46,9 +46,10 @@ const TYPE_COLORS = {
 };
 
 const FORMAT_LABELS = {
-  single_correct: 'সাধারণ বহুনির্বাচনী',
+  single_correct: 'সাধারণ বহুনির্বাচনি',
   multiple_correct: 'বহুপদী সমাপ্তিসূচক',
   passage_mcq: 'অভিন্ন তথ্যভিত্তিক',
+  none: 'প্রযোজ্য নয়',
   true_false: 'সত্য/মিথ্যা (True/False)',
   assertion_reason: 'দৃঢ়োক্তি-যুক্তি (Assertion-Reason)',
   creative_default: 'সৃজনশীল (CQ)',
@@ -138,6 +139,7 @@ export default function QuestionsPage() {
   const [newAdmission, setNewAdmission] = useState({ name: '', year: '', questionNo: '' });
   const [newSchool, setNewSchool] = useState({ name: '', year: '', questionNo: '' });
   const [inlineSourceInput, setInlineSourceInput] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Selected hierarchy for bulk import
   const [impClass, setImpClass] = useState('');
@@ -205,6 +207,7 @@ export default function QuestionsPage() {
   const versions = tree.find((c) => c._id === selClass)?.versions || [];
   const subjects = versions.find((v) => v._id === selVersion)?.subjects || [];
   const chapters = subjects.find((s) => s._id === selSubject)?.chapters || [];
+  const topics = chapters.find((ch) => ch._id === form.chapterId)?.topics || [];
 
   // Filter bar hierarchy options (cascade)
   const filterVersions = tree.find((c) => c._id === filters.classId)?.versions || [];
@@ -244,6 +247,7 @@ export default function QuestionsPage() {
   };
 
   const openModal = (item = null) => {
+    setShowAdvanced(false);
     apiClient.get('/settings').then((res) => {
       if (res.data?.questionSources?.length) {
         setAvailableSources((prev) => Array.from(new Set([...res.data.questionSources, ...prev])));
@@ -1016,6 +1020,7 @@ export default function QuestionsPage() {
           </div>
 
           {/* Format selector */}
+          {/* Format selector */}
           {(form.type === 'MCQ' || form.type === 'OTHER' || form.type === 'SHORT') && (
             <div>
               <label className="block text-sm font-semibold text-neutral-700 mb-1.5">Structural Level / কাঠামোগত স্তর *</label>
@@ -1039,21 +1044,21 @@ export default function QuestionsPage() {
                   }
                   setForm({ ...form, format: fmt, options: updatedOpts });
                 }}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none font-medium"
                 required
               >
                 {form.type === 'MCQ' ? (
                   <>
-                    <option value="single_correct">সাধারণ বহুনির্বাচনী (Single Correct MCQ)</option>
-                    <option value="multiple_correct">বহুপদী সমাপ্তিসূচক (Multiple Correct MCQ)</option>
-                    <option value="passage_mcq">অভিন্ন তথ্যভিত্তিক / উদ্দীপকভিত্তিক (Passage MCQ)</option>
-                    <option value="true_false">সত্য / মিথ্যা (True/False)</option>
-                    <option value="assertion_reason">দৃঢ়োক্তি-যুক্তি (Assertion-Reason)</option>
+                    <option value="single_correct">সাধারণ বহুনির্বাচনি</option>
+                    <option value="multiple_correct">বহুপদী সমাপ্তিসূচক</option>
+                    <option value="passage_mcq">অভিন্ন তথ্যভিত্তিক</option>
+                    <option value="none">প্রযোজ্য নয়</option>
                   </>
                 ) : (
                   <>
                     <option value="short_answer">সংক্ষিপ্ত উত্তর (Short Answer)</option>
                     <option value="other_format">অন্যান্য ফরম্যাট</option>
+                    <option value="none">প্রযোজ্য নয়</option>
                   </>
                 )}
               </select>
@@ -1061,37 +1066,45 @@ export default function QuestionsPage() {
           )}
 
           {/* Hierarchy cascade selectors */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">ক্লাস *</label>
-              <select value={selClass} onChange={(e) => { setSelClass(e.target.value); setSelVersion(''); setSelSubject(''); setForm({ ...form, chapterId: '' }); }}
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">ক্লাস *</label>
+              <select value={selClass} onChange={(e) => { setSelClass(e.target.value); setSelVersion(''); setSelSubject(''); setForm({ ...form, chapterId: '', topicId: '' }); }}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" required>
                 <option value="">বাছুন</option>
                 {tree.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">ভার্সন *</label>
-              <select value={selVersion} onChange={(e) => { setSelVersion(e.target.value); setSelSubject(''); setForm({ ...form, chapterId: '' }); }}
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">ভার্সন *</label>
+              <select value={selVersion} onChange={(e) => { setSelVersion(e.target.value); setSelSubject(''); setForm({ ...form, chapterId: '', topicId: '' }); }}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" required>
                 <option value="">বাছুন</option>
                 {versions.map((v) => <option key={v._id} value={v._id}>{v.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">বিষয় *</label>
-              <select value={selSubject} onChange={(e) => { setSelSubject(e.target.value); setForm({ ...form, chapterId: '' }); }}
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">বিষয় *</label>
+              <select value={selSubject} onChange={(e) => { setSelSubject(e.target.value); setForm({ ...form, chapterId: '', topicId: '' }); }}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" required>
                 <option value="">বাছুন</option>
                 {subjects.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">অধ্যায় *</label>
-              <select value={form.chapterId} onChange={(e) => setForm({ ...form, chapterId: e.target.value })}
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">অধ্যায় *</label>
+              <select value={form.chapterId} onChange={(e) => setForm({ ...form, chapterId: e.target.value, topicId: '' })}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none" required>
                 <option value="">বাছুন</option>
                 {chapters.map((ch) => <option key={ch._id} value={ch._id}>{ch.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">টপিক / পাঠ (ঐচ্ছিক)</label>
+              <select value={form.topicId || ''} onChange={(e) => setForm({ ...form, topicId: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none disabled:bg-neutral-100 disabled:opacity-60" disabled={!form.chapterId}>
+                <option value="">সব টপিক / বাছুন</option>
+                {topics.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
               </select>
             </div>
           </div>
@@ -1135,30 +1148,13 @@ export default function QuestionsPage() {
             label="প্রশ্নের ছবি/চিত্র (ঐচ্ছিক)"
           />
 
-          {/* Cognitive Level + Difficulty + Book Reference + Marks */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Cognitive Level & Marks */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-neutral-600 mb-1">Cognitive Level / জ্ঞানীয় স্তর *</label>
               <select value={form.cognitiveDomain} onChange={(e) => setForm({ ...form, cognitiveDomain: e.target.value })}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none">
                 {COGNITIVE_DOMAINS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-600 mb-1">Book Reference / বই</label>
-              <input
-                type="text"
-                value={form.bookReference || ''}
-                onChange={(e) => setForm({ ...form, bookReference: e.target.value })}
-                placeholder="যেমন: আবুল হাসান, আজমল"
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-600 mb-1">ডিফিকাল্টি (Difficulty)</label>
-              <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none">
-                {DIFFICULTIES.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
             <div>
@@ -1168,15 +1164,51 @@ export default function QuestionsPage() {
                 disabled={form.type === 'CQ'}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-neutral-50 disabled:opacity-85" min="0" step="any" />
             </div>
-            {form.type === 'MCQ' && (
-              <div>
-                <label className="block text-xs font-medium text-neutral-500 mb-1">নেগেটিভ মার্কস</label>
-                <input type="number" value={form.negativeMarks ?? 0}
-                  onChange={(e) => setForm({ ...form, negativeMarks: e.target.value })}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-white" min="0" step="any" />
-              </div>
-            )}
           </div>
+
+          {/* Advanced Details Toggle Button */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="w-full flex items-center justify-between px-4 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-semibold rounded-xl text-xs transition-all border border-neutral-300 shadow-xs"
+            >
+              <span>{showAdvanced ? '⚙️ বিস্তারিত/অ্যাডভান্সড অপশনসমূহ লুকান' : '⚙️ বিস্তারিত/অ্যাডভান্সড অপশনসমূহ (বই রেফারেন্স, উৎস, বোর্ড, নেগেটিভ মার্কস, ব্যাখ্যা...)'}</span>
+              <span className="text-sm font-bold">{showAdvanced ? '▲' : '▼'}</span>
+            </button>
+          </div>
+
+          {/* Collapsible Advanced Options Section */}
+          {showAdvanced && (
+            <div className="space-y-4 pt-2 border-t border-dashed border-neutral-300 animate-fadeIn">
+              {/* Secondary Details: Book Reference, Difficulty, Negative Marks */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-neutral-50 p-3 rounded-xl border border-neutral-200">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-600 mb-1">Book Reference / বই</label>
+                  <input
+                    type="text"
+                    value={form.bookReference || ''}
+                    onChange={(e) => setForm({ ...form, bookReference: e.target.value })}
+                    placeholder="যেমন: আবুল হাসান, আজমল"
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-600 mb-1">ডিফিকাল্টি (Difficulty)</label>
+                  <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500">
+                    {DIFFICULTIES.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                  </select>
+                </div>
+                {form.type === 'MCQ' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-600 mb-1">নেগেটিভ মার্কস</label>
+                    <input type="number" value={form.negativeMarks ?? 0}
+                      onChange={(e) => setForm({ ...form, negativeMarks: e.target.value })}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500" min="0" step="any" />
+                  </div>
+                )}
+              </div>
 
           {/* MCQ Options */}
           {form.type === 'MCQ' && (
@@ -1480,26 +1512,16 @@ export default function QuestionsPage() {
             )}
           </div>
 
-          {/* Explanation */}
-          <MathInput
-            label="ব্যাখ্যা (ঐচ্ছিক)"
-            value={form.explanation}
-            onChange={(val) => setForm({ ...form, explanation: val })}
-            rows={2}
-            placeholder="সঠিক উত্তরের ব্যাখ্যা..."
-          />
-
-          {/* Book Reference */}
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1">বই রেফারেন্স / লেখক (ঐচ্ছিক, যেমন: আবুল হাসান, আজমল)</label>
-            <input
-              type="text"
-              value={form.bookReference || ''}
-              onChange={(e) => setForm({ ...form, bookReference: e.target.value })}
-              placeholder="বইয়ের নাম বা লেখকের নাম (যেমন: আবুল হাসান)"
-              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-primary-500"
-            />
-          </div>
+              {/* Explanation */}
+              <MathInput
+                label="ব্যাখ্যা (ঐচ্ছিক)"
+                value={form.explanation}
+                onChange={(val) => setForm({ ...form, explanation: val })}
+                rows={2}
+                placeholder="সঠিক উত্তরের ব্যাখ্যা..."
+              />
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
@@ -1974,11 +1996,10 @@ export default function QuestionsPage() {
                   onChange={(e) => setEditingExcelItem({ ...editingExcelItem, format: e.target.value })}
                   className="w-full px-2.5 py-2 border border-neutral-300 rounded-lg bg-white outline-none text-xs font-medium"
                 >
-                  <option value="single_correct">সাধারণ বহুনির্বাচনী</option>
+                  <option value="single_correct">সাধারণ বহুনির্বাচনি</option>
                   <option value="multiple_correct">বহুপদী সমাপ্তিসূচক</option>
                   <option value="passage_mcq">অভিন্ন তথ্যভিত্তিক</option>
-                  <option value="creative_default">সৃজনশীল</option>
-                  <option value="short_answer">সংক্ষিপ্ত উত্তর</option>
+                  <option value="none">প্রযোজ্য নয়</option>
                 </select>
               </div>
               <div>
