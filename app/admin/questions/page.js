@@ -1017,7 +1017,7 @@ export default function QuestionsPage() {
           {/* Format selector */}
           {(form.type === 'MCQ' || form.type === 'OTHER' || form.type === 'SHORT') && (
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1.5">প্রশ্ন ফরম্যাট *</label>
+              <label className="block text-sm font-semibold text-neutral-700 mb-1.5">Structural Level / কাঠামোগত স্তর *</label>
               <select
                 value={form.format}
                 onChange={(e) => {
@@ -1043,11 +1043,11 @@ export default function QuestionsPage() {
               >
                 {form.type === 'MCQ' ? (
                   <>
-                    <option value="single_correct">একক সঠিক উত্তর (Single Correct)</option>
-                    <option value="multiple_correct">বহু সঠিক উত্তর (Multiple Correct)</option>
+                    <option value="single_correct">সাধারণ বহুনির্বাচনী (Single Correct MCQ)</option>
+                    <option value="multiple_correct">বহুপদী সমাপ্তিসূচক (Multiple Correct MCQ)</option>
+                    <option value="passage_mcq">অভিন্ন তথ্যভিত্তিক / উদ্দীপকভিত্তিক (Passage MCQ)</option>
                     <option value="true_false">সত্য / মিথ্যা (True/False)</option>
                     <option value="assertion_reason">দৃঢ়োক্তি-যুক্তি (Assertion-Reason)</option>
-                    <option value="passage_mcq">উদ্দীপকভিত্তিক MCQ (Passage-based MCQ)</option>
                   </>
                 ) : (
                   <>
@@ -1134,29 +1134,40 @@ export default function QuestionsPage() {
             label="প্রশ্নের ছবি/চিত্র (ঐচ্ছিক)"
           />
 
-          {/* Cognitive Domain + Difficulty + Marks */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Cognitive Level + Difficulty + Book Reference + Marks */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">জ্ঞানমূলক স্তর *</label>
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">Cognitive Level / জ্ঞানীয় স্তর *</label>
               <select value={form.cognitiveDomain} onChange={(e) => setForm({ ...form, cognitiveDomain: e.target.value })}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none">
                 {COGNITIVE_DOMAINS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">কঠিনতা</label>
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">Book Reference / বই</label>
+              <input
+                type="text"
+                value={form.bookReference || ''}
+                onChange={(e) => setForm({ ...form, bookReference: e.target.value })}
+                placeholder="যেমন: আবুল হাসান, আজমল"
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">ডিফিকাল্টি (Difficulty)</label>
               <select value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none">
                 {DIFFICULTIES.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1">নম্বর</label>
+              <label className="block text-xs font-semibold text-neutral-600 mb-1">নম্বর (Marks)</label>
               <input type="number" value={form.type === 'CQ' ? form.subParts.reduce((acc, p) => acc + (Number(p.marks) || 0), 0) : form.marks}
                 onChange={(e) => setForm({ ...form, marks: e.target.value })}
                 disabled={form.type === 'CQ'}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-neutral-50 disabled:opacity-85" min="0" step="any" />
             </div>
+          </div>
             {form.type === 'MCQ' && (
               <div>
                 <label className="block text-xs font-medium text-neutral-500 mb-1">নেগেটিভ মার্কস</label>
@@ -1955,13 +1966,27 @@ export default function QuestionsPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block font-semibold text-neutral-700 mb-1">জ্ঞানীয় ডোমেইন</label>
+                <label className="block font-semibold text-neutral-700 mb-1">Structural Level / ফরম্যাট</label>
+                <select
+                  value={editingExcelItem.format || 'single_correct'}
+                  onChange={(e) => setEditingExcelItem({ ...editingExcelItem, format: e.target.value })}
+                  className="w-full px-2.5 py-2 border border-neutral-300 rounded-lg bg-white outline-none text-xs font-medium"
+                >
+                  <option value="single_correct">সাধারণ বহুনির্বাচনী</option>
+                  <option value="multiple_correct">বহুপদী সমাপ্তিসূচক</option>
+                  <option value="passage_mcq">অভিন্ন তথ্যভিত্তিক</option>
+                  <option value="creative_default">সৃজনশীল</option>
+                  <option value="short_answer">সংক্ষিপ্ত উত্তর</option>
+                </select>
+              </div>
+              <div>
+                <label className="block font-semibold text-neutral-700 mb-1">Cognitive Level / জ্ঞানীয় স্তর</label>
                 <select
                   value={editingExcelItem.cognitiveDomain}
                   onChange={(e) => setEditingExcelItem({ ...editingExcelItem, cognitiveDomain: e.target.value })}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg bg-white outline-none"
+                  className="w-full px-2.5 py-2 border border-neutral-300 rounded-lg bg-white outline-none text-xs font-medium"
                 >
                   {COGNITIVE_DOMAINS.map(d => (
                     <option key={d.value} value={d.value}>{d.label}</option>
@@ -1969,16 +1994,14 @@ export default function QuestionsPage() {
                 </select>
               </div>
               <div>
-                <label className="block font-semibold text-neutral-700 mb-1">ডিফিকাল্টি</label>
-                <select
-                  value={editingExcelItem.difficulty}
-                  onChange={(e) => setEditingExcelItem({ ...editingExcelItem, difficulty: e.target.value })}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-lg bg-white outline-none"
-                >
-                  {DIFFICULTIES.map(d => (
-                    <option key={d.value} value={d.value}>{d.label}</option>
-                  ))}
-                </select>
+                <label className="block font-semibold text-neutral-700 mb-1">Book Reference / বই</label>
+                <input
+                  type="text"
+                  value={editingExcelItem.bookReference || ''}
+                  onChange={(e) => setEditingExcelItem({ ...editingExcelItem, bookReference: e.target.value })}
+                  placeholder="যেমন: আবুল হাসান"
+                  className="w-full px-2.5 py-2 border border-neutral-300 rounded-lg outline-none text-xs"
+                />
               </div>
             </div>
 
