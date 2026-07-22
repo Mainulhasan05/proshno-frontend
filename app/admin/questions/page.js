@@ -190,6 +190,87 @@ export default function QuestionsPage() {
   // Dynamic sources state
   const [availableSources, setAvailableSources] = useState(['Admission', 'Board', 'Main Book', 'Onusiloni', 'Top School/College', 'Inspired']);
 
+  // Bulk actions state
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkEditModalOpen, setBulkEditModalOpen] = useState(false);
+  const [bulkUpdatePayload, setBulkUpdatePayload] = useState({
+    format: '',
+    cognitiveDomain: '',
+    difficulty: '',
+    bookReference: '',
+  });
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+
+  const toggleSelectAll = () => {
+    if (questions.length === 0) return;
+    if (selectedIds.length === questions.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(questions.map((q) => q._id));
+    }
+  };
+
+  const toggleSelectOne = (id) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((item) => item !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`আপনি কি নিশ্চিত যে সিলেক্ট করা ${selectedIds.length}টি প্রশ্ন একসাথে মুছে ফেলতে চান?`)) {
+      return;
+    }
+    try {
+      setIsBulkProcessing(true);
+      await apiClient.post('/questions/bulk-delete', { ids: selectedIds });
+      toast.success(`${selectedIds.length}টি প্রশ্ন সফলভাবে মুছে ফেলা হয়েছে`);
+      setSelectedIds([]);
+      dispatch(fetchQuestions(filters));
+    } catch (err) {
+      toast.error(err?.error?.message || 'একসাথে প্রশ্ন মুছে ফেলা ব্যর্থ হয়েছে');
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleBulkToggle = async (isActive) => {
+    if (selectedIds.length === 0) return;
+    try {
+      setIsBulkProcessing(true);
+      await apiClient.post('/questions/bulk-toggle', { ids: selectedIds, isActive });
+      toast.success(`${selectedIds.length}টি প্রশ্ন ${isActive ? 'সক্রিয়' : 'নিষ্ক্রিয়'} করা হয়েছে`);
+      setSelectedIds([]);
+      dispatch(fetchQuestions(filters));
+    } catch (err) {
+      toast.error(err?.error?.message || 'স্ট্যাটাস পরিবর্তন ব্যর্থ হয়েছে');
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleBulkUpdateSubmit = async (e) => {
+    e.preventDefault();
+    if (selectedIds.length === 0) return;
+    try {
+      setIsBulkProcessing(true);
+      await apiClient.post('/questions/bulk-update', {
+        ids: selectedIds,
+        updateData: bulkUpdatePayload,
+      });
+      toast.success(`${selectedIds.length}টি প্রশ্ন সফলভাবে আপডেট করা হয়েছে!`);
+      setBulkEditModalOpen(false);
+      setSelectedIds([]);
+      dispatch(fetchQuestions(filters));
+    } catch (err) {
+      toast.error(err?.error?.message || 'একসাথে প্রশ্ন আপডেট ব্যর্থ হয়েছে');
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
   useEffect(() => {
     dispatch(fetchTree());
     dispatch(fetchQuestions(filters));
@@ -771,6 +852,26 @@ export default function QuestionsPage() {
         )}
       </AnimatePresence>
 
+      {/* Select All Bar */}
+      {questions.length > 0 && (
+        <div className="flex items-center justify-between bg-white px-4 py-3 rounded-xl border border-neutral-200 mb-4 shadow-xs">
+          <label className="flex items-center gap-2.5 cursor-pointer select-none font-medium text-xs text-neutral-700">
+            <input
+              type="checkbox"
+              checked={questions.length > 0 && selectedIds.length === questions.length}
+              onChange={toggleSelectAll}
+              className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+            />
+            <span>পেজের সব প্রশ্ন সিলেক্ট করুন ({questions.length} টি)</span>
+          </label>
+          {selectedIds.length > 0 && (
+            <span className="text-primary-700 font-bold bg-primary-50 px-2.5 py-1 rounded-md border border-primary-200 text-xs">
+              {selectedIds.length} টি প্রশ্ন সিলেক্ট করা হয়েছে
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Questions List */}
       {questions.length === 0 && !isLoading && (
         <div className="bg-white rounded-xl border border-neutral-200 p-12 text-center text-neutral-400 text-sm">
@@ -785,9 +886,17 @@ export default function QuestionsPage() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.02 }}
-            className={`bg-white rounded-xl border border-neutral-200 p-5 hover:shadow-md transition-all ${!q.isActive ? 'opacity-65' : ''}`}
+            className={`bg-white rounded-xl border p-5 hover:shadow-md transition-all ${
+              selectedIds.includes(q._id) ? 'border-primary-500 ring-2 ring-primary-500/20 bg-primary-50/10' : 'border-neutral-200'
+            } ${!q.isActive ? 'opacity-65' : ''}`}
           >
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(q._id)}
+                onChange={() => toggleSelectOne(q._id)}
+                className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-500 cursor-pointer mt-1 shrink-0"
+              />
               <div className="flex-1 min-w-0">
                 {/* Tags */}
                 <div className="flex flex-wrap items-center gap-1.5 mb-3">
@@ -980,6 +1089,152 @@ export default function QuestionsPage() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
+
+      {/* Floating Bulk Actions Bar */}
+      <AnimatePresence>
+        {selectedIds.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-neutral-900 text-white rounded-2xl shadow-2xl px-6 py-3.5 border border-neutral-800 flex flex-wrap items-center gap-3 font-sans text-xs"
+          >
+            <div className="flex items-center gap-2 font-bold border-r border-neutral-700 pr-3">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>{selectedIds.length} টি সিলেক্ট করা হয়েছে</span>
+            </div>
+
+            <button
+              onClick={() => {
+                setBulkUpdatePayload({ format: '', cognitiveDomain: '', difficulty: '', bookReference: '' });
+                setBulkEditModalOpen(true);
+              }}
+              className="bg-neutral-800 hover:bg-neutral-700 text-amber-300 font-semibold px-3 py-1.5 rounded-lg border border-neutral-700 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <HiOutlinePencil className="h-4 w-4" />
+              একসাথে আপডেট (Bulk Edit)
+            </button>
+
+            <button
+              onClick={() => handleBulkToggle(true)}
+              disabled={isBulkProcessing}
+              className="bg-neutral-800 hover:bg-neutral-700 text-emerald-400 font-semibold px-3 py-1.5 rounded-lg border border-neutral-700 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <HiOutlineEye className="h-4 w-4" />
+              সক্রিয় করুন
+            </button>
+
+            <button
+              onClick={() => handleBulkToggle(false)}
+              disabled={isBulkProcessing}
+              className="bg-neutral-800 hover:bg-neutral-700 text-neutral-400 font-semibold px-3 py-1.5 rounded-lg border border-neutral-700 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <HiOutlineEyeOff className="h-4 w-4" />
+              নিষ্ক্রিয় করুন
+            </button>
+
+            <button
+              onClick={handleBulkDelete}
+              disabled={isBulkProcessing}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+            >
+              <HiOutlineTrash className="h-4 w-4" />
+              একসাথে মুছুন (Delete)
+            </button>
+
+            <button
+              onClick={() => setSelectedIds([])}
+              className="text-neutral-400 hover:text-white px-2 py-1 transition-all cursor-pointer ml-1"
+              title="সিলেকশন বাতিল"
+            >
+              <HiOutlineX className="h-5 w-5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Edit Attributes Modal */}
+      <Modal
+        isOpen={bulkEditModalOpen}
+        onClose={() => setBulkEditModalOpen(false)}
+        title={`একসাথে ${selectedIds.length} টি প্রশ্ন আপডেট করুন`}
+        maxWidth="max-w-xl"
+      >
+        <form onSubmit={handleBulkUpdateSubmit} className="space-y-4 font-sans text-xs">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 font-medium leading-relaxed">
+            💡 আপনি যে ফিল্ডগুলো পরিবর্তন করতে চান কেবল সেগুলো নির্বাচন বা পরিবর্তন করুন। খালি রাখা ফিল্ডগুলো পূর্বের মতোই অপরিবর্তিত থাকবে।
+          </div>
+
+          {/* Format / Structural Level */}
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">Structural Level / কাঠামোগত স্তর</label>
+            <select
+              value={bulkUpdatePayload.format || ''}
+              onChange={(e) => setBulkUpdatePayload({ ...bulkUpdatePayload, format: e.target.value })}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs font-medium bg-white outline-none"
+            >
+              <option value="">(অপরিবর্তিত রাখুন)</option>
+              <option value="single_correct">সাধারণ বহুনির্বাচনি</option>
+              <option value="multiple_correct">বহুপদী সমাপ্তিসূচক</option>
+              <option value="passage_mcq">অভিন্ন তথ্যভিত্তিক</option>
+              <option value="none">প্রযোজ্য নয়</option>
+            </select>
+          </div>
+
+          {/* Cognitive Level */}
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">Cognitive Level / জ্ঞানীয় স্তর</label>
+            <select
+              value={bulkUpdatePayload.cognitiveDomain || ''}
+              onChange={(e) => setBulkUpdatePayload({ ...bulkUpdatePayload, cognitiveDomain: e.target.value })}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs font-medium bg-white outline-none"
+            >
+              <option value="">(অপরিবর্তিত রাখুন)</option>
+              <option value="knowledge">জ্ঞান</option>
+              <option value="comprehension">অনুধাবন</option>
+              <option value="application">প্রয়োগ</option>
+              <option value="higher_skills">উচ্চতর দক্ষতা</option>
+            </select>
+          </div>
+
+          {/* Book Reference */}
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">Book Reference / বই</label>
+            <input
+              type="text"
+              value={bulkUpdatePayload.bookReference || ''}
+              onChange={(e) => setBulkUpdatePayload({ ...bulkUpdatePayload, bookReference: e.target.value })}
+              placeholder="যেমন: আবুল হাসান, আজমল"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white"
+            />
+          </div>
+
+          {/* Difficulty */}
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">ডিফিকাল্টি</label>
+            <select
+              value={bulkUpdatePayload.difficulty || ''}
+              onChange={(e) => setBulkUpdatePayload({ ...bulkUpdatePayload, difficulty: e.target.value })}
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-xs font-medium bg-white outline-none"
+            >
+              <option value="">(অপরিবর্তিত রাখুন)</option>
+              <option value="easy">সহজ</option>
+              <option value="medium">মাঝারি</option>
+              <option value="hard">কঠিন</option>
+            </select>
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex gap-2 pt-3 border-t border-neutral-200">
+            <Button type="button" variant="ghost" onClick={() => setBulkEditModalOpen(false)} disabled={isBulkProcessing} className="flex-1">
+              বাতিল
+            </Button>
+            <Button type="submit" disabled={isBulkProcessing} className="flex-1 bg-primary-600 hover:bg-primary-700 text-white font-semibold">
+              {isBulkProcessing ? 'আপডেট করা হচ্ছে...' : 'আপডেট প্রয়োগ করুন'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Create/Edit Modal */}
       <Modal isOpen={modalOpen} onClose={closeModal} title={editItem ? 'প্রশ্ন সম্পাদনা' : 'নতুন প্রশ্ন'} maxWidth="max-w-2xl">
