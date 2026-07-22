@@ -136,6 +136,7 @@ export default function QuestionsPage() {
   const [newBoard, setNewBoard] = useState({ shortForm: '', year: '', questionNo: '' });
   const [newAdmission, setNewAdmission] = useState({ name: '', year: '', questionNo: '' });
   const [newSchool, setNewSchool] = useState({ name: '', year: '', questionNo: '' });
+  const [inlineSourceInput, setInlineSourceInput] = useState('');
 
   // Selected hierarchy for bulk import
   const [impClass, setImpClass] = useState('');
@@ -242,6 +243,12 @@ export default function QuestionsPage() {
   };
 
   const openModal = (item = null) => {
+    apiClient.get('/settings').then((res) => {
+      if (res.data?.questionSources?.length) {
+        setAvailableSources((prev) => Array.from(new Set([...res.data.questionSources, ...prev])));
+      }
+    }).catch(() => {});
+
     if (item) {
       setEditItem(item);
       setForm({
@@ -333,6 +340,19 @@ export default function QuestionsPage() {
       ? form.sources.filter(s => s !== src)
       : [...form.sources, src];
     setForm({ ...form, sources: next });
+  };
+
+  const handleAddInlineSource = () => {
+    const src = inlineSourceInput.trim();
+    if (!src) return;
+    if (!availableSources.includes(src)) {
+      setAvailableSources([...availableSources, src]);
+    }
+    if (!form.sources.includes(src)) {
+      setForm({ ...form, sources: [...form.sources, src] });
+    }
+    setInlineSourceInput('');
+    toast.success(`"${src}" উৎস যোগ করা হয়েছে`);
   };
 
   const addBoardInfo = () => {
@@ -1258,7 +1278,7 @@ export default function QuestionsPage() {
             <div>
               <label className="block text-sm font-semibold text-neutral-700 mb-2">উৎস (Source)</label>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
-                {availableSources.map((srcVal) => (
+                {Array.from(new Set([...availableSources, ...(form.sources || [])])).map((srcVal) => (
                   <label key={srcVal} className="flex items-center gap-2 text-sm text-neutral-600 cursor-pointer select-none">
                     <input
                       type="checkbox"
@@ -1279,6 +1299,25 @@ export default function QuestionsPage() {
                     )}
                   </label>
                 ))}
+              </div>
+
+              {/* Inline Add Custom Source Tag */}
+              <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-neutral-200">
+                <input
+                  type="text"
+                  placeholder="নতুন উৎস যোগ করুন (যেমন: CU A-Unit, Model Test)..."
+                  value={inlineSourceInput}
+                  onChange={(e) => setInlineSourceInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddInlineSource(); } }}
+                  className="px-3 py-1.5 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500 flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddInlineSource}
+                  className="px-3 py-1.5 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 rounded-lg text-xs font-semibold shrink-0 transition-colors"
+                >
+                  + যোগ করুন
+                </button>
               </div>
             </div>
 
@@ -1606,7 +1645,7 @@ export default function QuestionsPage() {
                 Excel আপলোড গাইডলাইন:
               </span>
               ১. Bangla Excel ফাইল (`.xlsx`) আপলোড করুন। (উদা: HSC-Sample-2.xlsx)<br />
-              ২. কলামসমূহ: `প্রশ্ন`, `অপশন ক`, `অপশন খ`, `অপশন গ`, `অপশন ঘ`, `সঠিক উত্তর`, `বিষয়`, `অধ্যায়`, `টপিক`, `Difficulti level`, `Cognitive Level`, `Source` ইত্যাদি।<br />
+              ২. কলামসমূহ: `প্রশ্ন`, `অপশন ক`, `অপশন খ`, `অপশন গ`, `অপশন ঘ`, `সঠিক উত্তর`, `বিষয়`, `অধ্যায়`, `টপিক`, `Structural Level`, `Cognitive Level`, `Book Reference`, `Source` ইত্যাদি।<br />
               ৩. বিষয়, অধ্যায় এবং টপিকের নাম স্বয়ংক্রিয়ভাবে ডাটাবেজ থেকে রেজোলিউশন করে দেখানো হবে।
             </div>
             <a
@@ -1705,7 +1744,7 @@ export default function QuestionsPage() {
                         <th className="p-3 w-12 text-center">#</th>
                         <th className="p-3 min-w-[220px]">প্রশ্ন ও অপশন</th>
                         <th className="p-3 min-w-[180px]">বিষয়, অধ্যায় ও টপিক (Actual Names)</th>
-                        <th className="p-3 w-28 text-center">টাইপ ও ডোমেইন</th>
+                        <th className="p-3 min-w-[170px] text-center">ফরম্যাট, ডোমেইন ও রেফারেন্স</th>
                         <th className="p-3 w-24 text-center">স্ট্যাটাস</th>
                         <th className="p-3 w-20 text-center">অ্যাকশন</th>
                       </tr>
@@ -1762,14 +1801,35 @@ export default function QuestionsPage() {
                             </div>
                           </td>
                           <td className="p-3 text-center space-y-1">
-                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${TYPE_COLORS[item.type]}`}>
-                              {item.type}
-                            </span>
-                            <div>
-                              <span className="bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded text-[10px] uppercase font-mono">
-                                {COGNITIVE_DOMAINS.find(d => d.value === item.cognitiveDomain)?.label || item.cognitiveDomain}
+                            <div className="flex items-center justify-center gap-1 flex-wrap">
+                              <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${TYPE_COLORS[item.type]}`}>
+                                {item.type}
+                              </span>
+                              <span className="bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-semibold">
+                                {item.structuralLevelRaw || FORMAT_LABELS[item.format] || item.format}
                               </span>
                             </div>
+                            <div>
+                              <span className="bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                🧠 {item.cognitiveLevelRaw || COGNITIVE_DOMAINS.find(d => d.value === item.cognitiveDomain)?.label || item.cognitiveDomain}
+                              </span>
+                            </div>
+                            {item.bookReference && (
+                              <div>
+                                <span className="bg-teal-50 text-teal-800 border border-teal-200 px-1.5 py-0.5 rounded text-[10px] font-bold inline-block max-w-[150px] truncate" title={item.bookReference}>
+                                  📖 {item.bookReference}
+                                </span>
+                              </div>
+                            )}
+                            {item.sources?.length > 0 && (
+                              <div className="flex flex-wrap justify-center gap-1">
+                                {item.sources.map((src, sIdx) => (
+                                  <span key={sIdx} className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${src === 'Inspired' ? 'bg-purple-100 text-purple-800 border-purple-300' : 'bg-neutral-100 text-neutral-700 border-neutral-200'}`}>
+                                    {src === 'Inspired' ? '💡 Inspired' : src}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </td>
                           <td className="p-3 text-center">
                             {item.status === 'valid' && (
