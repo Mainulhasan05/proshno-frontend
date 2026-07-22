@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import apiClient from '@/store/api/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { fetchQuestions, createQuestion, bulkImportQuestions, parseExcelQuestions, updateQuestion, toggleQuestionActive, deleteQuestion } from '@/store/slices/questionSlice';
@@ -169,6 +170,7 @@ export default function QuestionsPage() {
     stimulusImage: '',
     questionImage: '',
     expectedAnswer: '',
+    bookReference: '',
     subParts: [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
     sources: [],
     boardInfo: [],
@@ -181,10 +183,21 @@ export default function QuestionsPage() {
   const [selVersion, setSelVersion] = useState('');
   const [selSubject, setSelSubject] = useState('');
 
+  // Dynamic sources state
+  const [availableSources, setAvailableSources] = useState(['Admission', 'Board', 'Main Book', 'Onusiloni', 'Top School/College', 'Inspired']);
+
   useEffect(() => {
     dispatch(fetchTree());
     dispatch(fetchQuestions(filters));
   }, [dispatch, filters]);
+
+  useEffect(() => {
+    apiClient.get('/settings').then((res) => {
+      if (res.data?.questionSources?.length) {
+        setAvailableSources(res.data.questionSources);
+      }
+    }).catch(() => {});
+  }, []);
 
   // Modal hierarchy options
   const versions = tree.find((c) => c._id === selClass)?.versions || [];
@@ -218,6 +231,7 @@ export default function QuestionsPage() {
       stimulus: '',
       stimulusImage: '',
       expectedAnswer: '',
+      bookReference: '',
       subParts: [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
       sources: [],
       boardInfo: [],
@@ -249,6 +263,7 @@ export default function QuestionsPage() {
         stimulusImage: item.stimulusImage || '',
         questionImage: item.questionImage || '',
         expectedAnswer: item.expectedAnswer || '',
+        bookReference: item.bookReference || '',
         subParts: item.subParts?.length > 0 ? item.subParts : [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
         sources: item.sources || [],
         boardInfo: item.boardInfo || [],
@@ -575,6 +590,7 @@ export default function QuestionsPage() {
         body.expectedAnswer = form.expectedAnswer || undefined;
       }
 
+      body.bookReference = form.bookReference || undefined;
       body.sources = form.sources || [];
       body.boardInfo = form.sources.includes('Board') ? form.boardInfo : [];
       body.university = form.sources.includes('Admission') ? form.university : [];
@@ -680,6 +696,13 @@ export default function QuestionsPage() {
                 className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full">
                 <option value="">সব মাত্রা</option>
                 {DIFFICULTIES.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+              </select>
+              <select value={filters.source || ''} onChange={(e) => setFilters({ ...filters, page: 1, source: e.target.value || undefined })}
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full">
+                <option value="">সব উৎস (All Sources)</option>
+                {availableSources.map((s) => (
+                  <option key={s} value={s}>{s === 'Inspired' ? '💡 Inspired (যাচাইযোগ্য)' : s}</option>
+                ))}
               </select>
 
               {/* Class Filter */}
@@ -861,6 +884,29 @@ export default function QuestionsPage() {
                   <span>→</span>
                   <span className="text-neutral-400">{q.chapterId?.name || 'Unknown Chapter'}</span>
                 </p>
+
+                {/* Source Badges */}
+                {((q.sources && q.sources.length > 0) || q.bookReference) && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {q.bookReference && (
+                      <span className="bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded text-[10px] font-bold">
+                        📖 বই: {q.bookReference}
+                      </span>
+                    )}
+                    {q.sources?.map((src, idx) => (
+                      <span
+                        key={`src-${idx}`}
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          src === 'Inspired'
+                            ? 'bg-purple-100 text-purple-800 border-purple-300 shadow-xs'
+                            : 'bg-neutral-100 text-neutral-700 border-neutral-200'
+                        }`}
+                      >
+                        {src === 'Inspired' ? '💡 Inspired (যাচাইযোগ্য)' : `🏷️ ${src}`}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {/* Board / School / University Info Badges */}
                 {((q.boardInfo && q.boardInfo.length > 0) || (q.topSchool && q.topSchool.length > 0) || (q.university && q.university.length > 0)) && (
@@ -1212,21 +1258,25 @@ export default function QuestionsPage() {
             <div>
               <label className="block text-sm font-semibold text-neutral-700 mb-2">উৎস (Source)</label>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
-                {[
-                  { value: 'Board', label: 'বোর্ড (Board)' },
-                  { value: 'Admission', label: 'ভর্তি পরীক্ষা (Admission)' },
-                  { value: 'Top School/College', label: 'শীর্ষ স্কুল/কলেজ (Top School/College)' },
-                  { value: 'Main Book', label: 'মূল বই (Main Book)' },
-                  { value: 'Onusiloni', label: 'অনুশীলনী (Onusiloni)' }
-                ].map((src) => (
-                  <label key={src.value} className="flex items-center gap-2 text-sm text-neutral-600 cursor-pointer select-none">
+                {availableSources.map((srcVal) => (
+                  <label key={srcVal} className="flex items-center gap-2 text-sm text-neutral-600 cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={form.sources?.includes(src.value)}
-                      onChange={() => toggleSource(src.value)}
-                      className="rounded border-neutral-355 text-primary-600 focus:ring-primary-500 h-4 w-4"
+                      checked={form.sources?.includes(srcVal)}
+                      onChange={() => toggleSource(srcVal)}
+                      className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500 h-4 w-4"
                     />
-                    {src.label}
+                    {srcVal === 'Inspired' ? (
+                      <span className="font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 text-xs">
+                        💡 Inspired (অনুপ্রেরণা/যাচাইযোগ্য)
+                      </span>
+                    ) : (
+                      srcVal === 'Board' ? 'বোর্ড (Board)' :
+                      srcVal === 'Admission' ? 'ভর্তি পরীক্ষা (Admission)' :
+                      srcVal === 'Top School/College' ? 'শীর্ষ স্কুল/কলেজ (Top School/College)' :
+                      srcVal === 'Main Book' ? 'মূল বই (Main Book)' :
+                      srcVal === 'Onusiloni' ? 'অনুশীলনী (Onusiloni)' : srcVal
+                    )}
                   </label>
                 ))}
               </div>
@@ -1388,6 +1438,18 @@ export default function QuestionsPage() {
             rows={2}
             placeholder="সঠিক উত্তরের ব্যাখ্যা..."
           />
+
+          {/* Book Reference */}
+          <div>
+            <label className="block text-xs font-medium text-neutral-600 mb-1">বই রেফারেন্স / লেখক (ঐচ্ছিক, যেমন: আবুল হাসান, আজমল)</label>
+            <input
+              type="text"
+              value={form.bookReference || ''}
+              onChange={(e) => setForm({ ...form, bookReference: e.target.value })}
+              placeholder="বইয়ের নাম বা লেখকের নাম (যেমন: আবুল হাসান)"
+              className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm outline-none focus:ring-1 focus:ring-primary-500"
+            />
+          </div>
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">

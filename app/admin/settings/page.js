@@ -5,10 +5,33 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import apiClient from '@/store/api/apiClient';
 import Button from '@/components/ui/Button';
-import { HiOutlineCheckCircle, HiOutlineCog, HiOutlineExclamation, HiOutlineMail, HiOutlinePhone, HiOutlineRefresh, HiOutlineShieldCheck } from 'react-icons/hi';
+import {
+  HiOutlineCheckCircle, HiOutlineCog, HiOutlineExclamation,
+  HiOutlineMail, HiOutlinePhone, HiOutlineRefresh, HiOutlineShieldCheck,
+  HiOutlineTag, HiOutlinePlus, HiOutlineX
+} from 'react-icons/hi';
 
-const defaults = { platformName: '', platformDescription: '', supportEmail: '', supportPhone: '', maintenanceMode: false, allowTeacherRegistration: true };
-const editable = (value) => ({ platformName: value.platformName, platformDescription: value.platformDescription, supportEmail: value.supportEmail, supportPhone: value.supportPhone, maintenanceMode: value.maintenanceMode, allowTeacherRegistration: value.allowTeacherRegistration });
+const defaultSources = ['Admission', 'Board', 'Main Book', 'Onusiloni', 'Top School/College', 'Inspired'];
+
+const defaults = {
+  platformName: '',
+  platformDescription: '',
+  supportEmail: '',
+  supportPhone: '',
+  maintenanceMode: false,
+  allowTeacherRegistration: true,
+  questionSources: defaultSources,
+};
+
+const editable = (value) => ({
+  platformName: value.platformName,
+  platformDescription: value.platformDescription,
+  supportEmail: value.supportEmail,
+  supportPhone: value.supportPhone,
+  maintenanceMode: value.maintenanceMode,
+  allowTeacherRegistration: value.allowTeacherRegistration,
+  questionSources: value.questionSources || defaultSources,
+});
 
 export default function SettingsPage() {
   const [form, setForm] = useState(defaults);
@@ -16,12 +39,17 @@ export default function SettingsPage() {
   const [status, setStatus] = useState('loading');
   const [saving, setSaving] = useState(false);
   const [updatedAt, setUpdatedAt] = useState(null);
+  const [newSourceInput, setNewSourceInput] = useState('');
 
   const load = useCallback(async () => {
     setStatus('loading');
     try {
       const response = await apiClient.get('/settings');
-      const value = { ...defaults, ...response.data };
+      const value = {
+        ...defaults,
+        ...response.data,
+        questionSources: response.data?.questionSources?.length ? response.data.questionSources : defaultSources,
+      };
       setForm(value); setSaved(value); setUpdatedAt(value.updatedAt); setStatus('success');
     } catch { setStatus('error'); }
   }, []);
@@ -30,11 +58,37 @@ export default function SettingsPage() {
   const change = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const dirty = JSON.stringify(editable(form)) !== JSON.stringify(editable(saved));
 
+  const addSourceTag = () => {
+    const tag = newSourceInput.trim();
+    if (!tag) return;
+    if (form.questionSources.includes(tag)) {
+      toast.error('এই সোর্স ট্যাগটি ইতিমধ্যেই যোগ করা আছে');
+      return;
+    }
+    setForm((current) => ({ ...current, questionSources: [...current.questionSources, tag] }));
+    setNewSourceInput('');
+  };
+
+  const removeSourceTag = (tagToRemove) => {
+    if (form.questionSources.length <= 1) {
+      toast.error('কমপক্ষে ১টি সোর্স ট্যাগ থাকা আবশ্যক');
+      return;
+    }
+    setForm((current) => ({
+      ...current,
+      questionSources: current.questionSources.filter((t) => t !== tagToRemove),
+    }));
+  };
+
   const submit = async (event) => {
     event.preventDefault(); setSaving(true);
     try {
       const response = await apiClient.put('/settings', editable(form));
-      const value = { ...defaults, ...response.data };
+      const value = {
+        ...defaults,
+        ...response.data,
+        questionSources: response.data?.questionSources?.length ? response.data.questionSources : defaultSources,
+      };
       setForm(value); setSaved(value); setUpdatedAt(value.updatedAt);
       toast.success('সেটিংস সংরক্ষণ হয়েছে');
     } catch (error) { toast.error(error?.error?.message || 'সেটিংস সংরক্ষণ করা যায়নি'); }
@@ -52,12 +106,58 @@ export default function SettingsPage() {
           <Field label="প্ল্যাটফর্ম নাম"><input required maxLength={100} value={form.platformName} onChange={(e) => change('platformName', e.target.value)} className="admin-setting-input" /></Field>
           <Field label="বিবরণ"><textarea rows={4} maxLength={500} value={form.platformDescription} onChange={(e) => change('platformDescription', e.target.value)} className="admin-setting-input py-3" /></Field>
         </Panel>
+
+        <Panel icon={HiOutlineTag} title="প্রশ্ন উৎস ব্যবস্থাপনা (Dynamic Question Sources)" subtitle="প্রশ্নের উৎস ট্যাগগুলো পছন্দমত যুক্ত ও পরিচালনা করুন (যেমন: Inspired, Board, Admission)">
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="নতুন উৎস ট্যাগ লিখুন (যেমন: Inspired, Verification Pending)"
+                value={newSourceInput}
+                onChange={(e) => setNewSourceInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSourceTag(); } }}
+                className="admin-setting-input flex-1"
+              />
+              <Button type="button" onClick={addSourceTag} variant="secondary">
+                <HiOutlinePlus className="h-4 w-4 mr-1" /> যুক্ত করুন
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-2">
+              {form.questionSources?.map((tag) => (
+                <span
+                  key={tag}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border ${
+                    tag === 'Inspired'
+                      ? 'bg-purple-50 text-purple-700 border-purple-200 font-bold'
+                      : 'bg-neutral-100 text-neutral-800 border-neutral-200'
+                  }`}
+                >
+                  <HiOutlineTag className="h-3.5 w-3.5 text-neutral-400" />
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={() => removeSourceTag(tag)}
+                    className="ml-1 text-neutral-400 hover:text-rose-600 transition-colors"
+                    title="মুছে ফেলুন"
+                  >
+                    <HiOutlineX className="h-3.5 w-3.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <p className="text-xs text-neutral-500">
+              * <b>"Inspired"</b> উৎস ট্যাগটি কালেকশন করা প্রশ্নগুলোর সঠিকতা পরবর্তীতে ভেরিফাই করার জন্য ব্যবহৃত হবে।
+            </p>
+          </div>
+        </Panel>
+
         <Panel icon={HiOutlineMail} title="সহায়তা যোগাযোগ" subtitle="ব্যবহারকারীরা যে ঠিকানায় সহায়তা চাইবেন">
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="ইমেইল"><div className="relative"><HiOutlineMail className="absolute left-3.5 top-3.5 h-4 w-4 text-neutral-400" /><input type="email" value={form.supportEmail} onChange={(e) => change('supportEmail', e.target.value)} className="admin-setting-input pl-10" /></div></Field>
             <Field label="ফোন"><div className="relative"><HiOutlinePhone className="absolute left-3.5 top-3.5 h-4 w-4 text-neutral-400" /><input maxLength={30} value={form.supportPhone} onChange={(e) => change('supportPhone', e.target.value)} className="admin-setting-input pl-10" /></div></Field>
           </div>
         </Panel>
+
         <Panel icon={HiOutlineShieldCheck} title="প্রবেশাধিকার" subtitle="গুরুত্বপূর্ণ প্ল্যাটফর্ম নিয়ন্ত্রণ">
           <Toggle title="শিক্ষক নিবন্ধন" text="নতুন শিক্ষকরা অ্যাকাউন্ট তৈরি করতে পারবেন" checked={form.allowTeacherRegistration} onChange={(value) => change('allowTeacherRegistration', value)} />
           <Toggle title="রক্ষণাবেক্ষণ মোড" text="প্ল্যাটফর্মকে রক্ষণাবেক্ষণ অবস্থায় চিহ্নিত করুন" checked={form.maintenanceMode} onChange={(value) => change('maintenanceMode', value)} danger />
