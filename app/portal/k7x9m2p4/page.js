@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
@@ -101,9 +102,9 @@ export default function AdminLoginPage() {
 
           <section className="flex items-center justify-center px-5 py-8 sm:px-10 lg:px-12">
             <motion.div initial={{ opacity: 0, y: 22, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }} className="w-full max-w-[490px]">
-              <a href="/" className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-[#526259] no-underline transition-colors hover:text-[#0F5132] lg:hidden">
+              <Link href="/" className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-[#526259] no-underline transition-colors hover:text-[#0F5132] lg:hidden">
                 <HiOutlineArrowLeft className="h-4 w-4" /> হোমে ফিরুন
-              </a>
+              </Link>
 
               <div className="rounded-[28px] border border-white/80 bg-white/90 p-6 shadow-[0_30px_80px_rgba(25,55,35,0.13)] backdrop-blur-xl sm:p-9">
                 <div className="mb-8 flex items-start justify-between gap-5">

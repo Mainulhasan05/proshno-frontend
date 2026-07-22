@@ -17,10 +17,11 @@ import {
   HiOutlineUpload, HiOutlineDownload, HiOutlineCheckCircle,
   HiOutlineExclamationCircle, HiOutlineDocumentText, HiOutlinePencilAlt
 } from 'react-icons/hi';
+import dynamic from 'next/dynamic';
 
-import MathRenderer from '@/components/shared/MathRenderer';
-import ImageUpload from '@/components/ui/ImageUpload';
-import MathInput from '@/components/ui/MathInput';
+const MathRenderer = dynamic(() => import('@/components/shared/MathRenderer'), { ssr: false });
+const ImageUpload = dynamic(() => import('@/components/ui/ImageUpload'), { ssr: false });
+const MathInput = dynamic(() => import('@/components/ui/MathInput'), { ssr: false });
 
 const COGNITIVE_DOMAINS = [
   { value: 'knowledge', label: 'জ্ঞান', color: 'bg-blue-100 text-blue-700' },
@@ -45,12 +46,12 @@ const TYPE_COLORS = {
 };
 
 const FORMAT_LABELS = {
-  single_correct: 'একক সঠিক উত্তর (Single MCQ)',
-  multiple_correct: 'বহু সঠিক উত্তর (Multiple MCQ)',
+  single_correct: 'সাধারণ বহুনির্বাচনী',
+  multiple_correct: 'বহুপদী সমাপ্তিসূচক',
+  passage_mcq: 'অভিন্ন তথ্যভিত্তিক',
   true_false: 'সত্য/মিথ্যা (True/False)',
   assertion_reason: 'দৃঢ়োক্তি-যুক্তি (Assertion-Reason)',
-  passage_mcq: 'প্যাসেজভিত্তিক MCQ (Stimulus MCQ)',
-  creative_default: 'সৃজনশীল (Creative Default)',
+  creative_default: 'সৃজনশীল (CQ)',
   short_answer: 'সংক্ষিপ্ত উত্তর (Short Answer)',
   other_format: 'অন্যান্য ফরম্যাট'
 };
@@ -1167,7 +1168,6 @@ export default function QuestionsPage() {
                 disabled={form.type === 'CQ'}
                 className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-neutral-50 disabled:opacity-85" min="0" step="any" />
             </div>
-          </div>
             {form.type === 'MCQ' && (
               <div>
                 <label className="block text-xs font-medium text-neutral-500 mb-1">নেগেটিভ মার্কস</label>
