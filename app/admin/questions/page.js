@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import apiClient from '@/store/api/apiClient';
 import { motion, AnimatePresence } from 'framer-motion';
