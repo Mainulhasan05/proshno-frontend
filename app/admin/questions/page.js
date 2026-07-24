@@ -2058,7 +2058,7 @@ export default function QuestionsPage() {
                                         : 'bg-neutral-50 border-neutral-200 text-neutral-600'
                                     }`}
                                   >
-                                    {['ক', 'খ', 'গ', 'ঘ'][oIdx] || oIdx + 1}. {opt.text}
+                                    {['ক', 'খ', 'গ', 'ঘ', 'ঙ'][oIdx] || oIdx + 1}. {opt.text}
                                   </span>
                                 ))}
                               </div>
@@ -2096,6 +2096,21 @@ export default function QuestionsPage() {
                               <span className="bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-semibold">
                                 {item.structuralLevelRaw || FORMAT_LABELS[item.format] || item.format}
                               </span>
+                              {item.format === 'multiple_correct' && (
+                                <span className="bg-purple-100 text-purple-800 border border-purple-300 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                  ☑️ বহু-উত্তর
+                                </span>
+                              )}
+                              {item.answer === 'Blank' && (
+                                <span className="bg-rose-100 text-rose-800 border border-rose-300 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                  ❓ Blank Answer
+                                </span>
+                              )}
+                              {item.containImage && (
+                                <span className="bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                  🖼️ Image Needed
+                                </span>
+                              )}
                             </div>
                             <div>
                               <span className="bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
@@ -2216,16 +2231,32 @@ export default function QuestionsPage() {
 
             {editingExcelItem.type === 'MCQ' && editingExcelItem.options && (
               <div className="space-y-2">
-                <label className="block font-semibold text-neutral-700">অপশন ও সঠিক উত্তর *</label>
+                <div className="flex items-center justify-between">
+                  <label className="block font-semibold text-neutral-700">অপশন ও সঠিক উত্তর *</label>
+                  <span className="text-[10px] text-neutral-500">
+                    {editingExcelItem.format === 'multiple_correct' ? '(একাধিক সঠিক উত্তর নির্বাচন করা যাবে)' : '(যেকোনো ১টি সঠিক উত্তর বাছুন)'}
+                  </span>
+                </div>
                 {editingExcelItem.options.map((opt, oIdx) => (
                   <div key={oIdx} className="flex items-center gap-2">
                     <input
-                      type="radio"
+                      type={editingExcelItem.format === 'multiple_correct' ? 'checkbox' : 'radio'}
                       name="editingCorrectOpt"
                       checked={opt.isCorrect}
-                      onChange={() => {
-                        const opts = editingExcelItem.options.map((o, i) => ({ ...o, isCorrect: i === oIdx }));
-                        setEditingExcelItem({ ...editingExcelItem, options: opts, mcqAns: oIdx });
+                      onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        const opts = editingExcelItem.options.map((o, i) => {
+                          if (editingExcelItem.format === 'multiple_correct') {
+                            return i === oIdx ? { ...o, isCorrect: isChecked } : o;
+                          }
+                          return { ...o, isCorrect: i === oIdx };
+                        });
+                        setEditingExcelItem({
+                          ...editingExcelItem,
+                          options: opts,
+                          mcqAns: editingExcelItem.format === 'multiple_correct' ? null : oIdx,
+                          answer: editingExcelItem.answer === 'Blank' ? '' : editingExcelItem.answer,
+                        });
                       }}
                     />
                     <input
@@ -2242,6 +2273,18 @@ export default function QuestionsPage() {
                 ))}
               </div>
             )}
+
+            <div className="pt-1">
+              <label className="flex items-center gap-2 font-medium text-neutral-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!editingExcelItem.containImage}
+                  onChange={(e) => setEditingExcelItem({ ...editingExcelItem, containImage: e.target.checked })}
+                  className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+                />
+                🖼️ প্রশ্নটিতে ছবি যুক্ত করা প্রয়োজন (Contain Image)
+              </label>
+            </div>
 
             <div className="grid grid-cols-3 gap-3">
               <div>
