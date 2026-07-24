@@ -132,6 +132,7 @@ export default function QuestionsPage() {
   const [excelParsedResult, setExcelParsedResult] = useState(null);
   const [editingExcelIdx, setEditingExcelIdx] = useState(null);
   const [editingExcelItem, setEditingExcelItem] = useState(null);
+  const [excelFilterTab, setExcelFilterTab] = useState('all'); // 'all', 'imageNeeded', 'blankAnswer', 'warning', 'invalid'
 
 
   // Input states for sources sub-forms
@@ -152,6 +153,23 @@ export default function QuestionsPage() {
   const impSubjects = impVersions.find((v) => v._id === impVersion)?.subjects || [];
   const impChapters = impSubjects.find((s) => s._id === impSubject)?.chapters || [];
   const impTopics = impChapters.find((ch) => ch._id === impChapter)?.topics || [];
+
+  const filteredExcelQuestions = useMemo(() => {
+    if (!excelParsedResult || !excelParsedResult.questions) return [];
+    if (excelFilterTab === 'imageNeeded') {
+      return excelParsedResult.questions.filter((q) => q.containImage);
+    }
+    if (excelFilterTab === 'blankAnswer') {
+      return excelParsedResult.questions.filter((q) => q.answer === 'Blank' || q.mcqAns === null || q.mcqAns === undefined);
+    }
+    if (excelFilterTab === 'warning') {
+      return excelParsedResult.questions.filter((q) => q.status === 'warning');
+    }
+    if (excelFilterTab === 'invalid') {
+      return excelParsedResult.questions.filter((q) => q.status === 'invalid');
+    }
+    return excelParsedResult.questions;
+  }, [excelParsedResult, excelFilterTab]);
 
   // Form
   const [form, setForm] = useState({
@@ -846,6 +864,26 @@ export default function QuestionsPage() {
                 {filterTopics.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
               </select>
 
+              {/* Contain Image Filter */}
+              <select
+                value={filters.containImage || ''}
+                onChange={(e) => setFilters({ ...filters, page: 1, containImage: e.target.value || undefined })}
+                className="px-3 py-2 border border-amber-300 bg-amber-50/50 rounded-lg text-sm font-medium w-full text-amber-900"
+              >
+                <option value="">🖼️ ছবি ফিল্টার (সব)</option>
+                <option value="true">🖼️ ছবি প্রয়োজন (Contain Image)</option>
+              </select>
+
+              {/* Blank Answer Filter */}
+              <select
+                value={filters.blankAnswer || ''}
+                onChange={(e) => setFilters({ ...filters, page: 1, blankAnswer: e.target.value || undefined })}
+                className="px-3 py-2 border border-rose-300 bg-rose-50/50 rounded-lg text-sm font-medium w-full text-rose-900"
+              >
+                <option value="">❓ উত্তর ফিল্টার (সব)</option>
+                <option value="true">❓ Blank উত্তর (Blank Answer)</option>
+              </select>
+
               <Button variant="ghost" size="sm" onClick={() => setFilters({})} className="w-full">রিসেট</Button>
             </div>
           </motion.div>
@@ -922,6 +960,16 @@ export default function QuestionsPage() {
                   <span className="text-xs text-neutral-500 font-semibold bg-neutral-100 px-2 py-0.5 rounded">{q.marks} নম্বর</span>
                   {q.type === 'MCQ' && q.negativeMarks > 0 && (
                     <span className="text-xs text-red-500 font-semibold bg-red-50 border border-red-100 px-2 py-0.5 rounded ml-1.5">নেগেটিভ মার্ক: -{q.negativeMarks}</span>
+                  )}
+                  {q.containImage && (
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold border border-amber-300">
+                      🖼️ Image Needed
+                    </span>
+                  )}
+                  {(q.answer === 'Blank' || q.mcqAns === null) && q.type === 'MCQ' && (
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold border border-rose-300">
+                      ❓ Blank Answer
+                    </span>
                   )}
                 </div>
 
@@ -2016,12 +2064,66 @@ export default function QuestionsPage() {
 
               {/* Table Preview */}
               <div className="border border-neutral-200 rounded-xl overflow-hidden shadow-xs bg-white">
-                <div className="p-3 bg-neutral-100/70 border-b border-neutral-200 flex items-center justify-between">
-                  <span className="text-xs font-bold text-neutral-700 uppercase tracking-wider">
-                    পার্সকৃত প্রশ্নের সরাসরি প্রিভিউ ({excelParsedResult.questions?.length}টি)
-                  </span>
+                <div className="p-3 bg-neutral-100/70 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setExcelFilterTab('all')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                        excelFilterTab === 'all'
+                          ? 'bg-neutral-800 text-white shadow-xs'
+                          : 'bg-white border border-neutral-300 text-neutral-600 hover:bg-neutral-50'
+                      }`}
+                    >
+                      সবগুলি ({excelParsedResult.questions?.length || 0})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExcelFilterTab('imageNeeded')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                        excelFilterTab === 'imageNeeded'
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100'
+                      }`}
+                    >
+                      🖼️ ছবি প্রয়োজন ({excelParsedResult.questions?.filter((q) => q.containImage).length || 0})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExcelFilterTab('blankAnswer')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                        excelFilterTab === 'blankAnswer'
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : 'bg-rose-50 border border-rose-300 text-rose-900 hover:bg-rose-100'
+                      }`}
+                    >
+                      ❓ Blank উত্তর ({excelParsedResult.questions?.filter((q) => q.answer === 'Blank' || q.mcqAns === null || q.mcqAns === undefined).length || 0})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExcelFilterTab('warning')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                        excelFilterTab === 'warning'
+                          ? 'bg-amber-700 text-white shadow-xs'
+                          : 'bg-neutral-50 border border-neutral-300 text-neutral-600 hover:bg-neutral-100'
+                      }`}
+                    >
+                      ⚠️ সতর্কতা ({excelParsedResult.warningCount || 0})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExcelFilterTab('invalid')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                        excelFilterTab === 'invalid'
+                          ? 'bg-red-700 text-white shadow-xs'
+                          : 'bg-neutral-50 border border-neutral-300 text-neutral-600 hover:bg-neutral-100'
+                      }`}
+                    >
+                      ❌ ত্রুটিপূর্ণ ({excelParsedResult.invalidCount || 0})
+                    </button>
+                  </div>
                   <span className="text-[11px] text-neutral-500">
-                    এডিট বাটনে ক্লিক করে প্রশ্নের তথ্য পরিবর্তন করতে পারবেন
+                    ফিল্টারকৃত প্রশ্ন: {filteredExcelQuestions.length}টি
                   </span>
                 </div>
 
@@ -2038,7 +2140,7 @@ export default function QuestionsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-200 bg-white">
-                      {excelParsedResult.questions?.map((item, idx) => (
+                      {filteredExcelQuestions.map((item, idx) => (
                         <tr key={idx} className="hover:bg-neutral-50/80 transition-colors">
                           <td className="p-3 text-center text-neutral-400 font-mono">
                             {idx + 1}
