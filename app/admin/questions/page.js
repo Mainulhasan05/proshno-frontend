@@ -141,6 +141,7 @@ export default function QuestionsPage() {
   const [newSchool, setNewSchool] = useState({ name: '', year: '', questionNo: '' });
   const [inlineSourceInput, setInlineSourceInput] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showOptionPreview, setShowOptionPreview] = useState(false);
 
   // Selected hierarchy for bulk import
   const [impClass, setImpClass] = useState('');
@@ -1516,7 +1517,17 @@ export default function QuestionsPage() {
           {/* MCQ Options */}
           {form.type === 'MCQ' && (
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">বিকল্প সমূহ *</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-neutral-700">বিকল্প সমূহ *</label>
+                <button
+                  type="button"
+                  onClick={() => setShowOptionPreview(!showOptionPreview)}
+                  className="text-xs text-indigo-700 hover:text-indigo-900 font-semibold flex items-center gap-1 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg transition-all shadow-xs"
+                >
+                  <HiOutlineEye className="h-3.5 w-3.5" />
+                  {showOptionPreview ? 'LaTeX প্রিভিউ লুকান' : '📐 সবগুলো বিকল্পের LaTeX প্রিভিউ'}
+                </button>
+              </div>
               <div className="space-y-2">
                 {form.options.map((opt, idx) => (
                   <div key={idx} className="flex items-center gap-2">
@@ -1557,6 +1568,38 @@ export default function QuestionsPage() {
                   </button>
                 )}
               </div>
+
+              {/* All Options Live LaTeX Preview Card */}
+              {showOptionPreview && (
+                <div className="mt-3 bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2 animate-fadeIn">
+                  <span className="text-xs font-bold text-slate-700 block border-b border-slate-200 pb-1">
+                    📐 সবগুলো বিকল্পের সংকলিত ফর্মুলা প্রিভিউ (Live LaTeX Preview):
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    {form.options.map((opt, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-2 rounded-lg border flex items-center gap-2 ${
+                          opt.isCorrect
+                            ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 font-semibold'
+                            : 'bg-white border-slate-200 text-slate-800'
+                        }`}
+                      >
+                        <span className="font-bold shrink-0 text-slate-500">
+                          {String.fromCharCode(2453 + idx)}.
+                        </span>
+                        <div className="flex-1 overflow-x-auto">
+                          {opt.text ? (
+                            <MathRenderer text={opt.text} />
+                          ) : (
+                            <span className="text-slate-400 italic font-normal">খালি</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2154,13 +2197,14 @@ export default function QuestionsPage() {
                                 {item.options?.map((opt, oIdx) => (
                                   <span
                                     key={oIdx}
-                                    className={`px-1.5 py-0.5 rounded border ${
+                                    className={`px-1.5 py-0.5 rounded border inline-flex items-center gap-1 overflow-x-auto ${
                                       opt.isCorrect
-                                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-semibold'
+                                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-semibold'
                                         : 'bg-neutral-50 border-neutral-200 text-neutral-600'
                                     }`}
                                   >
-                                    {['ক', 'খ', 'গ', 'ঘ', 'ঙ'][oIdx] || oIdx + 1}. {opt.text}
+                                    <span className="font-bold shrink-0">{['ক', 'খ', 'গ', 'ঘ', 'ঙ'][oIdx] || oIdx + 1}.</span>
+                                    <MathRenderer text={opt.text} />
                                   </span>
                                 ))}
                               </div>
@@ -2322,12 +2366,11 @@ export default function QuestionsPage() {
         >
           <div className="space-y-4 font-sans text-xs">
             <div>
-              <label className="block font-semibold text-neutral-700 mb-1">প্রশ্ন *</label>
-              <textarea
+              <MathInput
+                label="প্রশ্ন *"
                 value={editingExcelItem.questionText || ''}
-                onChange={(e) => setEditingExcelItem({ ...editingExcelItem, questionText: e.target.value })}
+                onChange={(val) => setEditingExcelItem({ ...editingExcelItem, questionText: val })}
                 rows={3}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg outline-none focus:ring-1 focus:ring-primary-500"
               />
             </div>
 
@@ -2360,16 +2403,18 @@ export default function QuestionsPage() {
                           answer: editingExcelItem.answer === 'Blank' ? '' : editingExcelItem.answer,
                         });
                       }}
+                      className="shrink-0"
                     />
-                    <input
-                      type="text"
+                    <MathInput
                       value={opt.text}
-                      onChange={(e) => {
+                      onChange={(val) => {
                         const opts = [...editingExcelItem.options];
-                        opts[oIdx].text = e.target.value;
+                        opts[oIdx].text = val;
                         setEditingExcelItem({ ...editingExcelItem, options: opts });
                       }}
-                      className="flex-1 px-3 py-1.5 border border-neutral-300 rounded-lg outline-none"
+                      rows={1}
+                      placeholder={`বিকল্প ${['ক', 'খ', 'গ', 'ঘ', 'ঙ'][oIdx] || oIdx + 1}`}
+                      className="flex-1"
                     />
                   </div>
                 ))}

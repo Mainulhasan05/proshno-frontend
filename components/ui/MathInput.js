@@ -134,46 +134,44 @@ export default function MathInput({
         )}
         
         {/* View mode switcher */}
-        {!isSingleLine && (
-          <div className="flex rounded-lg border border-neutral-200 p-0.5 bg-neutral-50 scale-[0.9] origin-right">
-            <button
-              type="button"
-              onClick={() => setActiveTab('edit')}
-              className={clsx(
-                'flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-md transition-all duration-150',
-                activeTab === 'edit'
-                  ? 'bg-white text-indigo-750 text-indigo-700 shadow-sm border border-neutral-200/50'
-                  : 'text-neutral-500 hover:text-neutral-800'
-              )}
-            >
-              <HiOutlinePencil className="h-3.5 w-3.5" /> Edit
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('preview')}
-              className={clsx(
-                'flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-md transition-all duration-150',
-                activeTab === 'preview'
-                  ? 'bg-white text-indigo-750 text-indigo-700 shadow-sm border border-neutral-200/50'
-                  : 'text-neutral-500 hover:text-neutral-800'
-              )}
-            >
-              <HiOutlineEye className="h-3.5 w-3.5" /> Preview
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('split')}
-              className={clsx(
-                'flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-md transition-all duration-150',
-                activeTab === 'split'
-                  ? 'bg-white text-indigo-750 text-indigo-700 shadow-sm border border-neutral-200/50'
-                  : 'text-neutral-500 hover:text-neutral-800'
-              )}
-            >
-              <HiOutlineTemplate className="h-3.5 w-3.5" /> Split
-            </button>
-          </div>
-        )}
+        <div className="flex rounded-lg border border-neutral-200 p-0.5 bg-neutral-50 scale-[0.9] origin-right ml-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab('edit')}
+            className={clsx(
+              'flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-md transition-all duration-150',
+              activeTab === 'edit'
+                ? 'bg-white text-indigo-700 shadow-sm border border-neutral-200/50'
+                : 'text-neutral-500 hover:text-neutral-800'
+            )}
+          >
+            <HiOutlinePencil className="h-3.5 w-3.5" /> Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('preview')}
+            className={clsx(
+              'flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-md transition-all duration-150',
+              activeTab === 'preview'
+                ? 'bg-white text-indigo-700 shadow-sm border border-neutral-200/50'
+                : 'text-neutral-500 hover:text-neutral-800'
+            )}
+          >
+            <HiOutlineEye className="h-3.5 w-3.5" /> Preview
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('split')}
+            className={clsx(
+              'flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-md transition-all duration-150',
+              activeTab === 'split'
+                ? 'bg-white text-indigo-700 shadow-sm border border-neutral-200/50'
+                : 'text-neutral-500 hover:text-neutral-800'
+            )}
+          >
+            <HiOutlineTemplate className="h-3.5 w-3.5" /> Split
+          </button>
+        </div>
       </div>
 
       {/* Main container */}
@@ -255,15 +253,16 @@ export default function MathInput({
           {/* Preview block */}
           {activeTab !== 'edit' && (
             <div className={clsx(
-              'flex-1 p-4 overflow-y-auto bg-neutral-50/30 min-h-[92px]',
-              activeTab === 'split' ? 'max-h-[220px]' : ''
+              'flex-1 overflow-y-auto bg-neutral-50/40 flex items-center',
+              isSingleLine ? 'p-2.5 min-h-[42px] text-xs' : 'p-4 min-h-[92px]',
+              activeTab === 'split' ? (isSingleLine ? 'max-h-[80px]' : 'max-h-[220px]') : ''
             )}>
               {value ? (
-                <div className="prose prose-sm max-w-none text-neutral-700">
+                <div className="prose prose-sm max-w-none text-neutral-800 font-medium">
                   <MathRenderer text={value} />
                 </div>
               ) : (
-                <p className="text-xs italic text-neutral-400">Live formulas preview renders here...</p>
+                <p className="text-xs italic text-neutral-400">Live formula preview...</p>
               )}
             </div>
           )}
