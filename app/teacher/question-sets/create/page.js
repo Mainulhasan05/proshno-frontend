@@ -58,6 +58,9 @@ export default function CreateQuestionSetPage() {
   const [loadedQuestions, setLoadedQuestions] = useState([]);
   const [generatedSetDetail, setGeneratedSetDetail] = useState(null);
 
+  // Mobile Filter Drawer State
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+
   // Multi-Select Modals State
   const [subjectModalOpen, setSubjectModalOpen] = useState(false);
   const [chapterModalOpen, setChapterModalOpen] = useState(false);

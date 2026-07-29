@@ -44,14 +44,30 @@ export default function QuestionSetDetailPage() {
   const [showSubjectCode, setShowSubjectCode] = useState(false);
   const [showMarksBox, setShowMarksBox] = useState(false);
 
-  // Editable Question Items & Hover Toolbars
-  const [questionList, setQuestionList] = useState([]);
-  const [hoveredIdx, setHoveredIdx] = useState(null);
-  const [gridFormats, setGridFormats] = useState({}); // '2x2', '4x1', '1x4'
+  // Document Customization States (Screenshot 11)
+  const [editingMode, setEditingMode] = useState(false);
+  const [textAlign, setTextAlign] = useState('justify'); // 'left', 'center', 'right', 'justify'
+  const [paperSize, setPaperSize] = useState('A4'); // 'A4', 'Letter', 'Legal', 'A5'
+  const [showPageNumber, setShowPageNumber] = useState(false);
+  const [optionStyle, setOptionStyle] = useState('parentheses'); // 'circle', 'parentheses', 'dot', 'right_paren'
+  const [fontFamily, setFontFamily] = useState('bangla');
+  const [fontSize, setFontSize] = useState(14);
+  const [columnsCount, setColumnsCount] = useState(2); // 1, 2, 3
+  const [showColumnDivider, setShowColumnDivider] = useState(true);
+  const [questionGap, setQuestionGap] = useState(0); // px
 
-  // Exchange Modal State
-  const [exchangeModalOpen, setExchangeModalOpen] = useState(false);
-  const [exchangeTargetIdx, setExchangeTargetIdx] = useState(null);
+  // Mobile View Toggle State
+  const [activeMobileTab, setActiveMobileTab] = useState('paper'); // 'paper' | 'settings'
+
+  // Helper for option labels
+  const getOptionLabel = (idx) => {
+    const letters = ['ক', 'খ', 'গ', 'ঘ', 'ঙ'];
+    const letter = letters[idx] || String(idx + 1);
+    if (optionStyle === 'circle') return `◯ ${letter}`;
+    if (optionStyle === 'dot') return `${letter}.`;
+    if (optionStyle === 'right_paren') return `${letter})`;
+    return `(${letter})`;
+  };
 
   useEffect(() => {
     if (params.id) {
@@ -125,13 +141,19 @@ export default function QuestionSetDetailPage() {
       {/* Print Stylesheet */}
       <style jsx global>{`
         @media print {
-          body {
+          @page {
+            size: A4 portrait;
+            margin: 10mm 12mm 12mm 12mm;
+          }
+          html, body {
             background-color: white !important;
             color: black !important;
             margin: 0 !important;
             padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
-          .no-print {
+          .no-print, nav, header, sidebar, aside, footer, .bottom-nav, button {
             display: none !important;
           }
           .print-sheet {
@@ -142,6 +164,7 @@ export default function QuestionSetDetailPage() {
             margin: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
+            background: transparent !important;
           }
         }
       `}</style>
@@ -174,15 +197,50 @@ export default function QuestionSetDetailPage() {
         </div>
       </div>
 
+      {/* Mobile View Toggle Bar (Only visible on screens < lg) */}
+      <div className="no-print lg:hidden bg-white border-b border-neutral-200 px-4 py-2 sticky top-[57px] z-20 shadow-xs">
+        <div className="flex bg-neutral-100 p-1 rounded-xl gap-1 font-sans text-xs">
+          <button
+            type="button"
+            onClick={() => setActiveMobileTab('paper')}
+            className={`flex-1 py-2 font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              activeMobileTab === 'paper'
+                ? 'bg-white text-emerald-800 shadow-xs'
+                : 'text-neutral-600 hover:text-neutral-900'
+            }`}
+          >
+            <span>📄 প্রশ্নপত্র</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveMobileTab('settings')}
+            className={`flex-1 py-2 font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              activeMobileTab === 'settings'
+                ? 'bg-white text-emerald-800 shadow-xs'
+                : 'text-neutral-600 hover:text-neutral-900'
+            }`}
+          >
+            <span>⚙️ সেটিংস ও কাস্টমাইজেশন</span>
+          </button>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 mt-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* ════════════════════════════════════════════════════════════════════════
               LEFT MAIN COLUMN: Printable 2-Column Question Paper (Screenshot 9)
              ════════════════════════════════════════════════════════════════════════ */}
-          <div className="lg:col-span-3">
+          <div className={`lg:col-span-3 ${activeMobileTab === 'paper' ? 'block' : 'hidden lg:block'}`}>
             <div className="print-sheet bg-white rounded-2xl border border-neutral-300 shadow-xl p-8 sm:p-12 space-y-6 font-serif text-neutral-900">
-              {/* Header Box (Screenshot 9) */}
+              {/* Header Box (Screenshot 9 & 10) */}
               <div className="relative border-b-2 border-neutral-800 pb-4 text-center space-y-1">
+                {/* Marks Box Top Left */}
+                {showMarksBox && (
+                  <div className="absolute top-0 left-0 border-2 border-neutral-900 px-3 py-1 font-bold text-xs font-sans">
+                    প্রাপ্ত নম্বর: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  </div>
+                )}
+
                 {/* Set Code Box Top Right */}
                 {showSetCode && (
                   <div className="absolute top-0 right-0 border-2 border-neutral-900 px-3 py-1 font-bold text-xs">
@@ -204,10 +262,15 @@ export default function QuestionSetDetailPage() {
                   </h2>
                 )}
 
-                {/* Subject Name */}
+                {/* Subject Name & Subject Code */}
                 {showSubjectName && (
-                  <h3 className="text-sm font-bold text-neutral-800">
-                    {subjectName}
+                  <h3 className="text-sm font-bold text-neutral-800 flex items-center justify-center gap-2">
+                    <span>{subjectName}</span>
+                    {showSubjectCode && (
+                      <span className="px-2 py-0.5 border border-neutral-800 text-xs font-mono font-bold">
+                        বিষয় কোড: ১৭৪
+                      </span>
+                    )}
                   </h3>
                 )}
 
@@ -220,7 +283,7 @@ export default function QuestionSetDetailPage() {
 
                 {/* Student Info Box if Enabled */}
                 {showStudentInfo && (
-                  <div className="no-print my-3 p-3 border border-dashed border-neutral-400 rounded-lg text-xs grid grid-cols-2 gap-2 text-left font-sans">
+                  <div className="my-3 p-3 border border-neutral-800 rounded-lg text-xs grid grid-cols-2 gap-4 text-left font-sans font-semibold">
                     <div>শিক্ষার্থীর নাম: ___________________________</div>
                     <div>রোল নম্বর: ___________________</div>
                   </div>
@@ -244,8 +307,20 @@ export default function QuestionSetDetailPage() {
                 <span>{questionList.length} × ১ = {questionList.length}</span>
               </div>
 
-              {/* 2-Column Question Paper Body (Screenshot 10) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 text-xs text-neutral-900 leading-relaxed font-sans pt-2">
+              {/* Question Paper Body */}
+              <div
+                style={{
+                  fontSize: `${fontSize}px`,
+                  textAlign: textAlign,
+                }}
+                className={`grid ${
+                  columnsCount === 1
+                    ? 'grid-cols-1'
+                    : columnsCount === 3
+                    ? 'grid-cols-1 sm:grid-cols-3 gap-x-6'
+                    : 'grid-cols-1 sm:grid-cols-2 gap-x-8'
+                } gap-y-6 text-neutral-900 leading-relaxed font-sans pt-2`}
+              >
                 {questionList.map((q, idx) => {
                   const formatType = gridFormats[idx] || '2x2';
                   const gridColsClass =
@@ -277,9 +352,12 @@ export default function QuestionSetDetailPage() {
                   return (
                     <div
                       key={q._id || idx}
+                      style={{ marginBottom: `${questionGap}px` }}
                       onMouseEnter={() => setHoveredIdx(idx)}
                       onMouseLeave={() => setHoveredIdx(null)}
-                      className="relative p-2.5 rounded-xl transition-all hover:bg-neutral-50/80 hover:ring-1 hover:ring-neutral-300 group"
+                      className={`relative p-2.5 rounded-xl transition-all hover:bg-neutral-50/80 hover:ring-1 hover:ring-neutral-300 group ${
+                        showColumnDivider && idx % columnsCount !== columnsCount - 1 ? 'border-r border-neutral-200 pr-4' : ''
+                      }`}
                     >
                       {/* Floating Quick Action Toolbar on Hover (Screenshot 10) */}
                       {hoveredIdx === idx && (
@@ -324,7 +402,13 @@ export default function QuestionSetDetailPage() {
                       </div>
 
                       {/* Question Text */}
-                      <div className="font-semibold flex items-start gap-1.5 mb-1.5">
+                      <div
+                        contentEditable={editingMode}
+                        suppressContentEditableWarning={true}
+                        className={`font-semibold flex items-start gap-1.5 mb-1.5 ${
+                          editingMode ? 'outline-2 outline-dashed outline-emerald-400 bg-emerald-50/20 p-1 rounded' : ''
+                        }`}
+                      >
                         <span className="font-bold shrink-0">{toBengaliNumber(idx + 1)}.</span>
                         <div className="flex-1">
                           <MathRenderer text={q.questionText} />
@@ -333,11 +417,18 @@ export default function QuestionSetDetailPage() {
 
                       {/* Options Grid */}
                       {q.type === 'MCQ' && q.options && (
-                        <div className={`grid ${gridColsClass} gap-1.5 pl-4 text-xs`}>
+                        <div className={`grid ${gridColsClass} gap-1.5 pl-4`}>
                           {q.options.map((opt, oIdx) => (
-                            <div key={oIdx} className="flex items-center gap-1">
+                            <div
+                              key={oIdx}
+                              contentEditable={editingMode}
+                              suppressContentEditableWarning={true}
+                              className={`flex items-center gap-1 ${
+                                editingMode ? 'outline-1 outline-dashed outline-emerald-400 bg-emerald-50/10 p-0.5 rounded' : ''
+                              }`}
+                            >
                               <span className="font-bold shrink-0">
-                                ({['ক', 'খ', 'গ', 'ঘ', 'ঙ'][oIdx] || oIdx + 1})
+                                {getOptionLabel(oIdx)}
                               </span>
                               <MathRenderer text={opt.text} />
                             </div>
@@ -391,13 +482,22 @@ export default function QuestionSetDetailPage() {
                   </div>
                 </div>
               )}
+
+              {/* ProshnoPedia Printed Paper Footer Branding */}
+              <div className="pt-4 border-t-2 border-neutral-900 mt-8 flex items-center justify-between text-xs font-bold text-neutral-800 font-sans">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-600"></span>
+                  <span>— Powered by <strong className="text-emerald-700 font-black text-sm">ProshnoPedia</strong> | প্রশ্নব্যাংক ও পরীক্ষা তৈরি —</span>
+                </div>
+                <span>www.proshnopedia.com</span>
+              </div>
             </div>
           </div>
 
           {/* ════════════════════════════════════════════════════════════════════════
               RIGHT SIDEBAR: Control Panel & Settings (Screenshot 9)
              ════════════════════════════════════════════════════════════════════════ */}
-          <div className="no-print space-y-4">
+          <div className={`no-print space-y-4 ${activeMobileTab === 'settings' ? 'block' : 'hidden lg:block'}`}>
             <div className="bg-white rounded-2xl border border-neutral-200 p-4 space-y-5 sticky top-20 shadow-xs text-xs font-sans">
               {/* Top Settings & Download Header */}
               <div className="space-y-3 border-b border-neutral-100 pb-3">
@@ -450,36 +550,233 @@ export default function QuestionSetDetailPage() {
                 ))}
               </div>
 
-              {/* Group 2: প্রশ্নের মেটাডাটা (হেডার) (Header Metadata Toggles) */}
-              <div className="space-y-3 pt-3 border-t border-neutral-100">
-                <h4 className="font-bold text-emerald-800 text-xs tracking-wide">
-                  প্রশ্নের মেটাডাটা (হেডার)
-                </h4>
+              {/* Group 3: ডকুমেন্ট কাস্টমাইজেশন (Document Customization - Screenshot 11) */}
+              <div className="space-y-4 pt-3 border-t border-neutral-100 font-sans">
+                <div className="bg-emerald-50 text-emerald-900 font-bold p-2.5 rounded-xl text-xs text-center border border-emerald-200">
+                  ডকুমেন্ট কাস্টমাইজেশন
+                </div>
 
-                {[
-                  { label: 'শ্রেণির নাম', state: showClassName, setState: setShowClassName },
-                  { label: 'বিষয়ের নাম', state: showSubjectName, setState: setShowSubjectName },
-                  { label: 'অধ্যায়ের নাম', state: showChapterName, setState: setShowChapterName },
-                  { label: 'সেট কোড', state: showSetCode, setState: setShowSetCode },
-                  { label: 'প্রোগ্রাম/পরীক্ষার নাম', state: showExamName, setState: setShowExamName },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center justify-between py-1">
-                    <span className="font-medium text-neutral-700 text-xs">{item.label}</span>
+                {/* 1. এডিটিং মোড */}
+                <div className="flex items-center justify-between bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
+                  <span className="font-semibold text-neutral-800 text-xs">এডিটিং মোড</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingMode(!editingMode);
+                      toast.success(editingMode ? 'এডিটিং মোড নিষ্ক্রিয়' : 'এডিটিং মোড সক্রিয়! কাগজে সরাসরি টেক্সট সম্পাদনা করুন।');
+                    }}
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer ${
+                      editingMode ? 'bg-emerald-600' : 'bg-neutral-300'
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                        editingMode ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* 2. টেক্সট এলাইনমেন্ট */}
+                <div className="space-y-1.5 bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
+                  <span className="font-bold text-neutral-800 text-xs block">টেক্সট এলাইনমেন্ট</span>
+                  <div className="grid grid-cols-4 gap-1">
+                    {[
+                      { id: 'left', label: '≡' },
+                      { id: 'center', label: '≡' },
+                      { id: 'right', label: '≡' },
+                      { id: 'justify', label: '≡≡≡' },
+                    ].map((align) => (
+                      <button
+                        key={align.id}
+                        type="button"
+                        onClick={() => setTextAlign(align.id)}
+                        className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          textAlign === align.id
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
+                        }`}
+                      >
+                        {align.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. পেপার সাইজ */}
+                <div className="space-y-1.5">
+                  <span className="font-bold text-neutral-800 text-xs block">পেপার সাইজ</span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {['A4', 'Letter', 'Legal', 'A5'].map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setPaperSize(size)}
+                        className={`p-2 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
+                          paperSize === size
+                            ? 'border-emerald-600 bg-emerald-50/50 text-emerald-900 font-bold ring-2 ring-emerald-500/20'
+                            : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300'
+                        }`}
+                      >
+                        <div className="h-8 w-6 border border-neutral-400 bg-white rounded-xs mb-1"></div>
+                        <span className="text-[11px]">{size}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. Page Setup */}
+                <div className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-xl border border-neutral-200">
+                  <span className="font-bold text-neutral-800 text-xs">Page Setup</span>
+                  <button type="button" className="p-1 text-neutral-600 hover:bg-neutral-200 rounded">
+                    ⚙️
+                  </button>
+                </div>
+
+                {/* 5. পৃষ্ঠা নম্বর */}
+                <div className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-xl border border-neutral-200">
+                  <span className="font-semibold text-neutral-800 text-xs">পৃষ্ঠা নম্বর</span>
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => item.setState(!item.state)}
+                      onClick={() => setShowPageNumber(!showPageNumber)}
                       className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer ${
-                        item.state ? 'bg-emerald-600' : 'bg-neutral-300'
+                        showPageNumber ? 'bg-emerald-600' : 'bg-neutral-300'
                       }`}
                     >
                       <div
                         className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                          item.state ? 'translate-x-4' : 'translate-x-0'
+                          showPageNumber ? 'translate-x-4' : 'translate-x-0'
                         }`}
                       />
                     </button>
+                    <button type="button" className="p-1 text-neutral-600 hover:bg-neutral-200 rounded">
+                      ⚙️
+                    </button>
                   </div>
-                ))}
+                </div>
+
+                {/* 6. অপশন স্টাইল */}
+                <div className="space-y-1.5">
+                  <span className="font-bold text-neutral-800 text-xs block">অপশন স্টাইল</span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[
+                      { id: 'circle', label: '◯' },
+                      { id: 'parentheses', label: '()' },
+                      { id: 'dot', label: '.' },
+                      { id: 'right_paren', label: ')' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setOptionStyle(opt.id)}
+                        className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          optionStyle === opt.id
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-100'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 7. ফন্ট পরিবর্তন */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-neutral-800 text-xs shrink-0">ফন্ট পরিবর্তন</span>
+                  <select
+                    value={fontFamily}
+                    onChange={(e) => setFontFamily(e.target.value)}
+                    className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white font-medium"
+                  >
+                    <option value="bangla">বাংলা (Default)</option>
+                    <option value="solaiman">SolaimanLipi</option>
+                    <option value="kalpurush">Kalpurush</option>
+                    <option value="sutonny">SutonnyMJ</option>
+                  </select>
+                </div>
+
+                {/* 8. ফন্ট সাইজ */}
+                <div className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-xl border border-neutral-200">
+                  <span className="font-bold text-neutral-800 text-xs">ফন্ট সাইজ</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFontSize(Math.max(10, fontSize - 1))}
+                      className="h-6 w-6 rounded border bg-white font-bold text-neutral-700 hover:bg-neutral-100 flex items-center justify-center cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <span className="w-8 text-center font-bold text-xs bg-white border rounded py-0.5 font-mono">
+                      {fontSize}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setFontSize(Math.min(24, fontSize + 1))}
+                      className="h-6 w-6 rounded border bg-white font-bold text-neutral-700 hover:bg-neutral-100 flex items-center justify-center cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* 9. কলাম */}
+                <div className="space-y-1.5">
+                  <span className="font-bold text-neutral-800 text-xs block">কলাম</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[1, 2, 3].map((cols) => (
+                      <button
+                        key={cols}
+                        type="button"
+                        onClick={() => setColumnsCount(cols)}
+                        className={`h-10 rounded-xl border flex items-center justify-center gap-1 transition-all cursor-pointer ${
+                          columnsCount === cols
+                            ? 'border-neutral-900 bg-white ring-2 ring-neutral-900/20'
+                            : 'border-neutral-200 bg-neutral-100 hover:bg-neutral-200'
+                        }`}
+                      >
+                        {Array.from({ length: cols }).map((_, cI) => (
+                          <div key={cI} className="h-6 w-2.5 bg-neutral-300 rounded-xs"></div>
+                        ))}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 10. কলাম ডিভাইডার */}
+                <div className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-xl border border-neutral-200">
+                  <span className="font-semibold text-neutral-800 text-xs">কলাম ডিভাইডার</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowColumnDivider(!showColumnDivider)}
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer ${
+                      showColumnDivider ? 'bg-emerald-600' : 'bg-neutral-300'
+                    }`}
+                  >
+                    <div
+                      className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                        showColumnDivider ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* 11. প্রশ্নের নিচের গ্যাপ */}
+                <div className="space-y-1 bg-neutral-50 p-2.5 rounded-xl border border-neutral-200">
+                  <div className="flex justify-between text-xs font-bold text-neutral-800">
+                    <span>প্রশ্নের নিচের গ্যাপ</span>
+                    <span className="font-mono text-neutral-600">{questionGap}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={40}
+                    value={questionGap}
+                    onChange={(e) => setQuestionGap(Number(e.target.value))}
+                    className="w-full accent-emerald-600 cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
           </div>
