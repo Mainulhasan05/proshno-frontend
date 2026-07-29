@@ -125,6 +125,7 @@ export default function QuestionsPage() {
 
   // Excel Bulk Upload State
   const [excelModalOpen, setExcelModalOpen] = useState(false);
+  const [excelUploadMode, setExcelUploadMode] = useState('mcq'); // 'mcq' or 'cq'
   const [excelFile, setExcelFile] = useState(null);
   const [isParsingExcel, setIsParsingExcel] = useState(false);
   const [isImportingExcel, setIsImportingExcel] = useState(false);
@@ -132,7 +133,7 @@ export default function QuestionsPage() {
   const [excelParsedResult, setExcelParsedResult] = useState(null);
   const [editingExcelIdx, setEditingExcelIdx] = useState(null);
   const [editingExcelItem, setEditingExcelItem] = useState(null);
-  const [excelFilterTab, setExcelFilterTab] = useState('all'); // 'all', 'imageNeeded', 'blankAnswer', 'warning', 'invalid'
+  const [excelFilterTab, setExcelFilterTab] = useState('all'); // 'all', 'mcq', 'cq', 'imageNeeded', 'blankAnswer', 'warning', 'invalid'
 
 
   // Input states for sources sub-forms
@@ -157,19 +158,27 @@ export default function QuestionsPage() {
 
   const filteredExcelQuestions = useMemo(() => {
     if (!excelParsedResult || !excelParsedResult.questions) return [];
+    let qList = excelParsedResult.questions;
+
+    if (excelFilterTab === 'mcq') {
+      return qList.filter((q) => q.type === 'MCQ');
+    }
+    if (excelFilterTab === 'cq') {
+      return qList.filter((q) => q.type === 'CQ');
+    }
     if (excelFilterTab === 'imageNeeded') {
-      return excelParsedResult.questions.filter((q) => q.containImage);
+      return qList.filter((q) => q.containImage);
     }
     if (excelFilterTab === 'blankAnswer') {
-      return excelParsedResult.questions.filter((q) => q.answer === 'Blank' || q.mcqAns === null || q.mcqAns === undefined);
+      return qList.filter((q) => (q.answer === 'Blank' || q.mcqAns === null || q.mcqAns === undefined) && q.type === 'MCQ');
     }
     if (excelFilterTab === 'warning') {
-      return excelParsedResult.questions.filter((q) => q.status === 'warning');
+      return qList.filter((q) => q.status === 'warning');
     }
     if (excelFilterTab === 'invalid') {
-      return excelParsedResult.questions.filter((q) => q.status === 'invalid');
+      return qList.filter((q) => q.status === 'invalid');
     }
-    return excelParsedResult.questions;
+    return qList;
   }, [excelParsedResult, excelFilterTab]);
 
   // Form
@@ -640,8 +649,31 @@ export default function QuestionsPage() {
     const errors = [];
     const warnings = [];
 
-    if (!editingExcelItem.questionText) errors.push('প্রশ্ন আবশ্যক');
-    if (!editingExcelItem.chapterId) errors.push('অধ্যায় আবশ্যক');
+    if (!editingExcelItem.questionText && !editingExcelItem.stimulus) {
+      errors.push('প্রশ্ন বা উদ্দীপক আবশ্যক');
+    }
+    if (!editingExcelItem.chapterId) {
+      errors.push('অধ্যায় আবশ্যক');
+    }
+
+    if (editingExcelItem.type === 'CQ') {
+      if (!editingExcelItem.subParts || editingExcelItem.subParts.length === 0) {
+        errors.push('সৃজনশীল প্রশ্নের সাব-পার্ট আবশ্যক');
+      } else if (editingExcelItem.subParts.some((sp) => !sp.text)) {
+        errors.push('সবকটি সাব-পার্ট প্রশ্ন প্রদান করতে হবে');
+      }
+      if (!editingExcelItem.stimulus) {
+        warnings.push('উদ্দীপক (Stimulus) অনুপস্থিত');
+      }
+    } else if (editingExcelItem.type === 'MCQ') {
+      if (!editingExcelItem.options || editingExcelItem.options.length < 2) {
+        errors.push('MCQ অপশন অন্তত ২টি হতে হবে');
+      }
+      const hasCorrect = editingExcelItem.options && editingExcelItem.options.some((o) => o.isCorrect);
+      if (!hasCorrect && editingExcelItem.answer !== 'Blank') {
+        warnings.push('সঠিক উত্তর চিহ্নিত করা হয়নি');
+      }
+    }
 
     let status = 'valid';
     if (errors.length > 0) {
@@ -2017,25 +2049,72 @@ export default function QuestionsPage() {
         maxWidth="max-w-5xl"
       >
         <div className="space-y-5 font-sans">
-          {/* Instructions & Template Download Banner */}
-          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-emerald-900">
-            <div>
-              <span className="font-bold block mb-1 text-sm text-emerald-800">
-                Excel আপলোড গাইডলাইন:
-              </span>
-              ১. Bangla Excel ফাইল (`.xlsx`) আপলোড করুন। (উদা: HSC-Sample-2.xlsx)<br />
-              ২. কলামসমূহ: `প্রশ্ন`, `অপশন ক`, `অপশন খ`, `অপশন গ`, `অপশন ঘ`, `সঠিক উত্তর`, `বিষয়`, `অধ্যায়`, `টপিক`, `Structural Level`, `Cognitive Level`, `Book Reference`, `Source` ইত্যাদি।<br />
-              ৩. বিষয়, অধ্যায় এবং টপিকের নাম স্বয়ংক্রিয়ভাবে ডাটাবেজ থেকে রেজোলিউশন করে দেখানো হবে।
-            </div>
-            <a
-              href="/templates/HSC-Sample-2.xlsx"
-              download="HSC-Sample-2.xlsx"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shrink-0 shadow-sm transition-all text-xs"
+          {/* Mode Switch Tabs */}
+          <div className="flex gap-2 border-b border-neutral-200 pb-2">
+            <button
+              type="button"
+              onClick={() => setExcelUploadMode('mcq')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                excelUploadMode === 'mcq'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+              }`}
             >
-              <HiOutlineDownload className="h-4 w-4" />
-              স্যাম্পল Excel ডাউনলোড
-            </a>
+              বহুনির্বাচনী প্রশ্ন (MCQ Upload)
+            </button>
+            <button
+              type="button"
+              onClick={() => setExcelUploadMode('cq')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                excelUploadMode === 'cq'
+                  ? 'bg-teal-600 text-white shadow-sm'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+              }`}
+            >
+              সৃজনশীল প্রশ্ন (CQ Upload)
+            </button>
           </div>
+
+          {/* Instructions & Template Download Banner */}
+          {excelUploadMode === 'mcq' ? (
+            <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-emerald-900">
+              <div>
+                <span className="font-bold block mb-1 text-sm text-emerald-800">
+                  MCQ Excel আপলোড গাইডলাইন:
+                </span>
+                ১. Bangla Excel ফাইল (`.xlsx`) আপলোড করুন। (উদা: MCQ-Sample-Template.xlsx)<br />
+                ২. কলামসমূহ: `প্রশ্ন`, `অপশন ক`, `অপশন খ`, `অপশন গ`, `অপশন ঘ`, `সঠিক উত্তর`, `বিষয়`, `অধ্যায়`, `টপিক`, `Structural Level`, `Cognitive Level`, `Book Reference`, `Source` ইত্যাদি।<br />
+                ৩. বিষয়, অধ্যায় এবং টপিকের নাম স্বয়ংক্রিয়ভাবে ডাটাবেজ থেকে রেজোলিউশন করে দেখানো হবে।
+              </div>
+              <a
+                href="/templates/MCQ-Sample-Template.xlsx"
+                download="MCQ-Sample-Template.xlsx"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shrink-0 shadow-sm transition-all text-xs"
+              >
+                <HiOutlineDownload className="h-4 w-4" />
+                MCQ স্যাম্পল Excel ডাউনলোড
+              </a>
+            </div>
+          ) : (
+            <div className="bg-teal-50 border border-teal-200 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-teal-900">
+              <div>
+                <span className="font-bold block mb-1 text-sm text-teal-800">
+                  সৃজনশীল (CQ) Excel আপলোড গাইডলাইন:
+                </span>
+                ১. CQ বিশেষায়িত Excel ফাইল (`.xlsx`) আপলোড করুন। (উদা: CQ-Sample-Template.xlsx)<br />
+                ২. কলামসমূহ: `উদ্দীপক`, `ক_প্রশ্ন`, `ক_নম্বর`, `ক_উত্তর`, `খ_প্রশ্ন`, `খ_নম্বর`, `খ_উত্তর`, `গ_প্রশ্ন`, `গ_নম্বর`, `গ_উত্তর`, `ঘ_প্রশ্ন`, `ঘ_নম্বর`, `ঘ_উত্তর`, `বিষয়`, `অধ্যায়`, `টপিক`, `জ্ঞানীয় স্তর`, `ডিফিকাল্টি`, `উৎস` ইত্যাদি।<br />
+                ৩. প্রতিটি উদ্দীপক ও ক/খ/গ/ঘ প্রশ্নের নম্বর ও নমুনা উত্তরসহ স্বয়ংক্রিয়ভাবে রেজোলিউশন করা হবে।
+              </div>
+              <a
+                href="/templates/CQ-Sample-Template.xlsx"
+                download="CQ-Sample-Template.xlsx"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg shrink-0 shadow-sm transition-all text-xs"
+              >
+                <HiOutlineDownload className="h-4 w-4" />
+                CQ স্যাম্পল Excel ডাউনলোড
+              </a>
+            </div>
+          )}
 
           {/* File Picker & Action Bar */}
           <div className="bg-neutral-50 border border-neutral-200 p-4 rounded-xl space-y-3">
@@ -2122,6 +2201,28 @@ export default function QuestionsPage() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => setExcelFilterTab('mcq')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                        excelFilterTab === 'mcq'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-blue-50 border border-blue-200 text-blue-800 hover:bg-blue-100'
+                      }`}
+                    >
+                      বহুনির্বাচনী MCQ ({excelParsedResult.questions?.filter((q) => q.type === 'MCQ').length || 0})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExcelFilterTab('cq')}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                        excelFilterTab === 'cq'
+                          ? 'bg-teal-600 text-white shadow-xs'
+                          : 'bg-teal-50 border border-teal-200 text-teal-800 hover:bg-teal-100'
+                      }`}
+                    >
+                      সৃজনশীল CQ ({excelParsedResult.questions?.filter((q) => q.type === 'CQ').length || 0})
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setExcelFilterTab('imageNeeded')}
                       className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
                         excelFilterTab === 'imageNeeded'
@@ -2140,7 +2241,7 @@ export default function QuestionsPage() {
                           : 'bg-rose-50 border border-rose-300 text-rose-900 hover:bg-rose-100'
                       }`}
                     >
-                      ❓ Blank উত্তর ({excelParsedResult.questions?.filter((q) => q.answer === 'Blank' || q.mcqAns === null || q.mcqAns === undefined).length || 0})
+                      ❓ Blank উত্তর ({excelParsedResult.questions?.filter((q) => (q.answer === 'Blank' || q.mcqAns === null || q.mcqAns === undefined) && q.type === 'MCQ').length || 0})
                     </button>
                     <button
                       type="button"
@@ -2175,7 +2276,7 @@ export default function QuestionsPage() {
                     <thead className="bg-neutral-50 text-neutral-600 border-b border-neutral-200 sticky top-0 font-semibold">
                       <tr>
                         <th className="p-3 w-12 text-center">#</th>
-                        <th className="p-3 min-w-[220px]">প্রশ্ন ও অপশন</th>
+                        <th className="p-3 min-w-[220px]">প্রশ্ন / উদ্দীপক ও অংশসমূহ</th>
                         <th className="p-3 min-w-[180px]">বিষয়, অধ্যায় ও টপিক (Actual Names)</th>
                         <th className="p-3 min-w-[170px] text-center">ফরম্যাট, ডোমেইন ও রেফারেন্স</th>
                         <th className="p-3 w-24 text-center">স্ট্যাটাস</th>
@@ -2189,31 +2290,48 @@ export default function QuestionsPage() {
                             {idx + 1}
                           </td>
                           <td className="p-3 space-y-1">
-                            <div className="font-medium text-neutral-900 leading-snug">
-                              <MathRenderer text={item.questionText} />
-                            </div>
                             {item.type === 'MCQ' && (
-                              <div className="grid grid-cols-2 gap-1 text-[11px] pt-1">
-                                {item.options?.map((opt, oIdx) => (
-                                  <span
-                                    key={oIdx}
-                                    className={`px-1.5 py-0.5 rounded border inline-flex items-center gap-1 overflow-x-auto ${
-                                      opt.isCorrect
-                                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-semibold'
-                                        : 'bg-neutral-50 border-neutral-200 text-neutral-600'
-                                    }`}
-                                  >
-                                    <span className="font-bold shrink-0">{['ক', 'খ', 'গ', 'ঘ', 'ঙ'][oIdx] || oIdx + 1}.</span>
-                                    <MathRenderer text={opt.text} />
-                                  </span>
-                                ))}
-                              </div>
+                              <>
+                                <div className="font-medium text-neutral-900 leading-snug">
+                                  <MathRenderer text={item.questionText} />
+                                </div>
+                                <div className="grid grid-cols-2 gap-1 text-[11px] pt-1">
+                                  {item.options?.map((opt, oIdx) => (
+                                    <span
+                                      key={oIdx}
+                                      className={`px-1.5 py-0.5 rounded border inline-flex items-center gap-1 overflow-x-auto ${
+                                        opt.isCorrect
+                                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800 font-semibold'
+                                          : 'bg-neutral-50 border-neutral-200 text-neutral-600'
+                                      }`}
+                                    >
+                                      <span className="font-bold shrink-0">{['ক', 'খ', 'গ', 'ঘ', 'ঙ'][oIdx] || oIdx + 1}.</span>
+                                      <MathRenderer text={opt.text} />
+                                    </span>
+                                  ))}
+                                </div>
+                              </>
                             )}
                             {item.type === 'CQ' && (
-                              <div className="space-y-0.5 text-[11px] pt-1 text-neutral-600">
+                              <div className="space-y-1 text-[11px] pt-1 text-neutral-600">
+                                {item.stimulus && (
+                                  <div className="bg-teal-50/70 border-l-2 border-teal-500 p-1.5 rounded text-[11px] font-sans">
+                                    <span className="font-bold text-teal-900 block text-[10px]">উদ্দীপক:</span>
+                                    <MathRenderer text={item.stimulus} />
+                                  </div>
+                                )}
                                 {item.subParts?.map((sp, spIdx) => (
-                                  <div key={spIdx} className="truncate">
-                                    <span className="font-bold text-neutral-800">{sp.partLabel}.</span> {sp.text} ({sp.marks} নম্বর)
+                                  <div key={spIdx} className="border-l-2 border-primary-300 pl-1.5 py-0.5 space-y-0.5">
+                                    <div className="flex items-center gap-1 font-medium text-neutral-800">
+                                      <span className="font-bold text-primary-700">{sp.partLabel}.</span>
+                                      <MathRenderer text={sp.text} />
+                                      <span className="text-[10px] text-neutral-400 font-normal">({sp.marks} নম্বর)</span>
+                                    </div>
+                                    {sp.sampleAnswer && (
+                                      <div className="text-[10px] text-neutral-500 bg-neutral-50 px-1 py-0.5 rounded">
+                                        <span className="font-semibold text-neutral-600">উত্তর:</span> <MathRenderer text={sp.sampleAnswer} />
+                                      </div>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -2365,14 +2483,70 @@ export default function QuestionsPage() {
           maxWidth="max-w-xl"
         >
           <div className="space-y-4 font-sans text-xs">
-            <div>
-              <MathInput
-                label="প্রশ্ন *"
-                value={editingExcelItem.questionText || ''}
-                onChange={(val) => setEditingExcelItem({ ...editingExcelItem, questionText: val })}
-                rows={3}
-              />
-            </div>
+            {editingExcelItem.type === 'CQ' ? (
+              <div className="space-y-3 bg-neutral-50 p-3 rounded-lg border border-neutral-200">
+                <MathInput
+                  label="উদ্দীপক (Stimulus)"
+                  value={editingExcelItem.stimulus || ''}
+                  onChange={(val) => setEditingExcelItem({ ...editingExcelItem, stimulus: val, questionText: val })}
+                  rows={3}
+                  placeholder="উদ্দীপক লিখুন..."
+                />
+
+                <div className="space-y-2">
+                  <label className="block font-semibold text-neutral-700">সৃজনশীল প্রশ্নের সাব-পার্টসমূহ (ক, খ, গ, ঘ)</label>
+                  {(editingExcelItem.subParts || []).map((sp, spIdx) => (
+                    <div key={spIdx} className="bg-white p-2.5 rounded-lg border border-neutral-200 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-primary-700 w-6">{sp.partLabel || ['ক', 'খ', 'গ', 'ঘ'][spIdx]}.</span>
+                        <MathInput
+                          value={sp.text}
+                          onChange={(val) => {
+                            const parts = [...(editingExcelItem.subParts || [])];
+                            parts[spIdx].text = val;
+                            setEditingExcelItem({ ...editingExcelItem, subParts: parts });
+                          }}
+                          rows={1}
+                          placeholder={`প্রশ্ন (${sp.partLabel || spIdx + 1})`}
+                          className="flex-1"
+                        />
+                        <input
+                          type="number"
+                          value={sp.marks}
+                          onChange={(e) => {
+                            const parts = [...(editingExcelItem.subParts || [])];
+                            parts[spIdx].marks = Number(e.target.value) || 0;
+                            const totalM = parts.reduce((acc, p) => acc + (p.marks || 0), 0);
+                            setEditingExcelItem({ ...editingExcelItem, subParts: parts, marks: totalM });
+                          }}
+                          className="w-16 px-2 py-1 border border-neutral-300 rounded text-center"
+                          placeholder="নম্বর"
+                        />
+                      </div>
+                      <MathInput
+                        value={sp.sampleAnswer || ''}
+                        onChange={(val) => {
+                          const parts = [...(editingExcelItem.subParts || [])];
+                          parts[spIdx].sampleAnswer = val;
+                          setEditingExcelItem({ ...editingExcelItem, subParts: parts });
+                        }}
+                        rows={1}
+                        placeholder="নমুনা উত্তর / নির্দেশনা (ঐচ্ছিক)"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <MathInput
+                  label="প্রশ্ন *"
+                  value={editingExcelItem.questionText || ''}
+                  onChange={(val) => setEditingExcelItem({ ...editingExcelItem, questionText: val })}
+                  rows={3}
+                />
+              </div>
+            )}
 
             {editingExcelItem.type === 'MCQ' && editingExcelItem.options && (
               <div className="space-y-2">
