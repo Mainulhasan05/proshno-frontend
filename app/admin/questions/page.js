@@ -37,6 +37,13 @@ const DIFFICULTIES = [
   { value: 'hard', label: 'কঠিন', color: 'bg-red-100 text-red-700' },
 ];
 
+const CATEGORIES = [
+  { value: 'none', label: 'সাধারণ / প্রযোজ্য নয়' },
+  { value: 'mathematical', label: 'গাণিতিক (Mathematical)' },
+  { value: 'theoretical', label: 'তত্ত্বীয় (Theoretical)' },
+  { value: 'both', label: 'উভয় (Both)' },
+];
+
 const TYPE_LABELS = { MCQ: 'বহুনির্বাচনী', CQ: 'সৃজনশীল', SHORT: 'সংক্ষিপ্ত (Legacy)', OTHER: 'অন্যান্য' };
 const TYPE_COLORS = {
   MCQ: 'bg-indigo-100 text-indigo-700',

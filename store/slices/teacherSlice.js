@@ -138,6 +138,15 @@ export const createQuestionSet = createAsyncThunk('teacher/createQuestionSet', a
   }
 });
 
+export const autoGenerateQuestionSet = createAsyncThunk('teacher/autoGenerateQuestionSet', async (body, { rejectWithValue }) => {
+  try {
+    const response = await apiClient.post('/teacher/question-sets/auto-generate', body);
+    return response;
+  } catch (err) {
+    return rejectWithValue(err?.error?.message || 'Failed to auto generate question set');
+  }
+});
+
 export const updateQuestionSet = createAsyncThunk('teacher/updateQuestionSet', async ({ id, body }, { rejectWithValue }) => {
   try {
     const response = await apiClient.put(`/teacher/question-sets/${id}`, body);
