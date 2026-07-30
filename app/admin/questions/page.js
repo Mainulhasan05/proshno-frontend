@@ -144,12 +144,18 @@ export default function QuestionsPage() {
 
 
   // Input states for sources sub-forms
-  const [newBoard, setNewBoard] = useState({ shortForm: '', year: '', questionNo: '' });
-  const [newAdmission, setNewAdmission] = useState({ name: '', year: '', questionNo: '' });
-  const [newSchool, setNewSchool] = useState({ name: '', year: '', questionNo: '' });
+  const [newBoard, setNewBoard] = useState({ boardId: '', shortForm: '', year: '', questionNo: '' });
+  const [newAdmission, setNewAdmission] = useState({ orgId: '', name: '', year: '', questionNo: '' });
+  const [newSchool, setNewSchool] = useState({ schoolId: '', name: '', year: '', questionNo: '' });
   const [inlineSourceInput, setInlineSourceInput] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showOptionPreview, setShowOptionPreview] = useState(false);
+  const [institutionOptions, setInstitutionOptions] = useState({
+    boards: [],
+    admissionOrgs: [],
+    topSchools: [],
+    years: [],
+  });
 
   // Selected hierarchy for bulk import
   const [impClass, setImpClass] = useState('');
@@ -325,6 +331,12 @@ export default function QuestionsPage() {
         }
       }).catch(() => {});
     });
+
+    apiClient.get('/institutions/filter-options').then((res) => {
+      if (res.data) {
+        setInstitutionOptions(res.data);
+      }
+    }).catch(() => {});
   }, []);
 
   // Modal hierarchy options
@@ -485,17 +497,26 @@ export default function QuestionsPage() {
   };
 
   const addBoardInfo = () => {
-    if (!newBoard.shortForm || !newBoard.year) {
+    let boardIdObj = undefined;
+    let sf = newBoard.shortForm.trim();
+    if (newBoard.boardId && newBoard.boardId !== 'custom') {
+      const selected = institutionOptions.boards.find((b) => b._id === newBoard.boardId);
+      if (selected) {
+        boardIdObj = selected._id;
+        sf = selected.shortForm || selected.name;
+      }
+    }
+    if (!sf || !newBoard.year) {
       toast.error('বোর্ডের নাম ও বছর প্রদান করুন');
       return;
     }
     const item = {
-      boardId: { shortForm: newBoard.shortForm },
+      boardId: { _id: boardIdObj, shortForm: sf },
       year: Number(newBoard.year) || 0,
       questionNo: newBoard.questionNo || undefined,
     };
     setForm({ ...form, boardInfo: [...form.boardInfo, item] });
-    setNewBoard({ shortForm: '', year: '', questionNo: '' });
+    setNewBoard({ boardId: '', shortForm: '', year: '', questionNo: '' });
   };
 
   const removeBoardInfo = (idx) => {
@@ -503,17 +524,26 @@ export default function QuestionsPage() {
   };
 
   const addAdmissionInfo = () => {
-    if (!newAdmission.name || !newAdmission.year) {
+    let orgIdObj = undefined;
+    let name = newAdmission.name.trim();
+    if (newAdmission.orgId && newAdmission.orgId !== 'custom') {
+      const selected = institutionOptions.admissionOrgs.find((a) => a._id === newAdmission.orgId);
+      if (selected) {
+        orgIdObj = selected._id;
+        name = selected.shortForm || selected.name;
+      }
+    }
+    if (!name || !newAdmission.year) {
       toast.error('প্রতিষ্ঠানের নাম ও বছর প্রদান করুন');
       return;
     }
     const item = {
-      universityId: { name: newAdmission.name },
+      universityId: { _id: orgIdObj, name },
       year: Number(newAdmission.year) || 0,
       questionNo: newAdmission.questionNo || undefined,
     };
     setForm({ ...form, university: [...form.university, item] });
-    setNewAdmission({ name: '', year: '', questionNo: '' });
+    setNewAdmission({ orgId: '', name: '', year: '', questionNo: '' });
   };
 
   const removeAdmissionInfo = (idx) => {
@@ -521,17 +551,26 @@ export default function QuestionsPage() {
   };
 
   const addSchoolInfo = () => {
-    if (!newSchool.name || !newSchool.year) {
+    let schIdObj = undefined;
+    let name = newSchool.name.trim();
+    if (newSchool.schoolId && newSchool.schoolId !== 'custom') {
+      const selected = institutionOptions.topSchools.find((s) => s._id === newSchool.schoolId);
+      if (selected) {
+        schIdObj = selected._id;
+        name = selected.nameBn || selected.name;
+      }
+    }
+    if (!name || !newSchool.year) {
       toast.error('স্কুল/কলেজের নাম ও বছর প্রদান করুন');
       return;
     }
     const item = {
-      schoolId: { name: newSchool.name },
+      schoolId: { _id: schIdObj, name },
       year: Number(newSchool.year) || 0,
       questionNo: newSchool.questionNo || undefined,
     };
     setForm({ ...form, topSchool: [...form.topSchool, item] });
-    setNewSchool({ name: '', year: '', questionNo: '' });
+    setNewSchool({ schoolId: '', name: '', year: '', questionNo: '' });
   };
 
   const removeSchoolInfo = (idx) => {
@@ -874,6 +913,62 @@ export default function QuestionsPage() {
                 <option value="">সব উৎস (All Sources)</option>
                 {availableSources.map((s) => (
                   <option key={s} value={s}>{s === 'Inspired' ? '💡 Inspired (যাচাইযোগ্য)' : s}</option>
+                ))}
+              </select>
+
+              {/* Board Filter */}
+              <select
+                value={filters.boardId || ''}
+                onChange={(e) => setFilters({ ...filters, page: 1, boardId: e.target.value || undefined })}
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full"
+              >
+                <option value="">সব বোর্ড (All Boards)</option>
+                {institutionOptions.boards.map((b) => (
+                  <option key={b._id} value={b._id}>
+                    {b.nameBn || b.name} ({b.shortForm})
+                  </option>
+                ))}
+              </select>
+
+              {/* Admission Org Filter */}
+              <select
+                value={filters.admissionOrgId || ''}
+                onChange={(e) => setFilters({ ...filters, page: 1, admissionOrgId: e.target.value || undefined })}
+                className="px-3 py-2 border border-purple-200 bg-purple-50/40 rounded-lg text-sm w-full text-purple-900 font-medium"
+              >
+                <option value="">সব বিশ্ববিদ্যালয়/প্রতিষ্ঠান (All Admission)</option>
+                {institutionOptions.admissionOrgs.map((a) => (
+                  <option key={a._id} value={a._id}>
+                    {a.nameBn || a.name} ({a.shortForm})
+                  </option>
+                ))}
+              </select>
+
+              {/* Top School Filter */}
+              <select
+                value={filters.topSchoolId || ''}
+                onChange={(e) => setFilters({ ...filters, page: 1, topSchoolId: e.target.value || undefined })}
+                className="px-3 py-2 border border-neutral-300 rounded-lg text-sm w-full"
+              >
+                <option value="">সব শীর্ষ স্কুল/কলেজ (All Top Schools)</option>
+                {institutionOptions.topSchools.map((s) => (
+                  <option key={s._id} value={s._id}>
+                    {s.nameBn || s.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Exam Year Filter */}
+              <select
+                value={filters.examYear || ''}
+                onChange={(e) => setFilters({ ...filters, page: 1, examYear: e.target.value || undefined })}
+                className="px-3 py-2 border border-emerald-300 bg-emerald-50/60 rounded-lg text-sm font-semibold w-full text-emerald-900"
+              >
+                <option value="">📅 সব সাল/বছর (All Years)</option>
+                {institutionOptions.years.map((yr) => (
+                  <option key={yr} value={yr}>
+                    📅 {yr} সাল
+                  </option>
                 ))}
               </select>
 
@@ -1709,7 +1804,7 @@ export default function QuestionsPage() {
             </div>
           )}
 
-          {/* Sources Section */}
+          {/* Sources & Detailed Institution Metadata Section */}
           <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200 space-y-4">
             <div>
               <label className="block text-sm font-semibold text-neutral-700 mb-2">উৎস (Source)</label>
@@ -1757,7 +1852,7 @@ export default function QuestionsPage() {
               </div>
             </div>
 
-            {/* Board Sub-form */}
+            {/* Board Sub-form with Dynamic Pickers */}
             {form.sources?.includes('Board') && (
               <div className="border-t border-neutral-200 pt-3 space-y-2">
                 <span className="block text-xs font-bold text-neutral-600 uppercase tracking-wider">বোর্ড তথ্য (Board Info)</span>
@@ -1774,19 +1869,44 @@ export default function QuestionsPage() {
                 )}
 
                 <div className="flex items-center gap-2">
+                  <select
+                    value={newBoard.boardId || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'custom') {
+                        setNewBoard({ ...newBoard, boardId: 'custom', shortForm: '' });
+                      } else {
+                        const selected = institutionOptions.boards.find((b) => b._id === val);
+                        setNewBoard({ ...newBoard, boardId: val, shortForm: selected ? (selected.shortForm || selected.name) : '' });
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500 font-medium"
+                  >
+                    <option value="">বোর্ড নির্বাচন করুন...</option>
+                    {institutionOptions.boards.map((b) => (
+                      <option key={b._id} value={b._id}>
+                        {b.nameBn || b.name} ({b.shortForm})
+                      </option>
+                    ))}
+                    <option value="custom">✏️ অন্যান্য / কাস্টম বোর্ড...</option>
+                  </select>
+
+                  {newBoard.boardId === 'custom' && (
+                    <input
+                      type="text"
+                      placeholder="বোর্ডের নাম (যেমন: ঢা.বো.)"
+                      value={newBoard.shortForm}
+                      onChange={(e) => setNewBoard({ ...newBoard, shortForm: e.target.value })}
+                      className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                    />
+                  )}
+
                   <input
-                    type="text"
-                    placeholder="বোর্ড (যেমন: ঢা.বোঃ)"
-                    value={newBoard.shortForm}
-                    onChange={(e) => setNewBoard({ ...newBoard, shortForm: e.target.value })}
-                    className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="বছর (যেমন: ১৬)"
+                    type="number"
+                    placeholder="বছর (যেমন: 2026)"
                     value={newBoard.year}
                     onChange={(e) => setNewBoard({ ...newBoard, year: e.target.value })}
-                    className="w-20 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                    className="w-24 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
                   />
                   <input
                     type="text"
@@ -1806,7 +1926,7 @@ export default function QuestionsPage() {
               </div>
             )}
 
-            {/* Admission Sub-form */}
+            {/* Admission Sub-form with Dynamic Pickers */}
             {form.sources?.includes('Admission') && (
               <div className="border-t border-neutral-200 pt-3 space-y-2">
                 <span className="block text-xs font-bold text-neutral-600 uppercase tracking-wider">ভর্তি পরীক্ষা তথ্য (Admission Info)</span>
@@ -1823,19 +1943,44 @@ export default function QuestionsPage() {
                 )}
 
                 <div className="flex items-center gap-2">
+                  <select
+                    value={newAdmission.orgId || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'custom') {
+                        setNewAdmission({ ...newAdmission, orgId: 'custom', name: '' });
+                      } else {
+                        const selected = institutionOptions.admissionOrgs.find((a) => a._id === val);
+                        setNewAdmission({ ...newAdmission, orgId: val, name: selected ? (selected.shortForm || selected.name) : '' });
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500 font-medium"
+                  >
+                    <option value="">বিশ্ববিদ্যালয় / প্রতিষ্ঠান নির্বাচন করুন...</option>
+                    {institutionOptions.admissionOrgs.map((a) => (
+                      <option key={a._id} value={a._id}>
+                        {a.nameBn || a.name} ({a.shortForm})
+                      </option>
+                    ))}
+                    <option value="custom">✏️ অন্যান্য / কাস্টম প্রতিষ্ঠান...</option>
+                  </select>
+
+                  {newAdmission.orgId === 'custom' && (
+                    <input
+                      type="text"
+                      placeholder="প্রতিষ্ঠানের নাম (যেমন: DU, JU)"
+                      value={newAdmission.name}
+                      onChange={(e) => setNewAdmission({ ...newAdmission, name: e.target.value })}
+                      className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                    />
+                  )}
+
                   <input
-                    type="text"
-                    placeholder="প্রতিষ্ঠান (যেমন: DU)"
-                    value={newAdmission.name}
-                    onChange={(e) => setNewAdmission({ ...newAdmission, name: e.target.value })}
-                    className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="বছর (যেমন: ১২)"
+                    type="number"
+                    placeholder="বছর (যেমন: 2022)"
                     value={newAdmission.year}
                     onChange={(e) => setNewAdmission({ ...newAdmission, year: e.target.value })}
-                    className="w-20 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                    className="w-24 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
                   />
                   <input
                     type="text"
@@ -1855,7 +2000,7 @@ export default function QuestionsPage() {
               </div>
             )}
 
-            {/* Top School/College Sub-form */}
+            {/* Top School/College Sub-form with Dynamic Pickers */}
             {form.sources?.includes('Top School/College') && (
               <div className="border-t border-neutral-200 pt-3 space-y-2">
                 <span className="block text-xs font-bold text-neutral-600 uppercase tracking-wider">শীর্ষ স্কুল/কলেজ তথ্য (School/College Info)</span>
@@ -1872,19 +2017,44 @@ export default function QuestionsPage() {
                 )}
 
                 <div className="flex items-center gap-2">
+                  <select
+                    value={newSchool.schoolId || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'custom') {
+                        setNewSchool({ ...newSchool, schoolId: 'custom', name: '' });
+                      } else {
+                        const selected = institutionOptions.topSchools.find((s) => s._id === val);
+                        setNewSchool({ ...newSchool, schoolId: val, name: selected ? (selected.nameBn || selected.name) : '' });
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500 font-medium"
+                  >
+                    <option value="">স্কুল/কলেজ নির্বাচন করুন...</option>
+                    {institutionOptions.topSchools.map((s) => (
+                      <option key={s._id} value={s._id}>
+                        {s.nameBn || s.name} ({s.shortForm || 'School'})
+                      </option>
+                    ))}
+                    <option value="custom">✏️ অন্যান্য / কাস্টম স্কুল...</option>
+                  </select>
+
+                  {newSchool.schoolId === 'custom' && (
+                    <input
+                      type="text"
+                      placeholder="স্কুল/কলেজ নাম (যেমন: রাজউক)"
+                      value={newSchool.name}
+                      onChange={(e) => setNewSchool({ ...newSchool, name: e.target.value })}
+                      className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                    />
+                  )}
+
                   <input
-                    type="text"
-                    placeholder="স্কুল/কলেজ নাম (যেমন: রাজউক)"
-                    value={newSchool.name}
-                    onChange={(e) => setNewSchool({ ...newSchool, name: e.target.value })}
-                    className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="বছর (যেমন: ২৩)"
+                    type="number"
+                    placeholder="বছর (যেমন: 2026)"
                     value={newSchool.year}
                     onChange={(e) => setNewSchool({ ...newSchool, year: e.target.value })}
-                    className="w-20 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
+                    className="w-24 px-3 py-2 border border-neutral-300 rounded-lg text-xs outline-none bg-white focus:ring-1 focus:ring-primary-500"
                   />
                   <input
                     type="text"
