@@ -436,7 +436,7 @@ export default function MediaGalleryPage() {
       <div className="mb-6 rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm flex flex-col gap-4">
         
         {/* Row 1: Search & dropdowns */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
           {/* Search bar */}
           <div className="relative col-span-1 sm:col-span-2">
             <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -449,6 +449,43 @@ export default function MediaGalleryPage() {
               onChange={(e) => updateFilter('search', e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             />
+          </div>
+
+          {/* Subject Filter Dropdown */}
+          <div>
+            <select
+              value={filters.subjectId || ''}
+              onChange={(e) => {
+                const sId = e.target.value;
+                setFilters((prev) => ({ ...prev, page: 1, subjectId: sId, chapterId: '', uncategorized: '' }));
+                if (sId) setExpandedSubjectId(sId);
+              }}
+              className="w-full px-3 py-2 text-sm border border-indigo-200 bg-indigo-50/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-indigo-900 font-semibold"
+            >
+              <option value="">📁 সব বিষয় (All Subjects)</option>
+              {allSubjectOptions.map((sub) => (
+                <option key={sub._id} value={sub._id}>
+                  {sub.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Chapter Filter Dropdown */}
+          <div>
+            <select
+              value={filters.chapterId || ''}
+              onChange={(e) => setFilters((prev) => ({ ...prev, page: 1, chapterId: e.target.value, uncategorized: '' }))}
+              disabled={!filters.subjectId}
+              className="w-full px-3 py-2 text-sm border border-indigo-200 bg-indigo-50/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-indigo-900 font-semibold disabled:opacity-50"
+            >
+              <option value="">📂 সব অধ্যায় (All Chapters)</option>
+              {(allSubjectOptions.find((s) => s._id === filters.subjectId)?.chapters || []).map((ch) => (
+                <option key={ch._id} value={ch._id}>
+                  {ch.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Status filter */}
@@ -479,6 +516,7 @@ export default function MediaGalleryPage() {
               <option value="omr">OMR Logos</option>
             </select>
           </div>
+        </div>
 
           {/* R2 Account filter */}
           <div>
@@ -566,7 +604,7 @@ export default function MediaGalleryPage() {
       <div className="flex gap-4">
         {/* Left Sidebar — Folder Tree */}
         {showFolderSidebar && (
-          <div className="w-60 shrink-0 hidden lg:block">
+          <div className="w-60 shrink-0">
             <div className="rounded-2xl border border-neutral-200/80 bg-white shadow-sm p-3 sticky top-4 max-h-[70vh] overflow-y-auto">
               <p className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest px-1 mb-2">📁 ফোল্ডার</p>
 
