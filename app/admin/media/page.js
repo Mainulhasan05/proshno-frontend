@@ -96,6 +96,8 @@ export default function MediaGalleryPage() {
       (ver.subjects || []).forEach((sub) => {
         allSubjectOptions.push({
           _id: sub._id,
+          name: sub.name,
+          classVersionLabel: `${cls.name} • ${ver.name}`,
           label: `${cls.name} (${ver.name}) › ${sub.name}`,
           chapters: sub.chapters || [],
         });
@@ -167,6 +169,15 @@ export default function MediaGalleryPage() {
   useEffect(() => {
     loadFiles();
   }, [loadFiles]);
+
+  // Open upload modal auto-prefilled with current or specified folder context
+  const handleOpenUploadModal = (subId = null, chId = null) => {
+    const targetSub = subId !== null ? subId : (filters.subjectId || '');
+    const targetCh = chId !== null ? chId : (filters.chapterId || '');
+    setUploadSubjectId(targetSub);
+    setUploadChapterId(targetCh);
+    setShowUploadModal(true);
+  };
 
   // Copy URL Helper
   const handleCopyUrl = (url, e, id = null) => {
@@ -381,7 +392,7 @@ export default function MediaGalleryPage() {
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
           <Button
-            onClick={() => setShowUploadModal(true)}
+            onClick={() => handleOpenUploadModal()}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 px-4 py-2 rounded-xl text-xs font-bold"
           >
             <HiOutlineCloudUpload className="h-4 w-4" />
@@ -625,46 +636,65 @@ export default function MediaGalleryPage() {
               {/* Subject folders */}
               {folderTree.tree.map((subject) => (
                 <div key={subject._id} className="mb-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setExpandedSubjectId(expandedSubjectId === subject._id ? null : subject._id);
-                      setFilters((prev) => ({ ...prev, page: 1, subjectId: subject._id, chapterId: '', uncategorized: '' }));
-                    }}
-                    className={clsx(
-                      'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors',
-                      filters.subjectId === subject._id && !filters.chapterId
-                        ? 'bg-indigo-100 text-indigo-700'
-                        : 'text-neutral-600 hover:bg-neutral-100'
-                    )}
-                  >
-                    {expandedSubjectId === subject._id ? (
-                      <HiOutlineFolderOpen className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
-                    ) : (
-                      <HiOutlineFolder className="h-3.5 w-3.5 shrink-0" />
-                    )}
-                    <span className="truncate flex-1">{subject.subjectName}</span>
-                    <span className="text-[10px] text-neutral-400 font-bold">{subject.count}</span>
-                  </button>
+                  <div className="group flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExpandedSubjectId(expandedSubjectId === subject._id ? null : subject._id);
+                        setFilters((prev) => ({ ...prev, page: 1, subjectId: subject._id, chapterId: '', uncategorized: '' }));
+                      }}
+                      className={clsx(
+                        'flex-1 text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors min-w-0',
+                        filters.subjectId === subject._id && !filters.chapterId
+                          ? 'bg-indigo-100 text-indigo-700 font-bold'
+                          : 'text-neutral-600 hover:bg-neutral-100'
+                      )}
+                    >
+                      {expandedSubjectId === subject._id ? (
+                        <HiOutlineFolderOpen className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                      ) : (
+                        <HiOutlineFolder className="h-3.5 w-3.5 shrink-0" />
+                      )}
+                      <span className="truncate flex-1">{subject.subjectName}</span>
+                      <span className="text-[10px] text-neutral-400 font-bold">{subject.count}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleOpenUploadModal(subject._id, ''); }}
+                      className="px-1.5 py-0.5 text-indigo-600 hover:bg-indigo-100 rounded text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                      title={`${subject.subjectName}-এ আপলোড`}
+                    >
+                      + আপলোড
+                    </button>
+                  </div>
 
                   {/* Chapter sub-folders */}
                   {expandedSubjectId === subject._id && subject.chapters.length > 0 && (
                     <div className="ml-4 mt-0.5 space-y-0.5 border-l border-neutral-200 pl-2">
                       {subject.chapters.map((ch) => (
-                        <button
-                          key={ch._id}
-                          type="button"
-                          onClick={() => setFilters((prev) => ({ ...prev, page: 1, subjectId: subject._id, chapterId: ch._id, uncategorized: '' }))}
-                          className={clsx(
-                            'w-full text-left px-2 py-1 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors',
-                            filters.chapterId === ch._id
-                              ? 'bg-indigo-50 text-indigo-700 font-bold'
-                              : 'text-neutral-500 hover:bg-neutral-100'
-                          )}
-                        >
-                          <span className="truncate flex-1">{ch.chapterName}</span>
-                          <span className="text-[9px] text-neutral-400 font-bold">{ch.count}</span>
-                        </button>
+                        <div key={ch._id} className="group flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => setFilters((prev) => ({ ...prev, page: 1, subjectId: subject._id, chapterId: ch._id, uncategorized: '' }))}
+                            className={clsx(
+                              'flex-1 text-left px-2 py-1 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors min-w-0',
+                              filters.chapterId === ch._id
+                                ? 'bg-indigo-50 text-indigo-700 font-bold'
+                                : 'text-neutral-500 hover:bg-neutral-100'
+                            )}
+                          >
+                            <span className="truncate flex-1">{ch.chapterName}</span>
+                            <span className="text-[9px] text-neutral-400 font-bold">{ch.count}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleOpenUploadModal(subject._id, ch._id); }}
+                            className="px-1 py-0.5 text-indigo-600 hover:bg-indigo-100 rounded text-[9px] font-bold opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                            title={`${ch.chapterName}-এ আপলোড`}
+                          >
+                            + আপলোড
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -1030,47 +1060,90 @@ export default function MediaGalleryPage() {
                   </select>
                 </div>
 
-                {/* Folder Tagging: Subject & Chapter */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100">
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-indigo-900 uppercase tracking-wider mb-1">
-                      📁 ফোল্ডার বিষয় (Subject)
-                    </label>
-                    <select
-                      value={uploadSubjectId}
-                      onChange={(e) => {
-                        setUploadSubjectId(e.target.value);
-                        setUploadChapterId('');
-                      }}
-                      disabled={uploading}
-                      className="w-full px-3 py-2 text-xs border border-indigo-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 font-semibold text-neutral-800"
-                    >
-                      <option value="">-- বিষয় বাছুন (ঐচ্ছিক) --</option>
-                      {allSubjectOptions.map((sub) => (
-                        <option key={sub._id} value={sub._id}>
-                          {sub.label}
-                        </option>
-                      ))}
-                    </select>
+                {/* Cascading Subject & Chapter Folder Selection Panel */}
+                <div className="bg-neutral-50 rounded-2xl border border-neutral-200 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
+                      <HiOutlineFolder className="h-4 w-4 text-indigo-600" />
+                      ফোল্ডার সিলেক্ট করুন (Subject & Chapter Folder)
+                    </span>
+                    {(uploadSubjectId || uploadChapterId) && (
+                      <button
+                        type="button"
+                        onClick={() => { setUploadSubjectId(''); setUploadChapterId(''); }}
+                        className="text-[11px] font-semibold text-rose-600 hover:underline"
+                      >
+                        রিসেট
+                      </button>
+                    )}
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-indigo-900 uppercase tracking-wider mb-1">
-                      📂 অধ্যায় (Chapter)
-                    </label>
-                    <select
-                      value={uploadChapterId}
-                      onChange={(e) => setUploadChapterId(e.target.value)}
-                      disabled={uploading || !uploadSubjectId}
-                      className="w-full px-3 py-2 text-xs border border-indigo-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 font-semibold text-neutral-800 disabled:opacity-50"
-                    >
-                      <option value="">-- অধ্যায় বাছুন (ঐচ্ছিক) --</option>
-                      {availableUploadChapters.map((ch) => (
-                        <option key={ch._id} value={ch._id}>
-                          {ch.name}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 h-48">
+                    {/* Left Panel: Subjects */}
+                    <div className="bg-white rounded-xl border border-neutral-200 p-2 overflow-y-auto space-y-1">
+                      <p className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest px-1 mb-1">
+                        ১. বিষয় (Subject)
+                      </p>
+                      {allSubjectOptions.map((sub) => {
+                        const isSelected = uploadSubjectId === sub._id;
+                        return (
+                          <div
+                            key={sub._id}
+                            onClick={() => {
+                              setUploadSubjectId(sub._id);
+                              setUploadChapterId('');
+                            }}
+                            className={clsx(
+                              'flex items-center justify-between p-2 rounded-lg cursor-pointer text-xs font-semibold transition-all select-none',
+                              isSelected
+                                ? 'bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold shadow-xs'
+                                : 'hover:bg-neutral-50 text-neutral-700 border border-transparent'
+                            )}
+                          >
+                            <div className="truncate pr-1">
+                              <p className="truncate">{sub.name}</p>
+                              <p className="text-[9px] font-normal text-neutral-400">{sub.classVersionLabel}</p>
+                            </div>
+                            <HiOutlineChevronRight className={clsx('h-3.5 w-3.5 shrink-0', isSelected ? 'text-indigo-600 font-bold' : 'text-neutral-300')} />
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Right Panel: Chapters */}
+                    <div className="bg-white rounded-xl border border-neutral-200 p-2 overflow-y-auto space-y-1">
+                      <p className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest px-1 mb-1">
+                        ২. অধ্যায় (Chapter)
+                      </p>
+                      {!uploadSubjectId ? (
+                        <div className="h-full flex items-center justify-center text-center p-4 text-[11px] text-neutral-400 font-medium">
+                          প্রথমে বাঁদিক থেকে বিষয় নির্বাচন করুন
+                        </div>
+                      ) : availableUploadChapters.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-center p-4 text-[11px] text-neutral-400 font-medium">
+                          এই বিষয়ে কোনো অধ্যায় নেই
+                        </div>
+                      ) : (
+                        availableUploadChapters.map((ch) => {
+                          const isSelected = uploadChapterId === ch._id;
+                          return (
+                            <div
+                              key={ch._id}
+                              onClick={() => setUploadChapterId(isSelected ? '' : ch._id)}
+                              className={clsx(
+                                'flex items-center justify-between p-2 rounded-lg cursor-pointer text-xs transition-all select-none',
+                                isSelected
+                                  ? 'bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold shadow-xs'
+                                  : 'hover:bg-neutral-50 text-neutral-700 border border-transparent'
+                              )}
+                            >
+                              <span className="truncate flex-1">{ch.name}</span>
+                              {isSelected && <HiOutlineCheck className="h-3.5 w-3.5 text-emerald-600 font-bold shrink-0 ml-1" />}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 </div>
 

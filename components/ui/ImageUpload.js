@@ -155,24 +155,41 @@ export default function ImageUpload({
               type="button"
               onClick={handleRemove}
               className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+              title="সরান"
             >
               <HiOutlineX className="h-2.5 w-2.5" />
             </button>
+            <button
+              type="button"
+              onClick={() => setShowGalleryPicker(true)}
+              className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-indigo-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm text-[9px]"
+              title="গ্যালারি থেকে পরিবর্তন"
+            >
+              <HiOutlineFolder className="h-3 w-3" />
+            </button>
           </div>
         ) : (
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="h-10 w-10 rounded-lg border-2 border-dashed border-neutral-300 hover:border-primary-400 flex items-center justify-center text-neutral-400 hover:text-primary-500 transition-colors"
-              title="ছবি আপলোড"
+              className="h-9 w-9 rounded-lg border-2 border-dashed border-neutral-300 hover:border-primary-400 flex items-center justify-center text-neutral-400 hover:text-primary-500 transition-colors"
+              title="কম্পিউটার থেকে ছবি আপলোড"
             >
               {uploading ? (
                 <span className="text-[9px] font-bold text-primary-500">{uploadProgress}%</span>
               ) : (
                 <HiOutlinePhotograph className="h-4 w-4" />
               )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowGalleryPicker(true)}
+              className="h-9 w-9 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 flex items-center justify-center text-indigo-600 transition-colors shadow-2xs"
+              title="গ্যালারি থেকে ছবি বাছুন"
+            >
+              <HiOutlineFolder className="h-4 w-4" />
             </button>
           </div>
         )}
@@ -184,6 +201,16 @@ export default function ImageUpload({
           className="hidden"
         />
         {error && <span className="text-[10px] text-red-500">{error}</span>}
+
+        {/* Gallery Picker Modal */}
+        <GalleryPicker
+          isOpen={showGalleryPicker}
+          onClose={() => setShowGalleryPicker(false)}
+          onSelect={(url) => { onChange(url); setUploadStats(null); }}
+          subjectId={subjectId}
+          chapterId={chapterId}
+          sourceType={sourceType}
+        />
       </div>
     );
   }
