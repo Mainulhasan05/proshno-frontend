@@ -23,6 +23,12 @@ import {
   HiOutlineInformationCircle,
   HiOutlineCheck,
   HiOutlineX,
+  HiOutlineCloudUpload,
+  HiOutlineClipboardCopy,
+  HiOutlineClipboardCheck,
+  HiOutlineTag,
+  HiOutlineSparkles,
+  HiOutlineCheckCircle,
 } from 'react-icons/hi';
 
 export default function MediaGalleryPage() {
@@ -38,6 +44,16 @@ export default function MediaGalleryPage() {
   const [scanning, setScanning] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Upload modal states
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState([]);
+  const [uploadCategory, setUploadCategory] = useState('gallery');
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Copy feedback state
+  const [copiedId, setCopiedId] = useState(null);
 
   // Filters & display configurations
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
@@ -74,7 +90,7 @@ export default function MediaGalleryPage() {
       const res = await apiClient.get('/r2-accounts');
       setR2Accounts(res.data || []);
     } catch {
-      // Quiet fail or logged
+      // Quiet fail
     }
   }, []);
 
@@ -106,12 +122,90 @@ export default function MediaGalleryPage() {
     loadFiles();
   }, [loadFiles]);
 
+  // Copy URL Helper
+  const handleCopyUrl = (url, e, id = null) => {
+    if (e) e.stopPropagation();
+    navigator.clipboard.writeText(url);
+    toast.success('Image URL copied to clipboard!');
+    if (id) {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
+
+  // Upload Handlers
+  const handleFileSelect = (e) => {
+    const selected = Array.from(e.target.files || []);
+    if (selected.length) {
+      setUploadFiles(prev => [...prev, ...selected]);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const droppedFiles = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/'));
+    if (droppedFiles.length) {
+      setUploadFiles(prev => [...prev, ...droppedFiles]);
+    } else {
+      toast.error('Please drop image files only.');
+    }
+  };
+
+  const removeUploadFile = (index) => {
+    setUploadFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUploadSubmit = async (e) => {
+    e.preventDefault();
+    if (!uploadFiles.length) {
+      toast.error('Please select at least one image to upload.');
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(0);
+    let successCount = 0;
+
+    for (let i = 0; i < uploadFiles.length; i++) {
+      const file = uploadFiles[i];
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('source', JSON.stringify({ type: uploadCategory }));
+
+      try {
+        await apiClient.post('/media/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        successCount++;
+        setUploadProgress(Math.round(((i + 1) / uploadFiles.length) * 100));
+      } catch (err) {
+        toast.error(`Upload failed for ${file.name}: ${err?.error?.message || 'Server error'}`);
+      }
+    }
+
+    if (successCount > 0) {
+      toast.success(`Successfully uploaded ${successCount} image${successCount > 1 ? 's' : ''}!`);
+      setShowUploadModal(false);
+      setUploadFiles([]);
+      loadStats();
+      loadFiles();
+    }
+    setUploading(false);
+    setUploadProgress(0);
+  };
+
   // Operations
   const handleScanOrphans = async () => {
     setScanning(true);
     try {
       const res = await apiClient.post('/media/scan-orphans');
-      toast.success(res.message || `Scanned! Found ${res.data.orphansFound} orphans.`);
+      toast.success(res.message || `Scanned! Found ${res.data?.orphansFound ?? 0} orphans.`);
       loadStats();
       loadFiles();
     } catch (err) {
@@ -225,12 +319,20 @@ export default function MediaGalleryPage() {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-sm">
               <HiOutlinePhotograph className="h-4.5 w-4.5 text-white" />
             </span>
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-indigo-600">Storage Optimization</p>
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-indigo-600">Admin Control Panel</p>
           </div>
-          <h1 className="text-[1.65rem] font-extrabold text-neutral-900 leading-tight">Media Gallery</h1>
-          <p className="mt-1 text-[13px] text-neutral-500">Audit question images, clean up orphaned assets, and manage R2 usage stats</p>
+          <h1 className="text-[1.65rem] font-extrabold text-neutral-900 leading-tight">Admin Gallery Management</h1>
+          <p className="mt-1 text-[13px] text-neutral-500">Upload images, extract metadata, manage cloud storage assets, and copy image URLs for future use</p>
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
+          <Button
+            onClick={() => setShowUploadModal(true)}
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 px-4 py-2 rounded-xl text-xs font-bold"
+          >
+            <HiOutlineCloudUpload className="h-4 w-4" />
+            Upload Images
+          </Button>
+
           <Button
             onClick={handleScanOrphans}
             disabled={scanning || loading}
@@ -287,7 +389,7 @@ export default function MediaGalleryPage() {
             </span>
             <input
               type="text"
-              placeholder="Search filename..."
+              placeholder="Search filename or object key..."
               value={filters.search}
               onChange={(e) => updateFilter('search', e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
@@ -314,8 +416,10 @@ export default function MediaGalleryPage() {
               onChange={(e) => updateFilter('sourceType', e.target.value)}
               className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
             >
-              <option value="all">All Sources</option>
-              <option value="question">Questions</option>
+              <option value="all">All Categories</option>
+              <option value="gallery">Gallery Images</option>
+              <option value="question">Question Images</option>
+              <option value="page">Page Banners</option>
               <option value="avatar">Avatars</option>
               <option value="omr">OMR Logos</option>
             </select>
@@ -411,12 +515,19 @@ export default function MediaGalleryPage() {
           ))}
         </div>
       ) : files.length === 0 ? (
-        <div className="flex min-h-[30vh] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-neutral-200 bg-white p-8">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-neutral-50 text-neutral-400">
+        <div className="flex min-h-[35vh] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-neutral-200 bg-white p-8 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-500">
             <HiOutlinePhotograph className="h-7 w-7" />
           </div>
-          <p className="mt-4 text-base font-bold text-neutral-700">No media assets found</p>
-          <p className="mt-1 text-xs text-neutral-400">Try adjusting your filters or search terms.</p>
+          <p className="mt-4 text-base font-bold text-neutral-800">No gallery images found</p>
+          <p className="mt-1 text-xs text-neutral-400 max-w-sm">Upload new images to your gallery or try adjusting your search filters.</p>
+          <Button
+            onClick={() => setShowUploadModal(true)}
+            className="mt-4 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl"
+          >
+            <HiOutlineCloudUpload className="h-4 w-4" />
+            Upload First Image
+          </Button>
         </div>
       ) : viewMode === 'grid' ? (
         // Grid View
@@ -424,6 +535,8 @@ export default function MediaGalleryPage() {
           {files.map((file) => {
             const isSelected = selectedIds.includes(file._id);
             const status = getStatus(file);
+            const isCopied = copiedId === file._id;
+
             return (
               <div
                 key={file._id}
@@ -437,22 +550,41 @@ export default function MediaGalleryPage() {
                 <div 
                   className={clsx(
                     'absolute top-3 left-3 z-10 h-5 w-5 rounded-md border flex items-center justify-center transition-all bg-white/90 backdrop-blur-sm',
-                    isSelected ? 'bg-indigo-650 border-indigo-650 text-white' : 'border-neutral-300 opacity-0 group-hover:opacity-100'
+                    isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-neutral-300 opacity-0 group-hover:opacity-100'
                   )}
                   onClick={(e) => toggleSelect(file._id, e)}
                 >
-                  {isSelected && <HiOutlineCheck className="h-3.5 w-3.5 text-indigo-600 font-bold" />}
+                  {isSelected && <HiOutlineCheck className="h-3.5 w-3.5 text-white font-bold" />}
                 </div>
 
+                {/* Quick 1-Click Copy URL Button */}
+                <button
+                  type="button"
+                  onClick={(e) => handleCopyUrl(file.url, e, file._id)}
+                  className={clsx(
+                    'absolute top-3 right-3 z-10 p-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all backdrop-blur-md flex items-center gap-1',
+                    isCopied
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-white/90 text-neutral-700 hover:bg-indigo-600 hover:text-white border border-neutral-200/60'
+                  )}
+                  title="Copy Image URL"
+                >
+                  {isCopied ? (
+                    <HiOutlineClipboardCheck className="h-4 w-4" />
+                  ) : (
+                    <HiOutlineClipboardCopy className="h-4 w-4" />
+                  )}
+                </button>
+
                 {/* Image Container */}
-                <div className="relative h-32 w-full bg-neutral-50 flex items-center justify-center overflow-hidden border-b border-neutral-100">
+                <div className="relative h-32 w-full bg-neutral-50 flex items-center justify-center overflow-hidden border-b border-neutral-100 p-2">
                   <img
                     src={file.url}
                     alt={file.originalName}
                     loading="lazy"
                     className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-105"
                   />
-                  <div className="absolute top-3 right-3">
+                  <div className="absolute bottom-2 left-2">
                     <span className={clsx('inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ring-1 ring-inset', status.color)}>
                       {status.label}
                     </span>
@@ -466,7 +598,7 @@ export default function MediaGalleryPage() {
                   </p>
                   <div className="mt-1 flex items-center justify-between text-[10px] text-neutral-400 font-medium">
                     <span>{formatSize(file.sizeBytes)}</span>
-                    <span>{new Date(file.createdAt).toLocaleDateString()}</span>
+                    <span className="capitalize font-semibold text-indigo-600">{file.source?.type || 'gallery'}</span>
                   </div>
                 </div>
 
@@ -505,8 +637,8 @@ export default function MediaGalleryPage() {
                 </th>
                 <th className="py-3.5 px-4">Preview</th>
                 <th className="py-3.5 px-4">Filename</th>
-                <th className="py-3.5 px-4">Type</th>
-                <th className="py-3.5 px-4">Storage Savings</th>
+                <th className="py-3.5 px-4">Category</th>
+                <th className="py-3.5 px-4">Size & Optimization</th>
                 <th className="py-3.5 px-4">Upload Date</th>
                 <th className="py-3.5 px-4">Status</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
@@ -517,6 +649,7 @@ export default function MediaGalleryPage() {
                 const isSelected = selectedIds.includes(file._id);
                 const status = getStatus(file);
                 const savingsPercent = Math.max(0, Math.round(((file.originalSizeBytes - file.sizeBytes) / (file.originalSizeBytes || 1)) * 100));
+                const isCopied = copiedId === file._id;
 
                 return (
                   <tr
@@ -536,15 +669,15 @@ export default function MediaGalleryPage() {
                       />
                     </td>
                     <td className="py-3 px-4">
-                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 flex items-center justify-center">
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 flex items-center justify-center p-0.5">
                         <img src={file.url} alt="" className="h-full w-full object-contain" />
                       </div>
                     </td>
                     <td className="py-3.5 px-4 font-bold text-neutral-800 truncate max-w-[200px]" title={file.originalName}>
                       {file.originalName}
                     </td>
-                    <td className="py-3.5 px-4 text-xs font-semibold text-neutral-500 capitalize">
-                      {file.source?.type || 'Question'}
+                    <td className="py-3.5 px-4 text-xs font-semibold text-indigo-600 capitalize">
+                      {file.source?.type || 'gallery'}
                     </td>
                     <td className="py-3.5 px-4 text-xs font-medium">
                       <div className="flex items-center gap-1.5">
@@ -562,19 +695,30 @@ export default function MediaGalleryPage() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-1">
+                      <div className="flex justify-end gap-1 items-center">
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyUrl(file.url, e, file._id)}
+                          className={clsx(
+                            'rounded-lg p-2 transition-colors flex items-center gap-1 text-xs font-bold',
+                            isCopied ? 'bg-emerald-50 text-emerald-600' : 'text-neutral-500 hover:bg-indigo-50 hover:text-indigo-600'
+                          )}
+                          title="Copy Image URL"
+                        >
+                          {isCopied ? <HiOutlineClipboardCheck className="h-4 w-4" /> : <HiOutlineClipboardCopy className="h-4 w-4" />}
+                        </button>
                         <button
                           type="button"
                           onClick={() => setSelectedFile(file)}
-                          className="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-50 hover:text-neutral-600"
-                          title="Details"
+                          className="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
+                          title="View Metadata"
                         >
                           <HiOutlineEye className="h-4 w-4" />
                         </button>
-                        {status.label === 'Orphaned' ? (
+                        {status.label === 'Orphaned' && (
                           <button
                             type="button"
-                            onClick={() => handleDelete(file._id)}
+                            onClick={(e) => handleDelete(file._id, e)}
                             disabled={deletingId === file._id}
                             className="rounded-lg p-2 text-neutral-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                             title="Delete"
@@ -585,8 +729,6 @@ export default function MediaGalleryPage() {
                               <HiOutlineTrash className="h-4 w-4" />
                             )}
                           </button>
-                        ) : (
-                          <div className="w-8 h-8" /> // spacing spacer
                         )}
                       </div>
                     </td>
@@ -650,7 +792,163 @@ export default function MediaGalleryPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Detail Modal ────────────────────────────────────────── */}
+      {/* ── Upload Images Modal ───────────────────────────────────── */}
+      <AnimatePresence>
+        {showUploadModal && (
+          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="absolute inset-0" onClick={() => !uploading && setShowUploadModal(false)} />
+
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative bg-white rounded-3xl overflow-hidden max-w-xl w-full shadow-2xl p-6 border border-neutral-100 z-10"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-neutral-100 mb-5">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                    <HiOutlineCloudUpload className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-extrabold text-neutral-900">Upload Gallery Images</h3>
+                    <p className="text-xs text-neutral-400">Select or drop images to add to admin media gallery</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => setShowUploadModal(false)}
+                  className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
+                >
+                  <HiOutlineX className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUploadSubmit} className="space-y-4">
+                {/* Category Picker */}
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+                    Select Target Category
+                  </label>
+                  <select
+                    value={uploadCategory}
+                    onChange={(e) => setUploadCategory(e.target.value)}
+                    disabled={uploading}
+                    className="w-full px-3.5 py-2.5 text-sm border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold text-neutral-800"
+                  >
+                    <option value="gallery">Admin Gallery Asset (Default)</option>
+                    <option value="question">Question Image</option>
+                    <option value="page">Page Banner</option>
+                    <option value="avatar">Avatar</option>
+                    <option value="omr">OMR Template Logo</option>
+                  </select>
+                </div>
+
+                {/* Dropzone */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  className="border-2 border-dashed border-neutral-200 hover:border-indigo-500 rounded-2xl p-6 text-center bg-neutral-50/50 transition-colors cursor-pointer group"
+                >
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    disabled={uploading}
+                    id="gallery-file-input"
+                    className="hidden"
+                  />
+                  <label htmlFor="gallery-file-input" className="cursor-pointer block">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-indigo-500 shadow-sm border border-neutral-100 group-hover:scale-110 transition-transform">
+                      <HiOutlinePhotograph className="h-6 w-6" />
+                    </div>
+                    <p className="mt-3 text-xs font-bold text-neutral-700">
+                      Click to browse or drag & drop image files
+                    </p>
+                    <p className="mt-1 text-[11px] text-neutral-400">
+                      PNG, JPG, WEBP, GIF, SVG up to 10 MB per file
+                    </p>
+                  </label>
+                </div>
+
+                {/* Selected Files Queue */}
+                {uploadFiles.length > 0 && (
+                  <div className="max-h-44 overflow-y-auto space-y-2 border border-neutral-100 rounded-xl p-3 bg-neutral-50/50">
+                    <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-2">
+                      Files to Upload ({uploadFiles.length})
+                    </p>
+                    {uploadFiles.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-neutral-100 text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <HiOutlinePhotograph className="h-4 w-4 text-indigo-500 shrink-0" />
+                          <span className="font-bold text-neutral-800 truncate">{file.name}</span>
+                          <span className="text-neutral-400 text-[10px]">({formatSize(file.size)})</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeUploadFile(idx)}
+                          disabled={uploading}
+                          className="text-neutral-400 hover:text-rose-600 p-1"
+                        >
+                          <HiOutlineX className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload Progress Bar */}
+                {uploading && (
+                  <div className="space-y-1.5 pt-2">
+                    <div className="flex justify-between text-xs font-bold text-neutral-600">
+                      <span>Uploading & Optimizing...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-neutral-100 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-indigo-500 to-violet-600 h-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Modal Footer Actions */}
+                <div className="pt-4 flex items-center justify-end gap-3 border-t border-neutral-100">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploading}
+                    onClick={() => setShowUploadModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={uploading || !uploadFiles.length}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-5 py-2 rounded-xl flex items-center gap-2"
+                  >
+                    {uploading ? (
+                      <>
+                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <HiOutlineCloudUpload className="h-4 w-4" />
+                        Upload {uploadFiles.length > 0 ? `(${uploadFiles.length})` : ''}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Metadata & Detail Modal ─────────────────────────────── */}
       <AnimatePresence>
         {selectedFile && (
           <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -661,11 +959,11 @@ export default function MediaGalleryPage() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative bg-white rounded-3xl overflow-hidden max-w-4xl w-full shadow-2xl flex flex-col md:flex-row min-h-[480px] border border-neutral-100 z-10"
+              className="relative bg-white rounded-3xl overflow-hidden max-w-4xl w-full shadow-2xl flex flex-col md:flex-row min-h-[500px] border border-neutral-100 z-10"
             >
               {/* Image Preview Panel */}
-              <div className="md:w-1/2 bg-neutral-900 flex items-center justify-center p-6 relative border-r border-neutral-100 min-h-[300px]">
-                <img src={selectedFile.url} alt="" className="max-h-[400px] max-w-full object-contain rounded-lg shadow-lg" />
+              <div className="md:w-1/2 bg-neutral-900 flex items-center justify-center p-6 relative border-r border-neutral-100 min-h-[320px]">
+                <img src={selectedFile.url} alt="" className="max-h-[420px] max-w-full object-contain rounded-lg shadow-lg" />
                 <a
                   href={selectedFile.url}
                   target="_blank"
@@ -697,46 +995,90 @@ export default function MediaGalleryPage() {
                     </button>
                   </div>
 
+                  {/* 1-Click Copy Public URL Bar */}
+                  <div className="mb-5 bg-neutral-50 border border-neutral-200/80 rounded-2xl p-2.5 flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={selectedFile.url}
+                      className="w-full bg-transparent text-xs font-mono text-neutral-700 outline-none truncate pl-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => handleCopyUrl(selectedFile.url, e, selectedFile._id)}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shrink-0 flex items-center gap-1.5 shadow-sm transition-all"
+                    >
+                      {copiedId === selectedFile._id ? (
+                        <>
+                          <HiOutlineClipboardCheck className="h-4 w-4" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <HiOutlineClipboardCopy className="h-4 w-4" />
+                          Copy URL
+                        </>
+                      )}
+                    </button>
+                  </div>
+
                   {/* Badges / Status */}
-                  <div className="flex flex-wrap gap-2 mb-6">
+                  <div className="flex flex-wrap gap-2 mb-5">
                     <span className={clsx('inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ring-1 ring-inset', getStatus(selectedFile).color)}>
                       {getStatus(selectedFile).label}
                     </span>
-                    <span className="bg-indigo-50 text-indigo-700 ring-1 ring-indigo-650/10 inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider">
-                      {selectedFile.source?.type || 'Question'}
+                    <span className="bg-indigo-50 text-indigo-700 ring-1 ring-indigo-650/10 inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider capitalize">
+                      Category: {selectedFile.source?.type || 'gallery'}
                     </span>
+                    {selectedFile.originalFormat && (
+                      <span className="bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider">
+                        Original: {selectedFile.originalFormat}
+                      </span>
+                    )}
                   </div>
 
-                  {/* Metadata fields */}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-neutral-100 py-4 mb-6">
+                  {/* Complete Metadata Grid */}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-y border-neutral-100 py-4 mb-4 text-xs">
                     <div>
-                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">File Size</p>
-                      <p className="text-sm font-bold text-neutral-800 mt-0.5">{formatSize(selectedFile.sizeBytes)}</p>
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Optimized Size</p>
+                      <p className="font-bold text-neutral-800 mt-0.5">{formatSize(selectedFile.sizeBytes)}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Original Size</p>
-                      <p className="text-sm font-bold text-neutral-800 mt-0.5">{formatSize(selectedFile.originalSizeBytes)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">MIME Type</p>
-                      <p className="text-sm font-semibold text-neutral-800 mt-0.5">{selectedFile.mimeType}</p>
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Raw Original Size</p>
+                      <p className="font-bold text-neutral-800 mt-0.5">{formatSize(selectedFile.originalSizeBytes)}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Dimensions</p>
-                      <p className="text-sm font-bold text-neutral-800 mt-0.5">{selectedFile.width} × {selectedFile.height} px</p>
+                      <p className="font-bold text-neutral-800 mt-0.5">
+                        {selectedFile.width && selectedFile.height ? `${selectedFile.width} × ${selectedFile.height} px` : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Aspect Ratio</p>
+                      <p className="font-bold text-neutral-800 mt-0.5">
+                        {selectedFile.aspectRatio ? `${selectedFile.aspectRatio} : 1` : selectedFile.width && selectedFile.height ? `${(selectedFile.width / selectedFile.height).toFixed(2)} : 1` : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Color Space</p>
+                      <p className="font-semibold text-neutral-800 mt-0.5 uppercase">{selectedFile.colorSpace || 'sRGB'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Alpha / Transparency</p>
+                      <p className="font-semibold text-neutral-800 mt-0.5">{selectedFile.hasAlpha ? 'Yes (Transparent)' : 'No (Opaque)'}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Uploaded By</p>
-                      <p className="text-sm font-semibold text-neutral-800 mt-0.5 truncate">{selectedFile.uploadedBy?.email || 'System'}</p>
+                      <p className="font-semibold text-neutral-800 mt-0.5 truncate">{selectedFile.uploadedBy?.email || 'System Admin'}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Upload Date</p>
-                      <p className="text-sm font-semibold text-neutral-800 mt-0.5">{new Date(selectedFile.createdAt).toLocaleDateString()}</p>
+                      <p className="font-semibold text-neutral-800 mt-0.5">{new Date(selectedFile.createdAt).toLocaleString()}</p>
                     </div>
                   </div>
 
                   {/* References & R2 stats */}
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div className="flex items-center gap-2 text-xs text-neutral-600 font-medium">
                       <HiOutlineInformationCircle className="h-4 w-4 text-neutral-400 shrink-0" />
                       <span>Used in <span className="font-bold text-neutral-800">{selectedFile.refCount}</span> document{selectedFile.refCount !== 1 ? 's' : ''}.</span>
@@ -756,8 +1098,8 @@ export default function MediaGalleryPage() {
                   </div>
                 </div>
 
-                {/* Modal footer / Delete actions */}
-                <div className="mt-8 pt-4 border-t border-neutral-100 flex items-center justify-between">
+                {/* Modal footer / Actions */}
+                <div className="mt-6 pt-4 border-t border-neutral-100 flex items-center justify-between">
                   <a
                     href={selectedFile.url}
                     download
