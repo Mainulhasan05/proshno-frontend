@@ -33,7 +33,7 @@ import {
   HiOutlineFolderOpen,
 } from 'react-icons/hi';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchTree } from '@/store/slices/treeSlice';
+import { fetchTree } from '@/store/slices/hierarchySlice';
 
 export default function MediaGalleryPage() {
   // Gallery state
@@ -83,7 +83,7 @@ export default function MediaGalleryPage() {
 
   // Upload subject/chapter hierarchy
   const dispatch = useDispatch();
-  const tree = useSelector((state) => state.tree?.items || []);
+  const tree = useSelector((state) => state.hierarchy?.tree || state.hierarchy?.items || []);
   const [uploadSubjectId, setUploadSubjectId] = useState('');
   const [uploadChapterId, setUploadChapterId] = useState('');
   const [uploadClassId, setUploadClassId] = useState('');
@@ -516,7 +516,6 @@ export default function MediaGalleryPage() {
               <option value="omr">OMR Logos</option>
             </select>
           </div>
-        </div>
 
           {/* R2 Account filter */}
           <div>
@@ -611,7 +610,7 @@ export default function MediaGalleryPage() {
               {/* All Images */}
               <button
                 type="button"
-                onClick={() => updateFilter('subjectId', ''); updateFilter('chapterId', ''); updateFilter('uncategorized', '');}
+                onClick={() => { updateFilter('subjectId', ''); updateFilter('chapterId', ''); updateFilter('uncategorized', ''); }}
                 className={clsx(
                   'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors mb-0.5',
                   !filters.subjectId && !filters.uncategorized
