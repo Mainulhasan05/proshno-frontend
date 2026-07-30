@@ -19,13 +19,14 @@ import {
   HiOutlineX,
   HiOutlineViewGrid,
   HiOutlineViewList,
-  HiOutlineQuestionMarkCircle,
-  HiOutlineSparkles,
-  HiOutlineBookOpen,
+  HiOutlineAcademicCap,
+  HiOutlineLibrary,
+  HiOutlineOfficeBuilding,
 } from 'react-icons/hi';
 
 export default function QuestionSourcesPage() {
-  const [sources, setSources] = useState([]);
+  const [activeTab, setActiveTab] = useState('tags'); // 'tags' | 'boards' | 'admission' | 'schools'
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -33,644 +34,588 @@ export default function QuestionSourcesPage() {
 
   // Modal states
   const [showModal, setShowModal] = useState(false);
-  const [editingSource, setEditingSource] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
 
-  // Form states
+  // Form state
   const [form, setForm] = useState({
     name: '',
     nameBn: '',
+    shortForm: '',
     code: '',
     description: '',
+    type: 'university',
+    district: '',
     order: 0,
     isActive: true,
   });
 
-  const loadSources = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/question-sources');
-      setSources(res.data || []);
+      let endpoint = '/question-sources';
+      if (activeTab === 'boards') endpoint = '/institutions/boards';
+      else if (activeTab === 'admission') endpoint = '/institutions/admission-orgs';
+      else if (activeTab === 'schools') endpoint = '/institutions/top-schools';
+
+      const res = await apiClient.get(endpoint);
+      setItems(res.data || []);
     } catch (err) {
-      toast.error('Failed to load question sources');
+      toast.error('Failed to load institution data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
-    loadSources();
-  }, [loadSources]);
+    loadData();
+    setSearch('');
+  }, [loadData, activeTab]);
 
   // 1-Click Copy ID Handler
-  const handleCopyId = (id, e) => {
+  const handleCopyId = (id, label, e) => {
     if (e) e.stopPropagation();
     navigator.clipboard.writeText(id);
-    toast.success('Source ID copied to clipboard!');
+    toast.success(`${label || 'ID'} copied to clipboard!`);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
   // Open Create Modal
   const handleOpenCreate = () => {
-    setEditingSource(null);
+    setEditingItem(null);
     setForm({
       name: '',
       nameBn: '',
+      shortForm: '',
       code: '',
       description: '',
-      order: sources.length + 1,
+      type: 'university',
+      district: '',
+      order: items.length + 1,
       isActive: true,
     });
     setShowModal(true);
   };
 
   // Open Edit Modal
-  const handleOpenEdit = (source, e) => {
+  const handleOpenEdit = (item, e) => {
     if (e) e.stopPropagation();
-    setEditingSource(source);
+    setEditingItem(item);
     setForm({
-      name: source.name || '',
-      nameBn: source.nameBn || '',
-      code: source.code || '',
-      description: source.description || '',
-      order: source.order || 0,
-      isActive: source.isActive !== false,
+      name: item.name || '',
+      nameBn: item.nameBn || '',
+      shortForm: item.shortForm || '',
+      code: item.code || '',
+      description: item.description || '',
+      type: item.type || 'university',
+      district: item.district || '',
+      order: item.order || 0,
+      isActive: item.isActive !== false,
     });
     setShowModal(true);
   };
 
-  // Submit Create / Edit
+  // Submit Form
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      toast.error('English Source Name is required');
-      return;
+      return toast.error('English Name is required');
+    }
+    if (activeTab === 'boards' && !form.shortForm.trim()) {
+      return toast.error('Short Form (e.g., ঢা.বো.) is required');
     }
 
-    setSaving(true);
     try {
-      if (editingSource) {
-        await apiClient.put(`/question-sources/${editingSource._id}`, form);
-        toast.success('Source updated successfully!');
+      setSaving(true);
+      let endpoint = '/question-sources';
+      if (activeTab === 'boards') endpoint = '/institutions/boards';
+      else if (activeTab === 'admission') endpoint = '/institutions/admission-orgs';
+      else if (activeTab === 'schools') endpoint = '/institutions/top-schools';
+
+      if (editingItem) {
+        await apiClient.put(`${endpoint}/${editingItem._id}`, form);
+        toast.success('Updated successfully');
       } else {
-        await apiClient.post('/question-sources', form);
-        toast.success('New source created successfully!');
+        await apiClient.post(endpoint, form);
+        toast.success('Created successfully');
       }
       setShowModal(false);
-      loadSources();
+      loadData();
     } catch (err) {
-      toast.error(err?.error?.message || err?.response?.data?.message || 'Failed to save source');
+      toast.error(err?.error?.message || err?.message || 'Action failed');
     } finally {
       setSaving(false);
     }
   };
 
-  // Toggle Active/Inactive Status
-  const handleToggleActive = async (source, e) => {
+  // Toggle Active Status
+  const handleToggleActive = async (item, e) => {
     if (e) e.stopPropagation();
     try {
-      const res = await apiClient.patch(`/question-sources/${source._id}/toggle`);
-      toast.success(res.message || 'Status updated');
-      loadSources();
+      let endpoint = `/question-sources/${item._id}`;
+      if (activeTab === 'boards') endpoint = `/institutions/boards/${item._id}`;
+      else if (activeTab === 'admission') endpoint = `/institutions/admission-orgs/${item._id}`;
+      else if (activeTab === 'schools') endpoint = `/institutions/top-schools/${item._id}`;
+
+      await apiClient.put(endpoint, { isActive: !item.isActive });
+      toast.success(`Marked as ${!item.isActive ? 'Active' : 'Inactive'}`);
+      loadData();
     } catch (err) {
-      toast.error(err?.error?.message || 'Failed to update status');
+      toast.error('Failed to toggle status');
     }
   };
 
-  // Delete Source
-  const handleDelete = async (source, e) => {
+  // Delete
+  const handleDelete = async (id, name, e) => {
     if (e) e.stopPropagation();
-    if (source.questionCount > 0) {
-      alert(`Cannot delete: ${source.questionCount} question(s) are using this source. Update or remove references first.`);
-      return;
-    }
-    if (!confirm(`Are you sure you want to delete source "${source.name}"?`)) return;
+    if (!window.confirm(`Are you sure you want to delete "${name}"?`)) return;
 
-    setDeletingId(source._id);
     try {
-      await apiClient.delete(`/question-sources/${source._id}`);
-      toast.success('Source deleted successfully!');
-      loadSources();
+      let endpoint = `/question-sources/${id}`;
+      if (activeTab === 'boards') endpoint = `/institutions/boards/${id}`;
+      else if (activeTab === 'admission') endpoint = `/institutions/admission-orgs/${id}`;
+      else if (activeTab === 'schools') endpoint = `/institutions/top-schools/${id}`;
+
+      await apiClient.delete(endpoint);
+      toast.success('Deleted successfully');
+      loadData();
     } catch (err) {
       toast.error(err?.error?.message || 'Delete failed');
-    } finally {
-      setDeletingId(null);
     }
   };
 
-  // Filtered Sources
-  const filteredSources = sources.filter((src) => {
+  // Filtered list
+  const filteredItems = items.filter((item) => {
+    const s = search.toLowerCase().trim();
     const matchesSearch =
-      search === '' ||
-      src.name.toLowerCase().includes(search.toLowerCase()) ||
-      (src.nameBn && src.nameBn.toLowerCase().includes(search.toLowerCase())) ||
-      src.code.toLowerCase().includes(search.toLowerCase()) ||
-      src._id.includes(search);
+      !s ||
+      item.name?.toLowerCase().includes(s) ||
+      item.nameBn?.toLowerCase().includes(s) ||
+      item.shortForm?.toLowerCase().includes(s) ||
+      item.code?.toLowerCase().includes(s);
 
     const matchesStatus =
       statusFilter === 'all' ||
-      (statusFilter === 'active' && src.isActive) ||
-      (statusFilter === 'inactive' && !src.isActive);
+      (statusFilter === 'active' && item.isActive) ||
+      (statusFilter === 'inactive' && !item.isActive);
 
     return matchesSearch && matchesStatus;
   });
 
-  // Calculate statistics
-  const totalSources = sources.length;
-  const activeSources = sources.filter((s) => s.isActive).length;
-  const defaultSourcesCount = sources.filter((s) => s.isDefault).length;
-  const totalQuestionsLinked = sources.reduce((acc, curr) => acc + (curr.questionCount || 0), 0);
+  const totalQuestions = items.reduce((acc, curr) => acc + (curr.questionCount || 0), 0);
 
   return (
-    <div className="mx-auto max-w-[1400px] pb-10">
-      
-      {/* ── Page Header ─────────────────────────────────────────── */}
-      <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6">
+      {/* Top Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-neutral-200/80 shadow-sm">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 shadow-sm">
-              <HiOutlineTag className="h-4.5 w-4.5 text-white" />
-            </span>
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.15em] text-indigo-600">Platform Taxonomy</p>
+          <div className="flex items-center gap-2 text-primary-600 font-semibold text-sm mb-1">
+            <HiOutlineTag className="w-5 h-5" />
+            <span>Question Taxonomy & Hierarchy</span>
           </div>
-          <h1 className="text-[1.65rem] font-extrabold text-neutral-900 leading-tight">Question Sources (প্রশ্ন উৎস)</h1>
-          <p className="mt-1 text-[13px] text-neutral-500">Manage question origin tags (Admission, Board, Main Book, Inspired, etc.) and copy Source ObjectIDs</p>
+          <h1 className="text-2xl font-bold text-neutral-900">Sources & Institution Management</h1>
+          <p className="text-sm text-neutral-500 mt-0.5">
+            Manage question source tags, education boards, admission universities, and top school listings with 1-click Copy ID.
+          </p>
         </div>
-        <div className="flex items-center gap-2.5 shrink-0">
-          <Button
-            onClick={handleOpenCreate}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 px-4 py-2 rounded-xl text-xs font-bold"
-          >
-            <HiOutlinePlus className="h-4 w-4" />
-            Add New Source
-          </Button>
-        </div>
-      </header>
 
-      {/* ── Dashboard Stats ──────────────────────────────────────── */}
-      <div className="mb-7 grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          icon={HiOutlineTag}
-          label="Total Sources"
-          value={loading ? '—' : totalSources}
-          sub="Registered Origin Tags"
-          gradient="from-blue-500 to-indigo-500"
-        />
-        <StatCard
-          icon={HiOutlineCheckCircle}
-          label="Active Sources"
-          value={loading ? '—' : activeSources}
-          sub={`${totalSources - activeSources} Inactive`}
-          gradient="from-emerald-500 to-teal-500"
-        />
-        <StatCard
-          icon={HiOutlineSparkles}
-          label="Default System Sources"
-          value={loading ? '—' : defaultSourcesCount}
-          sub="Core Platform Defaults"
-          gradient="from-purple-500 to-pink-500"
-        />
-        <StatCard
-          icon={HiOutlineQuestionMarkCircle}
-          label="Linked Questions"
-          value={loading ? '—' : totalQuestionsLinked}
-          sub="Total Tag References"
-          gradient="from-amber-500 to-orange-500"
-        />
+        <Button onClick={handleOpenCreate} className="shadow-md">
+          <HiOutlinePlus className="w-5 h-5 mr-1.5" />
+          {activeTab === 'tags' && 'Add Source Tag'}
+          {activeTab === 'boards' && 'Add Education Board'}
+          {activeTab === 'admission' && 'Add Admission Org'}
+          {activeTab === 'schools' && 'Add Top School/College'}
+        </Button>
       </div>
 
-      {/* ── Filter Bar ──────────────────────────────────────────── */}
-      <div className="mb-6 rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-sm flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        
-        {/* Search Input */}
-        <div className="relative flex-1 max-w-md">
-          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-            <HiOutlineSearch className="h-4 w-4 text-neutral-400" />
-          </span>
+      {/* Navigation Tabs */}
+      <div className="flex border-b border-neutral-200 bg-white px-4 rounded-xl shadow-sm gap-2 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('tags')}
+          className={clsx(
+            'flex items-center gap-2 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+            activeTab === 'tags'
+              ? 'border-primary-600 text-primary-600 bg-primary-50/50 rounded-t-lg'
+              : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+          )}
+        >
+          <HiOutlineTag className="w-4 h-4" />
+          <span>Source Tags</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('boards')}
+          className={clsx(
+            'flex items-center gap-2 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+            activeTab === 'boards'
+              ? 'border-primary-600 text-primary-600 bg-primary-50/50 rounded-t-lg'
+              : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+          )}
+        >
+          <HiOutlineLibrary className="w-4 h-4" />
+          <span>Education Boards (বোর্ড)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('admission')}
+          className={clsx(
+            'flex items-center gap-2 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+            activeTab === 'admission'
+              ? 'border-primary-600 text-primary-600 bg-primary-50/50 rounded-t-lg'
+              : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+          )}
+        >
+          <HiOutlineAcademicCap className="w-4 h-4" />
+          <span>Admission Universities (ভর্তি পরীক্ষা)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('schools')}
+          className={clsx(
+            'flex items-center gap-2 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+            activeTab === 'schools'
+              ? 'border-primary-600 text-primary-600 bg-primary-50/50 rounded-t-lg'
+              : 'border-transparent text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+          )}
+        >
+          <HiOutlineOfficeBuilding className="w-4 h-4" />
+          <span>Top Schools & Colleges</span>
+        </button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Entries</p>
+            <p className="text-2xl font-bold text-neutral-900 mt-1">{items.length}</p>
+          </div>
+          <div className="p-3 bg-primary-50 text-primary-600 rounded-lg">
+            <HiOutlineTag className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Active Entities</p>
+            <p className="text-2xl font-bold text-emerald-600 mt-1">
+              {items.filter((i) => i.isActive).length}
+            </p>
+          </div>
+          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
+            <HiOutlineCheckCircle className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Linked Questions</p>
+            <p className="text-2xl font-bold text-purple-600 mt-1">{totalQuestions}</p>
+          </div>
+          <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
+            <HiOutlineAcademicCap className="w-6 h-6" />
+          </div>
+        </div>
+      </div>
+
+      {/* Search & Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
+        <div className="relative w-full sm:w-80">
+          <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
           <input
             type="text"
-            placeholder="Search source name, code, or ObjectID..."
+            placeholder="Search name, code, shortform..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+            className="w-full pl-10 pr-4 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Status Dropdown */}
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3.5 py-2 text-xs font-bold border border-neutral-200 rounded-xl focus:outline-none text-neutral-700 bg-white"
+            className="px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
           >
-            <option value="all">All Statuses</option>
+            <option value="all">All Status</option>
             <option value="active">Active Only</option>
             <option value="inactive">Inactive Only</option>
           </select>
 
-          {/* View Switcher */}
-          <div className="flex rounded-lg border border-neutral-200 p-0.5 bg-neutral-50 shrink-0">
+          <div className="flex items-center border border-neutral-300 rounded-lg overflow-hidden bg-neutral-50">
             <button
-              type="button"
               onClick={() => setViewMode('table')}
-              className={clsx(
-                'p-1.5 rounded-md transition-all duration-150',
-                viewMode === 'table' ? 'bg-white text-neutral-800 shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
-              )}
-              title="Table view"
+              className={clsx('p-2 text-sm transition-colors', viewMode === 'table' ? 'bg-white text-primary-600 shadow-xs font-semibold' : 'text-neutral-500')}
             >
-              <HiOutlineViewList className="h-4 w-4" />
+              <HiOutlineViewList className="w-5 h-5" />
             </button>
             <button
-              type="button"
               onClick={() => setViewMode('grid')}
-              className={clsx(
-                'p-1.5 rounded-md transition-all duration-150',
-                viewMode === 'grid' ? 'bg-white text-neutral-800 shadow-sm' : 'text-neutral-400 hover:text-neutral-600'
-              )}
-              title="Grid view"
+              className={clsx('p-2 text-sm transition-colors', viewMode === 'grid' ? 'bg-white text-primary-600 shadow-xs font-semibold' : 'text-neutral-500')}
             >
-              <HiOutlineViewGrid className="h-4 w-4" />
+              <HiOutlineViewGrid className="w-5 h-5" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── Main Source Table / Grid ──────────────────────────────── */}
+      {/* Main Content List */}
       {loading ? (
-        <div className="space-y-3">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-2xl bg-white border border-neutral-100" />
-          ))}
+        <div className="bg-white p-12 rounded-xl border border-neutral-200 text-center text-neutral-500">
+          Loading entities...
         </div>
-      ) : filteredSources.length === 0 ? (
-        <div className="flex min-h-[30vh] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-neutral-200 bg-white p-8 text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-500">
-            <HiOutlineTag className="h-7 w-7" />
-          </div>
-          <p className="mt-4 text-base font-bold text-neutral-800">No question sources found</p>
-          <p className="mt-1 text-xs text-neutral-400">Try adjusting your search criteria or create a new source.</p>
+      ) : filteredItems.length === 0 ? (
+        <div className="bg-white p-12 rounded-xl border border-neutral-200 text-center text-neutral-500">
+          No records found.
         </div>
       ) : viewMode === 'table' ? (
-        <div className="overflow-x-auto rounded-2xl border border-neutral-200/80 bg-white shadow-sm">
-          <table className="w-full border-collapse text-left text-sm text-neutral-600">
-            <thead className="bg-neutral-50/75 border-b border-neutral-200 text-xs font-bold uppercase tracking-wider text-neutral-500">
+        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden shadow-sm">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 font-semibold">
               <tr>
-                <th className="py-3.5 px-4">Source ID (ObjectID)</th>
-                <th className="py-3.5 px-4">English Name</th>
-                <th className="py-3.5 px-4">Bengali Label</th>
-                <th className="py-3.5 px-4">Code Slug</th>
-                <th className="py-3.5 px-4">Linked Questions</th>
-                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4">Name & Bengali Label</th>
+                <th className="py-3.5 px-4">Short Form / Code</th>
+                <th className="py-3.5 px-4">Object ID (Click to Copy)</th>
+                <th className="py-3.5 px-4 text-center">Status</th>
+                <th className="py-3.5 px-4 text-center">Questions</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100 font-medium">
-              {filteredSources.map((src) => {
-                const isCopied = copiedId === src._id;
+            <tbody className="divide-y divide-neutral-200">
+              {filteredItems.map((item) => (
+                <tr key={item._id} className="hover:bg-neutral-50/80 transition-colors">
+                  <td className="py-3.5 px-4">
+                    <div className="font-medium text-neutral-900">{item.name}</div>
+                    {item.nameBn && <div className="text-xs text-neutral-500">{item.nameBn}</div>}
+                  </td>
 
-                return (
-                  <tr key={src._id} className="hover:bg-neutral-50/50 transition-colors">
-                    {/* Copy ID Column */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2">
-                        <code className="text-xs font-mono bg-neutral-100 text-neutral-700 px-2 py-1 rounded border border-neutral-200 select-all">
-                          {src._id}
-                        </code>
-                        <button
-                          type="button"
-                          onClick={(e) => handleCopyId(src._id, e)}
-                          className={clsx(
-                            'p-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1',
-                            isCopied ? 'bg-emerald-600 text-white' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
-                          )}
-                          title="Copy Source ObjectID"
-                        >
-                          {isCopied ? <HiOutlineClipboardCheck className="h-4 w-4" /> : <HiOutlineClipboardCopy className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </td>
+                  <td className="py-3.5 px-4">
+                    <span className="font-mono text-xs px-2 py-0.5 rounded bg-neutral-100 text-neutral-700 border border-neutral-200 font-semibold">
+                      {item.shortForm || item.code}
+                    </span>
+                  </td>
 
-                    {/* Names */}
-                    <td className="py-3.5 px-4 font-bold text-neutral-900">
-                      {src.name}
-                      {src.isDefault && (
-                        <span className="ml-2 text-[10px] font-extrabold uppercase bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-200">
-                          Default
-                        </span>
+                  <td className="py-3.5 px-4">
+                    <button
+                      onClick={(e) => handleCopyId(item._id, item.name, e)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono bg-neutral-100 hover:bg-primary-50 text-neutral-700 hover:text-primary-700 rounded-md border border-neutral-200 transition-colors"
+                      title="Click to copy ID"
+                    >
+                      {copiedId === item._id ? (
+                        <>
+                          <HiOutlineClipboardCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-700 font-semibold">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <HiOutlineClipboardCopy className="w-3.5 h-3.5 text-neutral-400" />
+                          <span>{item._id}</span>
+                        </>
                       )}
-                    </td>
-                    <td className="py-3.5 px-4 text-neutral-700">
-                      {src.nameBn || '—'}
-                    </td>
+                    </button>
+                  </td>
 
-                    {/* Code */}
-                    <td className="py-3.5 px-4 text-xs font-mono text-neutral-500">
-                      {src.code}
-                    </td>
+                  <td className="py-3.5 px-4 text-center">
+                    <button
+                      onClick={(e) => handleToggleActive(item, e)}
+                      className={clsx(
+                        'inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full transition-colors',
+                        item.isActive ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      )}
+                    >
+                      {item.isActive ? <HiOutlineCheckCircle className="w-3.5 h-3.5" /> : <HiOutlineXCircle className="w-3.5 h-3.5" />}
+                      <span>{item.isActive ? 'Active' : 'Inactive'}</span>
+                    </button>
+                  </td>
 
-                    {/* Questions count */}
-                    <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center gap-1 font-bold text-neutral-800 bg-neutral-100 px-2.5 py-0.5 rounded-full text-xs">
-                        <HiOutlineBookOpen className="h-3.5 w-3.5 text-indigo-500" />
-                        {src.questionCount} question{src.questionCount !== 1 ? 's' : ''}
-                      </span>
-                    </td>
+                  <td className="py-3.5 px-4 text-center font-semibold text-neutral-700">
+                    {item.questionCount || 0}
+                  </td>
 
-                    {/* Status */}
-                    <td className="py-3.5 px-4">
-                      <button
-                        type="button"
-                        onClick={(e) => handleToggleActive(src, e)}
-                        className={clsx(
-                          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider transition-all',
-                          src.isActive
-                            ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20 hover:bg-emerald-100'
-                            : 'bg-rose-50 text-rose-700 ring-1 ring-rose-600/20 hover:bg-rose-100'
-                        )}
-                      >
-                        {src.isActive ? <HiOutlineCheckCircle className="h-3 w-3" /> : <HiOutlineXCircle className="h-3 w-3" />}
-                        {src.isActive ? 'Active' : 'Inactive'}
-                      </button>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex justify-end gap-1.5 items-center">
-                        <button
-                          type="button"
-                          onClick={(e) => handleOpenEdit(src, e)}
-                          className="p-1.5 text-neutral-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="Edit Source"
-                        >
-                          <HiOutlinePencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDelete(src, e)}
-                          disabled={deletingId === src._id || src.questionCount > 0}
-                          className={clsx(
-                            'p-1.5 rounded-lg transition-colors',
-                            src.questionCount > 0
-                              ? 'text-neutral-300 cursor-not-allowed'
-                              : 'text-neutral-400 hover:text-rose-600 hover:bg-rose-50'
-                          )}
-                          title={src.questionCount > 0 ? 'Cannot delete: referenced by questions' : 'Delete Source'}
-                        >
-                          {deletingId === src._id ? (
-                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-rose-600 border-t-transparent block" />
-                          ) : (
-                            <HiOutlineTrash className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                  <td className="py-3.5 px-4 text-right space-x-1">
+                    <button
+                      onClick={(e) => handleOpenEdit(item, e)}
+                      className="p-1.5 text-neutral-600 hover:text-primary-600 hover:bg-neutral-100 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <HiOutlinePencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(item._id, item.name, e)}
+                      className="p-1.5 text-neutral-600 hover:text-red-600 hover:bg-neutral-100 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <HiOutlineTrash className="w-4 h-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       ) : (
-        // Grid View
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredSources.map((src) => {
-            const isCopied = copiedId === src._id;
-
-            return (
-              <div
-                key={src._id}
-                className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm hover:shadow-md transition-shadow relative flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div>
-                      <h3 className="font-extrabold text-neutral-900 text-base flex items-center gap-2">
-                        {src.name}
-                        {src.isDefault && (
-                          <span className="text-[9px] font-extrabold uppercase bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-200">
-                            Default
-                          </span>
-                        )}
-                      </h3>
-                      {src.nameBn && <p className="text-xs font-semibold text-neutral-500 mt-0.5">{src.nameBn}</p>}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => handleToggleActive(src, e)}
-                      className={clsx(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider shrink-0',
-                        src.isActive ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-600/20'
-                      )}
-                    >
-                      {src.isActive ? 'Active' : 'Inactive'}
-                    </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredItems.map((item) => (
+            <div key={item._id} className="bg-white p-5 rounded-xl border border-neutral-200 shadow-sm flex flex-col justify-between space-y-4">
+              <div>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-bold text-neutral-900">{item.name}</h3>
+                    {item.nameBn && <p className="text-xs text-neutral-500 mt-0.5">{item.nameBn}</p>}
                   </div>
-
-                  {src.description && (
-                    <p className="text-xs text-neutral-400 mt-2 line-clamp-2">{src.description}</p>
-                  )}
-
-                  {/* 1-Click Copy ID Box */}
-                  <div className="mt-4 bg-neutral-50 border border-neutral-200/70 rounded-xl p-2 flex items-center justify-between gap-2">
-                    <code className="text-[11px] font-mono text-neutral-600 truncate pl-1 select-all">{src._id}</code>
-                    <button
-                      type="button"
-                      onClick={(e) => handleCopyId(src._id, e)}
-                      className={clsx(
-                        'px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 transition-all flex items-center gap-1',
-                        isCopied ? 'bg-emerald-600 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
-                      )}
-                    >
-                      {isCopied ? <HiOutlineClipboardCheck className="h-3.5 w-3.5" /> : <HiOutlineClipboardCopy className="h-3.5 w-3.5" />}
-                      {isCopied ? 'Copied' : 'Copy ID'}
-                    </button>
-                  </div>
+                  <span className={clsx('px-2 py-0.5 text-xs font-medium rounded-full', item.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-600')}>
+                    {item.isActive ? 'Active' : 'Inactive'}
+                  </span>
                 </div>
 
-                {/* Footer Info & Actions */}
-                <div className="mt-5 pt-3 border-t border-neutral-100 flex items-center justify-between text-xs">
-                  <span className="font-bold text-neutral-500 flex items-center gap-1">
-                    <HiOutlineBookOpen className="h-4 w-4 text-indigo-500" />
-                    {src.questionCount} Questions
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-xs font-mono bg-neutral-100 border border-neutral-200 text-neutral-700 px-2 py-0.5 rounded font-semibold">
+                    {item.shortForm || item.code}
                   </span>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={(e) => handleOpenEdit(src, e)}
-                      className="p-1.5 text-neutral-400 hover:text-indigo-600 rounded-lg hover:bg-neutral-50"
-                    >
-                      <HiOutlinePencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => handleDelete(src, e)}
-                      disabled={src.questionCount > 0}
-                      className={clsx(
-                        'p-1.5 rounded-lg',
-                        src.questionCount > 0 ? 'text-neutral-300' : 'text-neutral-400 hover:text-rose-600 hover:bg-rose-50'
-                      )}
-                    >
-                      <HiOutlineTrash className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <span className="text-xs text-neutral-500">{item.questionCount || 0} questions</span>
                 </div>
               </div>
-            );
-          })}
+
+              <div className="pt-3 border-t border-neutral-100 flex items-center justify-between">
+                <button
+                  onClick={(e) => handleCopyId(item._id, item.name, e)}
+                  className="inline-flex items-center gap-1 text-xs font-mono text-neutral-600 hover:text-primary-600"
+                >
+                  <HiOutlineClipboardCopy className="w-3.5 h-3.5" />
+                  <span>Copy ID</span>
+                </button>
+
+                <div className="space-x-1">
+                  <button onClick={(e) => handleOpenEdit(item, e)} className="p-1 text-neutral-500 hover:text-primary-600">
+                    <HiOutlinePencil className="w-4 h-4" />
+                  </button>
+                  <button onClick={(e) => handleDelete(item._id, item.name, e)} className="p-1 text-neutral-500 hover:text-red-600">
+                    <HiOutlineTrash className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* ── Create / Edit Modal ───────────────────────────────────── */}
+      {/* Create / Edit Modal */}
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="absolute inset-0" onClick={() => !saving && setShowModal(false)} />
-
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/50 backdrop-blur-xs">
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative bg-white rounded-3xl overflow-hidden max-w-lg w-full shadow-2xl p-6 border border-neutral-100 z-10"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden"
             >
-              <div className="flex items-center justify-between pb-4 border-b border-neutral-100 mb-5">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                    <HiOutlineTag className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <h3 className="text-lg font-extrabold text-neutral-900">
-                      {editingSource ? 'Edit Question Source' : 'Create Question Source'}
-                    </h3>
-                    <p className="text-xs text-neutral-400">Configure origin tag for questions and platform filtering</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => setShowModal(false)}
-                  className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
-                >
-                  <HiOutlineX className="h-5 w-5" />
+              <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200">
+                <h3 className="font-bold text-neutral-900">
+                  {editingItem ? 'Edit Entity' : 'Create New Entity'}
+                </h3>
+                <button onClick={() => setShowModal(false)} className="p-1 text-neutral-400 hover:text-neutral-600">
+                  <HiOutlineX className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* English Name */}
+              <form onSubmit={handleSubmit} className="p-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
-                    Source Name (English) *
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    English Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Admission, Model Test 2026"
+                    placeholder="e.g. Dhaka Board / Dhaka University"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold"
+                    className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
 
-                {/* Bengali Label */}
                 <div>
-                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
-                    Bengali Display Label (বাংলা লেবেল)
-                  </label>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Bengali Name</label>
                   <input
                     type="text"
-                    placeholder="e.g. ভর্তি পরীক্ষা (Admission)"
+                    placeholder="e.g. ঢাকা বোর্ড / ঢাকা বিশ্ববিদ্যালয়"
                     value={form.nameBn}
                     onChange={(e) => setForm({ ...form, nameBn: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-semibold"
+                    className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
 
-                {/* Code Slug */}
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
-                    Code Identifier (Slug)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Auto-generated if empty (e.g. model_test_2026)"
-                    value={form.code}
-                    onChange={(e) => setForm({ ...form, code: e.target.value })}
-                    className="w-full px-3.5 py-2.5 text-sm border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-mono"
-                  />
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
-                    Description / Usage Notes
-                  </label>
-                  <textarea
-                    rows={2}
-                    placeholder="Optional description of this question source..."
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    className="w-full px-3.5 py-2 text-sm border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
-                  />
-                </div>
-
-                {/* Order & Active Checkbox */}
-                <div className="grid grid-cols-2 gap-4 border-t border-neutral-100 pt-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
-                      Sort Priority Order
-                    </label>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1">Short Form</label>
                     <input
-                      type="number"
-                      value={form.order}
-                      onChange={(e) => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
-                      className="w-full px-3.5 py-2 text-sm border border-neutral-200 rounded-xl focus:outline-none font-bold"
+                      type="text"
+                      placeholder="e.g. ঢা.বো. / DU / MGCC"
+                      value={form.shortForm}
+                      onChange={(e) => setForm({ ...form, shortForm: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
 
-                  <div className="flex items-center pt-5">
-                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-neutral-700">
-                      <input
-                        type="checkbox"
-                        checked={form.isActive}
-                        onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                        className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
-                      />
-                      Active Source
-                    </label>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1">Code / Slug</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. dhaka_board / du"
+                      value={form.code}
+                      onChange={(e) => setForm({ ...form, code: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    />
                   </div>
                 </div>
 
-                {/* Modal Footer Actions */}
-                <div className="pt-4 flex items-center justify-end gap-3 border-t border-neutral-100">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={saving}
-                    onClick={() => setShowModal(false)}
-                  >
+                {activeTab === 'admission' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1">Institution Type</label>
+                    <select
+                      value={form.type}
+                      onChange={(e) => setForm({ ...form, type: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="university">General University</option>
+                      <option value="medical">Medical College</option>
+                      <option value="engineering">Engineering University</option>
+                      <option value="other">Other Institution</option>
+                    </select>
+                  </div>
+                )}
+
+                {activeTab === 'schools' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1">District / Location</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Dhaka, Mymensingh, Tangail"
+                      value={form.district}
+                      onChange={(e) => setForm({ ...form, district: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={form.isActive}
+                    onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                    className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                  />
+                  <label htmlFor="isActive" className="text-xs font-medium text-neutral-700">Active Entity</label>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-neutral-200">
+                  <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
                     Cancel
                   </Button>
-                  <Button
-                    type="submit"
-                    disabled={saving}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-5 py-2 rounded-xl flex items-center gap-2"
-                  >
-                    {saving ? (
-                      <>
-                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <HiOutlineTag className="h-4 w-4" />
-                        {editingSource ? 'Update Source' : 'Create Source'}
-                      </>
-                    )}
+                  <Button type="submit" disabled={saving}>
+                    {saving ? 'Saving...' : editingItem ? 'Save Changes' : 'Create Entity'}
                   </Button>
                 </div>
               </form>
@@ -678,27 +623,6 @@ export default function QuestionSourcesPage() {
           </div>
         )}
       </AnimatePresence>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  METRICS CARD
-// ═══════════════════════════════════════════════════════════════
-function StatCard({ icon: Icon, label, value, sub, gradient }) {
-  return (
-    <div className="group relative overflow-hidden rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">{label}</p>
-          <p className="mt-1.5 text-2xl font-black text-neutral-900 leading-none">{value}</p>
-          {sub && <p className="mt-1.5 text-[11px] font-medium text-neutral-400">{sub}</p>}
-        </div>
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} shadow-sm`}>
-          <Icon className="h-5 w-5 text-white" />
-        </span>
-      </div>
-      <div className={`absolute -bottom-1 -right-1 h-16 w-16 rounded-full bg-gradient-to-br ${gradient} opacity-[0.04] transition-opacity group-hover:opacity-[0.08]`} />
     </div>
   );
 }
