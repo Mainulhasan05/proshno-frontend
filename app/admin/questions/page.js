@@ -1571,6 +1571,8 @@ export default function QuestionsPage() {
                 onChange={(url) => setForm({ ...form, stimulusImage: url })}
                 sourceType="question"
                 sourceField="stimulusImage"
+                subjectId={selSubject}
+                chapterId={form.chapterId}
               />
             </div>
           )}
@@ -1592,6 +1594,8 @@ export default function QuestionsPage() {
             sourceType="question"
             sourceField="questionImage"
             label="প্রশ্নের ছবি/চিত্র (ঐচ্ছিক)"
+            subjectId={selSubject}
+            chapterId={form.chapterId}
           />
 
           {/* Cognitive Level & Marks */}
@@ -1696,6 +1700,8 @@ export default function QuestionsPage() {
                       sourceType="question"
                       sourceField={`options.${idx}.image`}
                       compact
+                      subjectId={selSubject}
+                      chapterId={form.chapterId}
                     />
                     {form.options.length > 2 && form.format !== 'true_false' && (
                       <button type="button" onClick={() => removeOption(idx)} className="p-1.5 text-neutral-400 hover:text-red-500">

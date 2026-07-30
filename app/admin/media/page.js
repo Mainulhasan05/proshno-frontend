@@ -29,7 +29,11 @@ import {
   HiOutlineTag,
   HiOutlineSparkles,
   HiOutlineCheckCircle,
+  HiOutlineFolder,
+  HiOutlineFolderOpen,
 } from 'react-icons/hi';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchTree } from '@/store/slices/treeSlice';
 
 export default function MediaGalleryPage() {
   // Gallery state
@@ -71,6 +75,36 @@ export default function MediaGalleryPage() {
   // Selection states
   const [selectedIds, setSelectedIds] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null); // Detail modal
+
+  // Folder sidebar state
+  const [folderTree, setFolderTree] = useState({ tree: [], uncategorizedCount: 0 });
+  const [showFolderSidebar, setShowFolderSidebar] = useState(true);
+  const [expandedSubjectId, setExpandedSubjectId] = useState(null);
+
+  // Upload subject/chapter hierarchy
+  const dispatch = useDispatch();
+  const tree = useSelector((state) => state.tree?.items || []);
+  const [uploadSubjectId, setUploadSubjectId] = useState('');
+  const [uploadChapterId, setUploadChapterId] = useState('');
+  const [uploadClassId, setUploadClassId] = useState('');
+  const [uploadVersionId, setUploadVersionId] = useState('');
+
+  // Flat subject list for quick folder tagging
+  const allSubjectOptions = [];
+  tree.forEach((cls) => {
+    (cls.versions || []).forEach((ver) => {
+      (ver.subjects || []).forEach((sub) => {
+        allSubjectOptions.push({
+          _id: sub._id,
+          label: `${cls.name} (${ver.name}) › ${sub.name}`,
+          chapters: sub.chapters || [],
+        });
+      });
+    });
+  });
+
+  const selectedSubjectObj = allSubjectOptions.find((s) => s._id === uploadSubjectId);
+  const availableUploadChapters = selectedSubjectObj?.chapters || [];
 
   // Loaders
   const loadStats = useCallback(async () => {
@@ -116,7 +150,19 @@ export default function MediaGalleryPage() {
   useEffect(() => {
     loadAccounts();
     loadStats();
-  }, [loadAccounts, loadStats]);
+    dispatch(fetchTree());
+  }, [loadAccounts, loadStats, dispatch]);
+
+  const loadFolderTree = useCallback(async () => {
+    try {
+      const res = await apiClient.get('/media/folders');
+      if (res.data) setFolderTree(res.data);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadFolderTree();
+  }, [loadFolderTree]);
 
   useEffect(() => {
     loadFiles();
@@ -176,7 +222,11 @@ export default function MediaGalleryPage() {
       const file = uploadFiles[i];
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('source', JSON.stringify({ type: uploadCategory }));
+      formData.append('source', JSON.stringify({
+        type: uploadCategory,
+        subjectId: uploadSubjectId || undefined,
+        chapterId: uploadChapterId || undefined,
+      }));
 
       try {
         await apiClient.post('/media/upload', formData, {
@@ -193,8 +243,13 @@ export default function MediaGalleryPage() {
       toast.success(`Successfully uploaded ${successCount} image${successCount > 1 ? 's' : ''}!`);
       setShowUploadModal(false);
       setUploadFiles([]);
+      setUploadSubjectId('');
+      setUploadChapterId('');
+      setUploadClassId('');
+      setUploadVersionId('');
       loadStats();
       loadFiles();
+      loadFolderTree();
     }
     setUploading(false);
     setUploadProgress(0);
@@ -507,7 +562,99 @@ export default function MediaGalleryPage() {
         </div>
       </div>
 
-      {/* ── Main Gallery Workspace ───────────────────────────────── */}
+      {/* ── Main Gallery Layout (Sidebar + Workspace) ────────────── */}
+      <div className="flex gap-4">
+        {/* Left Sidebar — Folder Tree */}
+        {showFolderSidebar && (
+          <div className="w-60 shrink-0 hidden lg:block">
+            <div className="rounded-2xl border border-neutral-200/80 bg-white shadow-sm p-3 sticky top-4 max-h-[70vh] overflow-y-auto">
+              <p className="text-[10px] font-extrabold text-neutral-400 uppercase tracking-widest px-1 mb-2">📁 ফোল্ডার</p>
+
+              {/* All Images */}
+              <button
+                type="button"
+                onClick={() => updateFilter('subjectId', ''); updateFilter('chapterId', ''); updateFilter('uncategorized', '');}
+                className={clsx(
+                  'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors mb-0.5',
+                  !filters.subjectId && !filters.uncategorized
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'text-neutral-600 hover:bg-neutral-100'
+                )}
+              >
+                <HiOutlinePhotograph className="h-3.5 w-3.5 shrink-0" />
+                সব ছবি
+              </button>
+
+              {/* Subject folders */}
+              {folderTree.tree.map((subject) => (
+                <div key={subject._id} className="mb-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExpandedSubjectId(expandedSubjectId === subject._id ? null : subject._id);
+                      setFilters((prev) => ({ ...prev, page: 1, subjectId: subject._id, chapterId: '', uncategorized: '' }));
+                    }}
+                    className={clsx(
+                      'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors',
+                      filters.subjectId === subject._id && !filters.chapterId
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'text-neutral-600 hover:bg-neutral-100'
+                    )}
+                  >
+                    {expandedSubjectId === subject._id ? (
+                      <HiOutlineFolderOpen className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                    ) : (
+                      <HiOutlineFolder className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                    <span className="truncate flex-1">{subject.subjectName}</span>
+                    <span className="text-[10px] text-neutral-400 font-bold">{subject.count}</span>
+                  </button>
+
+                  {/* Chapter sub-folders */}
+                  {expandedSubjectId === subject._id && subject.chapters.length > 0 && (
+                    <div className="ml-4 mt-0.5 space-y-0.5 border-l border-neutral-200 pl-2">
+                      {subject.chapters.map((ch) => (
+                        <button
+                          key={ch._id}
+                          type="button"
+                          onClick={() => setFilters((prev) => ({ ...prev, page: 1, subjectId: subject._id, chapterId: ch._id, uncategorized: '' }))}
+                          className={clsx(
+                            'w-full text-left px-2 py-1 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors',
+                            filters.chapterId === ch._id
+                              ? 'bg-indigo-50 text-indigo-700 font-bold'
+                              : 'text-neutral-500 hover:bg-neutral-100'
+                          )}
+                        >
+                          <span className="truncate flex-1">{ch.chapterName}</span>
+                          <span className="text-[9px] text-neutral-400 font-bold">{ch.count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Uncategorized */}
+              <button
+                type="button"
+                onClick={() => setFilters((prev) => ({ ...prev, page: 1, subjectId: '', chapterId: '', uncategorized: 'true' }))}
+                className={clsx(
+                  'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors mt-1',
+                  filters.uncategorized === 'true'
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'text-neutral-500 hover:bg-neutral-100'
+                )}
+              >
+                <HiOutlineFolder className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate flex-1">শ্রেণীবিহীন</span>
+                <span className="text-[10px] text-neutral-400 font-bold">{folderTree.uncategorizedCount}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Right Side — Gallery Content */}
+        <div className="flex-1 min-w-0">
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
           {[...Array(12)].map((_, i) => (
@@ -750,6 +897,8 @@ export default function MediaGalleryPage() {
           />
         </div>
       )}
+        </div>{/* end flex-1 gallery content */}
+      </div>{/* end flex sidebar+content */}
 
       {/* ── Floating Action Bar (Bulk Ops) ────────────────────────── */}
       <AnimatePresence>
@@ -842,6 +991,50 @@ export default function MediaGalleryPage() {
                     <option value="avatar">Avatar</option>
                     <option value="omr">OMR Template Logo</option>
                   </select>
+                </div>
+
+                {/* Folder Tagging: Subject & Chapter */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100">
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-indigo-900 uppercase tracking-wider mb-1">
+                      📁 ফোল্ডার বিষয় (Subject)
+                    </label>
+                    <select
+                      value={uploadSubjectId}
+                      onChange={(e) => {
+                        setUploadSubjectId(e.target.value);
+                        setUploadChapterId('');
+                      }}
+                      disabled={uploading}
+                      className="w-full px-3 py-2 text-xs border border-indigo-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 font-semibold text-neutral-800"
+                    >
+                      <option value="">-- বিষয় বাছুন (ঐচ্ছিক) --</option>
+                      {allSubjectOptions.map((sub) => (
+                        <option key={sub._id} value={sub._id}>
+                          {sub.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-indigo-900 uppercase tracking-wider mb-1">
+                      📂 অধ্যায় (Chapter)
+                    </label>
+                    <select
+                      value={uploadChapterId}
+                      onChange={(e) => setUploadChapterId(e.target.value)}
+                      disabled={uploading || !uploadSubjectId}
+                      className="w-full px-3 py-2 text-xs border border-indigo-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 font-semibold text-neutral-800 disabled:opacity-50"
+                    >
+                      <option value="">-- অধ্যায় বাছুন (ঐচ্ছিক) --</option>
+                      {availableUploadChapters.map((ch) => (
+                        <option key={ch._id} value={ch._id}>
+                          {ch.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Dropzone */}

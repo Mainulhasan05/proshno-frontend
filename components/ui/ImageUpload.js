@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback } from 'react';
 import apiClient from '@/store/api/apiClient';
-import { HiOutlinePhotograph, HiOutlineUpload, HiOutlineX, HiOutlineLink, HiOutlineCheckCircle } from 'react-icons/hi';
+import { HiOutlinePhotograph, HiOutlineUpload, HiOutlineX, HiOutlineLink, HiOutlineCheckCircle, HiOutlineFolder } from 'react-icons/hi';
+import GalleryPicker from './GalleryPicker';
 
 /**
  * ImageUpload — Drag-and-drop image upload with URL fallback.
@@ -14,6 +15,8 @@ import { HiOutlinePhotograph, HiOutlineUpload, HiOutlineX, HiOutlineLink, HiOutl
  * - sourceField: field name like 'questionImage', 'stimulusImage', 'options.0.image'
  * - label: field label text
  * - compact: if true, renders in a smaller footprint for option images
+ * - subjectId: optional subject context for gallery picker pre-filtering
+ * - chapterId: optional chapter context for gallery picker pre-filtering
  */
 export default function ImageUpload({
   value = '',
@@ -22,6 +25,8 @@ export default function ImageUpload({
   sourceField = '',
   label = '',
   compact = false,
+  subjectId = '',
+  chapterId = '',
 }) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -30,6 +35,7 @@ export default function ImageUpload({
   const [urlText, setUrlText] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [uploadStats, setUploadStats] = useState(null); // { originalSize, newSize, savings }
+  const [showGalleryPicker, setShowGalleryPicker] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleUpload = useCallback(async (file) => {
@@ -298,6 +304,14 @@ export default function ImageUpload({
                     <HiOutlineLink className="h-3.5 w-3.5 inline mr-1 -mt-0.5" />
                     URL দিন
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowGalleryPicker(true)}
+                    className="text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors font-medium border border-indigo-200/60"
+                  >
+                    <HiOutlineFolder className="h-3.5 w-3.5 inline mr-1 -mt-0.5" />
+                    গ্যালারি
+                  </button>
                 </div>
               </>
             )}
@@ -344,6 +358,16 @@ export default function ImageUpload({
           {error}
         </p>
       )}
+
+      {/* Gallery Picker Modal */}
+      <GalleryPicker
+        isOpen={showGalleryPicker}
+        onClose={() => setShowGalleryPicker(false)}
+        onSelect={(url) => { onChange(url); setUploadStats(null); }}
+        subjectId={subjectId}
+        chapterId={chapterId}
+        sourceType={sourceType}
+      />
     </div>
   );
 }
