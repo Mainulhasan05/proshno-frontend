@@ -224,6 +224,7 @@ export default function QuestionsPage() {
 
   // Dynamic sources state
   const [availableSources, setAvailableSources] = useState(['Admission', 'Board', 'Main Book', 'Onusiloni', 'Top School/College', 'Inspired']);
+  const [questionSourcesList, setQuestionSourcesList] = useState([]);
 
   // Bulk actions state
   const [selectedIds, setSelectedIds] = useState([]);
@@ -312,11 +313,18 @@ export default function QuestionsPage() {
   }, [dispatch, filters]);
 
   useEffect(() => {
-    apiClient.get('/settings').then((res) => {
-      if (res.data?.questionSources?.length) {
-        setAvailableSources(res.data.questionSources);
+    apiClient.get('/question-sources').then((res) => {
+      if (res.data?.length) {
+        setQuestionSourcesList(res.data);
+        setAvailableSources(res.data.map((s) => s.name));
       }
-    }).catch(() => {});
+    }).catch(() => {
+      apiClient.get('/settings').then((res) => {
+        if (res.data?.questionSources?.length) {
+          setAvailableSources(res.data.questionSources);
+        }
+      }).catch(() => {});
+    });
   }, []);
 
   // Modal hierarchy options

@@ -22,6 +22,7 @@ import {
   HiOutlineClipboardCheck,
   HiOutlineCloud,
   HiOutlinePhotograph,
+  HiOutlineTag,
 } from 'react-icons/hi';
 
 const adminMenu = [
@@ -30,6 +31,7 @@ const adminMenu = [
   { label: 'Subjects', href: '/admin/subjects', icon: HiOutlineBookOpen },
   { label: 'Chapters', href: '/admin/chapters', icon: HiOutlineClipboardList },
   { label: 'Question Bank', href: '/admin/questions', icon: HiOutlineQuestionMarkCircle },
+  { label: 'Question Sources', href: '/admin/sources', icon: HiOutlineTag },
   { label: 'Packages', href: '/admin/packages', icon: HiOutlineCube },
   { label: 'Teachers', href: '/admin/teachers', icon: HiOutlineUsers },
   { label: 'Purchases', href: '/admin/purchases', icon: HiOutlineShoppingCart },
