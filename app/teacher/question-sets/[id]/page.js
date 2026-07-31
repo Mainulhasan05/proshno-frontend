@@ -59,6 +59,13 @@ export default function QuestionSetDetailPage() {
   // Mobile View Toggle State
   const [activeMobileTab, setActiveMobileTab] = useState('paper'); // 'paper' | 'settings'
 
+  // Question & Interaction States
+  const [questionList, setQuestionList] = useState([]);
+  const [gridFormats, setGridFormats] = useState({});
+  const [hoveredIdx, setHoveredIdx] = useState(null);
+  const [exchangeTargetIdx, setExchangeTargetIdx] = useState(null);
+  const [exchangeModalOpen, setExchangeModalOpen] = useState(false);
+
   // Helper for option labels
   const getOptionLabel = (idx) => {
     const letters = ['ক', 'খ', 'গ', 'ঘ', 'ঙ'];
@@ -77,7 +84,8 @@ export default function QuestionSetDetailPage() {
 
   useEffect(() => {
     if (questionSetDetail && questionSetDetail.questions) {
-      setQuestionList(questionSetDetail.questions.map((qItem) => qItem.questionId).filter(Boolean));
+      const qList = questionSetDetail.questions.map((qItem) => qItem.questionId).filter(Boolean);
+      queueMicrotask(() => setQuestionList(qList));
     }
   }, [questionSetDetail]);
 

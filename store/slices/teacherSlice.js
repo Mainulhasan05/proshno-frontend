@@ -312,9 +312,12 @@ const teacherSlice = createSlice({
         state.questionSets = action.payload.data;
       })
       .addCase(fetchQuestionSets.rejected, rejected)
+      .addCase(fetchQuestionSetDetail.pending, pending)
       .addCase(fetchQuestionSetDetail.fulfilled, (state, action) => {
+        state.isLoading = false;
         state.questionSetDetail = action.payload.data;
       })
+      .addCase(fetchQuestionSetDetail.rejected, rejected)
       .addCase(createQuestionSet.fulfilled, (state, action) => {
         state.questionSets.unshift(action.payload.data);
       })

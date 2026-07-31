@@ -132,7 +132,8 @@ export default function CreateQuestionSetPage() {
   // Auto-select first version if available
   useEffect(() => {
     if (content.versions && content.versions.length > 0) {
-      setSelectedVersionId(content.versions[0]._id);
+      const vId = content.versions[0]._id;
+      queueMicrotask(() => setSelectedVersionId(vId));
     }
   }, [content.versions]);
 
@@ -149,6 +150,17 @@ export default function CreateQuestionSetPage() {
       dispatch(fetchTeacherChapters(selectedSubjectIds[0]));
     }
   }, [selectedSubjectIds, dispatch]);
+
+  // Fetch Questions from API when Class / Subject / Chapter or Step changes
+  useEffect(() => {
+    const params = { limit: 100 };
+    if (selectedClassId) params.classId = selectedClassId;
+    if (selectedSubjectIds.length > 0) params.subjectId = selectedSubjectIds[0];
+    if (selectedChapterIds.length > 0) params.chapterId = selectedChapterIds[0];
+    else if (sidebarChapterFilter) params.chapterId = sidebarChapterFilter;
+    if (sidebarType && typeLock) params.type = sidebarType;
+    dispatch(fetchTeacherQuestions(params));
+  }, [selectedClassId, selectedSubjectIds, selectedChapterIds, sidebarChapterFilter, sidebarType, typeLock, step, dispatch]);
 
   // Selected names for display
   const selectedClassName = useMemo(() => {
