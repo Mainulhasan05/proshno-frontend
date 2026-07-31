@@ -13,14 +13,18 @@ export default function useAuth() {
   // Initialize auth state on mount
   useEffect(() => {
     if (!isInitialized && typeof window !== 'undefined') {
-      const sessionType = sessionStorage.getItem('sessionType');
-      const token = localStorage.getItem(sessionType === 'admin' ? 'adminAccessToken' : 'userAccessToken');
-      if (token) {
-        if (sessionType === 'admin') {
-          dispatch(adminFetchProfile());
-        } else {
-          dispatch(fetchProfile());
-        }
+      const storedSessionType = localStorage.getItem('sessionType') || sessionStorage.getItem('sessionType');
+      const adminToken = localStorage.getItem('adminAccessToken');
+      const userToken = localStorage.getItem('userAccessToken');
+
+      if (storedSessionType === 'admin' && adminToken) {
+        dispatch(adminFetchProfile());
+      } else if (userToken) {
+        dispatch(fetchProfile());
+      } else if (adminToken) {
+        localStorage.setItem('sessionType', 'admin');
+        sessionStorage.setItem('sessionType', 'admin');
+        dispatch(adminFetchProfile());
       } else {
         // No token — mark as initialized (not authenticated)
         dispatch({ type: 'auth/fetchProfile/rejected' });
@@ -30,6 +34,7 @@ export default function useAuth() {
 
   const logout = useCallback(() => {
     dispatch(logoutUser()).then(() => {
+      localStorage.removeItem('sessionType');
       sessionStorage.removeItem('sessionType');
     });
   }, [dispatch]);

@@ -8,12 +8,14 @@ export const loginUser = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await apiClient.post('/auth/login', credentials);
-      localStorage.setItem('userAccessToken', response.data.accessToken);
-      if (response.data.refreshToken) {
-        localStorage.setItem('userRefreshToken', response.data.refreshToken);
+      const data = response.data || response;
+      localStorage.setItem('userAccessToken', data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem('userRefreshToken', data.refreshToken);
       }
+      localStorage.setItem('sessionType', 'user');
       sessionStorage.setItem('sessionType', 'user');
-      return response.data;
+      return data;
     } catch (error) {
       return rejectWithValue(error.error || { message: 'Login failed' });
     }
@@ -26,22 +28,33 @@ export const googleAuth = createAsyncThunk(
   async (credential, { rejectWithValue }) => {
     try {
       const response = await apiClient.post('/auth/google', { credential });
-      localStorage.setItem('userAccessToken', response.data.accessToken);
+      const data = response.data || response;
+      localStorage.setItem('userAccessToken', data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem('userRefreshToken', data.refreshToken);
+      }
+      localStorage.setItem('sessionType', 'user');
       sessionStorage.setItem('sessionType', 'user');
-      return response.data;
+      return data;
     } catch (error) {
       return rejectWithValue(error.error || { message: 'Google authentication failed' });
     }
   }
 );
+
 export const registerUser = createAsyncThunk(
   'auth/register',
   async (userData, { rejectWithValue }) => {
     try {
       const response = await apiClient.post('/auth/register', userData);
-      localStorage.setItem('userAccessToken', response.data.accessToken);
+      const data = response.data || response;
+      localStorage.setItem('userAccessToken', data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem('userRefreshToken', data.refreshToken);
+      }
+      localStorage.setItem('sessionType', 'user');
       sessionStorage.setItem('sessionType', 'user');
-      return response.data;
+      return data;
     } catch (error) {
       return rejectWithValue(error.error || { message: 'Registration failed' });
     }
@@ -65,20 +78,20 @@ export const logoutUser = createAsyncThunk(
   async (_, { getState, rejectWithValue }) => {
     try {
       const { user } = getState().auth;
-      const endpoint = user?.role === 'admin' ? '/admin-auth/logout' : '/auth/logout';
+      const sessionType = localStorage.getItem('sessionType') || sessionStorage.getItem('sessionType');
+      const endpoint = (user?.role === 'admin' || sessionType === 'admin') ? '/admin-auth/logout' : '/auth/logout';
       await apiClient.post(endpoint);
-      const sessionType = sessionStorage.getItem('sessionType');
-      localStorage.removeItem(sessionType === 'admin' ? 'adminAccessToken' : 'userAccessToken');
-      localStorage.removeItem(sessionType === 'admin' ? 'adminRefreshToken' : 'userRefreshToken');
-      sessionStorage.removeItem('sessionType');
-      return null;
     } catch (error) {
-      const sessionType = sessionStorage.getItem('sessionType');
-      localStorage.removeItem(sessionType === 'admin' ? 'adminAccessToken' : 'userAccessToken');
-      localStorage.removeItem(sessionType === 'admin' ? 'adminRefreshToken' : 'userRefreshToken');
+      // Ignore API logout error and clear local storage anyway
+    } finally {
+      localStorage.removeItem('userAccessToken');
+      localStorage.removeItem('userRefreshToken');
+      localStorage.removeItem('adminAccessToken');
+      localStorage.removeItem('adminRefreshToken');
+      localStorage.removeItem('sessionType');
       sessionStorage.removeItem('sessionType');
-      return rejectWithValue(error.error || { message: 'Logout failed' });
     }
+    return null;
   }
 );
 
@@ -88,12 +101,14 @@ export const adminLogin = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await apiClient.post('/admin-auth/login', credentials);
-      localStorage.setItem('adminAccessToken', response.data.accessToken);
-      if (response.data.refreshToken) {
-        localStorage.setItem('adminRefreshToken', response.data.refreshToken);
+      const data = response.data || response;
+      localStorage.setItem('adminAccessToken', data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem('adminRefreshToken', data.refreshToken);
       }
+      localStorage.setItem('sessionType', 'admin');
       sessionStorage.setItem('sessionType', 'admin');
-      return response.data;
+      return data;
     } catch (error) {
       return rejectWithValue(error.error || { message: 'Login failed' });
     }

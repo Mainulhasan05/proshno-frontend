@@ -506,7 +506,7 @@ export default function QuestionSetDetailPage() {
               RIGHT SIDEBAR: Control Panel & Settings (Screenshot 9)
              ════════════════════════════════════════════════════════════════════════ */}
           <div className={`no-print space-y-4 ${activeMobileTab === 'settings' ? 'block' : 'hidden lg:block'}`}>
-            <div className="bg-white rounded-2xl border border-neutral-200 p-4 space-y-5 sticky top-20 shadow-xs text-xs font-sans">
+            <div className="bg-white rounded-2xl border border-neutral-200 p-4 space-y-5 sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto shadow-xs text-xs font-sans">
               {/* Top Settings & Download Header */}
               <div className="space-y-3 border-b border-neutral-100 pb-3">
                 <div className="flex items-center justify-center gap-1.5 font-bold text-neutral-800 text-sm">

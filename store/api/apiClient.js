@@ -11,8 +11,20 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
-      const sessionType = sessionStorage.getItem('sessionType');
-      const token = localStorage.getItem(sessionType === 'admin' ? 'adminAccessToken' : 'userAccessToken');
+      const sessionType = localStorage.getItem('sessionType') || sessionStorage.getItem('sessionType');
+      const isAdminRoute =
+        config.url?.includes('/admin') ||
+        window.location.pathname.startsWith('/admin') ||
+        window.location.pathname.startsWith('/portal');
+
+      const preferredKey = (sessionType === 'admin' || isAdminRoute) ? 'adminAccessToken' : 'userAccessToken';
+      let token = localStorage.getItem(preferredKey);
+
+      // Fallback: if preferred token missing, check alternative
+      if (!token) {
+        token = localStorage.getItem('adminAccessToken') || localStorage.getItem('userAccessToken');
+      }
+
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -29,15 +41,31 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
 
     // Token expired — try refresh
-    const isAuthEndpoint = originalRequest.url?.includes('/login') || originalRequest.url?.includes('/refresh');
+    const isAuthEndpoint =
+      originalRequest.url?.includes('/login') ||
+      originalRequest.url?.includes('/refresh') ||
+      originalRequest.url?.includes('/register');
+
     if (
       error.response?.status === 401 &&
       !isAuthEndpoint &&
       !originalRequest._retry
     ) {
       originalRequest._retry = true;
-      const isSystemAdmin = typeof window !== 'undefined' && sessionStorage.getItem('sessionType') === 'admin';
-      const storedRefreshToken = typeof window !== 'undefined' ? localStorage.getItem(isSystemAdmin ? 'adminRefreshToken' : 'userRefreshToken') : null;
+
+      const sessionType = typeof window !== 'undefined'
+        ? (localStorage.getItem('sessionType') || sessionStorage.getItem('sessionType'))
+        : null;
+
+      const isSystemAdmin =
+        sessionType === 'admin' ||
+        originalRequest.url?.includes('/admin') ||
+        (typeof window !== 'undefined' && (window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/portal')));
+
+      const accessKey = isSystemAdmin ? 'adminAccessToken' : 'userAccessToken';
+      const refreshKey = isSystemAdmin ? 'adminRefreshToken' : 'userRefreshToken';
+      const storedRefreshToken = typeof window !== 'undefined' ? localStorage.getItem(refreshKey) : null;
+
       try {
         const refreshEndpoint = isSystemAdmin ? '/admin-auth/refresh' : '/auth/refresh';
         const res = await axios.post(
@@ -45,18 +73,34 @@ apiClient.interceptors.response.use(
           { refreshToken: storedRefreshToken || undefined },
           { withCredentials: true }
         );
-        const newToken = res.data.data.accessToken;
-        const newRefreshToken = res.data.data.refreshToken;
-        localStorage.setItem(isSystemAdmin ? 'adminAccessToken' : 'userAccessToken', newToken);
-        if (newRefreshToken) {
-          localStorage.setItem(isSystemAdmin ? 'adminRefreshToken' : 'userRefreshToken', newRefreshToken);
+
+        const payload = res.data?.data || res.data;
+        const newToken = payload?.accessToken;
+        const newRefreshToken = payload?.refreshToken;
+
+        if (newToken) {
+          localStorage.setItem(accessKey, newToken);
+          if (newRefreshToken) {
+            localStorage.setItem(refreshKey, newRefreshToken);
+          }
+          if (isSystemAdmin) {
+            localStorage.setItem('sessionType', 'admin');
+            sessionStorage.setItem('sessionType', 'admin');
+          } else {
+            localStorage.setItem('sessionType', 'user');
+            sessionStorage.setItem('sessionType', 'user');
+          }
+
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return apiClient(originalRequest);
         }
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        return apiClient(originalRequest);
       } catch (refreshError) {
         // Refresh failed — force logout
-        localStorage.removeItem(isSystemAdmin ? 'adminAccessToken' : 'userAccessToken');
-        localStorage.removeItem(isSystemAdmin ? 'adminRefreshToken' : 'userRefreshToken');
+        localStorage.removeItem('userAccessToken');
+        localStorage.removeItem('userRefreshToken');
+        localStorage.removeItem('adminAccessToken');
+        localStorage.removeItem('adminRefreshToken');
+        localStorage.removeItem('sessionType');
         sessionStorage.removeItem('sessionType');
         if (typeof window !== 'undefined') {
           window.location.href = isSystemAdmin ? '/portal/k7x9m2p4' : '/login';
