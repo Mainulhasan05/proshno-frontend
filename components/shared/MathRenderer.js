@@ -39,6 +39,17 @@ function preprocessMathText(text) {
                        .replace(/&gt;/g, '>')
                        .replace(/&amp;/g, '&');
 
+  // 6. Convert newlines (\n) to <br /> to preserve Shift+Enter line breaks
+  processed = processed.replace(/\r?\n/g, '<br />');
+
+  // 7. Auto-format polynomial statements (i., ii., iii. or i), ii), iii) or (i), (ii), (iii)) onto separate lines
+  processed = processed.replace(/([^\n>])\s*(\b(i{1,3}|iv|v|vi{1,3})\.|\((i{1,3}|iv|v|vi{1,3})\)|(i{1,3}|iv|v|vi{1,3})\))\s+/gi, (match, p1, p2) => {
+    return `${p1}<br />${p2} `;
+  });
+
+  // 8. Auto-break "নিচের কোনটি সঠিক?" onto its own line
+  processed = processed.replace(/([^\n>])\s*(নিচের কোনটি সঠিক\??|কোনটি সঠিক\??)/gi, '$1<br />$2');
+
   return processed;
 }
 
@@ -47,14 +58,11 @@ export default function MathRenderer({ text, className = '' }) {
 
   const cleanText = preprocessMathText(text);
 
-  // Split text by $$ (block math) and $ (inline math)
-  const parts = cleanText.split(/(\$\$.*?\ToggleSign?\$|\$\$.*?\$\$|\$.*?\$)/g);
-
-  // Note: Standard split regex to capture math blocks
+  // Standard split regex to capture math blocks
   const actualParts = cleanText.split(/(\$\$.*?\$\$|\$.*?\$)/g);
 
   return (
-    <span className={className}>
+    <span className={`${className} inline-block max-w-full`}>
       {actualParts.map((part, index) => {
         if (part.startsWith('$$') && part.endsWith('$$')) {
           const math = part.slice(2, -2);

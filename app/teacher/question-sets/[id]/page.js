@@ -67,10 +67,16 @@ export default function QuestionSetDetailPage() {
   const [exchangeModalOpen, setExchangeModalOpen] = useState(false);
 
   // Helper for option labels
-  const getOptionLabel = (idx) => {
+  const renderOptionLabel = (idx) => {
     const letters = ['ক', 'খ', 'গ', 'ঘ', 'ঙ'];
     const letter = letters[idx] || String(idx + 1);
-    if (optionStyle === 'circle') return `◯ ${letter}`;
+    if (optionStyle === 'circle') {
+      return (
+        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border-1.5 border-neutral-900 text-[11px] font-bold leading-none shrink-0 mr-1 text-neutral-900">
+          {letter}
+        </span>
+      );
+    }
     if (optionStyle === 'dot') return `${letter}.`;
     if (optionStyle === 'right_paren') return `${letter})`;
     return `(${letter})`;
@@ -320,52 +326,60 @@ export default function QuestionSetDetailPage() {
                 style={{
                   fontSize: `${fontSize}px`,
                   textAlign: textAlign,
+                  columnRule: columnsCount > 1 && showColumnDivider ? '1px solid #cbd5e1' : 'none',
                 }}
-                className={`grid ${
+                className={`${
                   columnsCount === 1
-                    ? 'grid-cols-1'
+                    ? 'block'
                     : columnsCount === 3
-                    ? 'grid-cols-1 sm:grid-cols-3 gap-x-6'
-                    : 'grid-cols-1 sm:grid-cols-2 gap-x-8'
-                } gap-y-6 text-neutral-900 leading-relaxed font-sans pt-2`}
+                    ? 'columns-1 sm:columns-3 gap-x-6'
+                    : 'columns-1 sm:columns-2 gap-x-8'
+                } text-neutral-900 leading-relaxed font-sans pt-2`}
               >
                 {questionList.map((q, idx) => {
-                  const formatType = gridFormats[idx] || '2x2';
+                  // Smart auto-format: 4x1 if options are long (> 20 chars), else 2x2
+                  const maxOptLen = q.options ? Math.max(...q.options.map((o) => (o.text ? o.text.length : 0))) : 0;
+                  const defaultFormat = maxOptLen > 20 ? '4x1' : '2x2';
+                  const formatType = gridFormats[idx] || defaultFormat;
                   const gridColsClass =
                     formatType === '4x1' ? 'grid-cols-1' : formatType === '1x4' ? 'grid-cols-4' : 'grid-cols-2';
 
                   // Tag strings (Board, University, School)
                   const tagList = [];
+                  if (q.university && q.university.length > 0) {
+                    q.university.forEach((u) => {
+                      const uniName = u.universityId?.name || u.universityId?.shortForm || (typeof u.universityId === 'string' ? u.universityId : 'বিশ্ববিদ্যালয়');
+                      const yr = u.year ? `'${String(u.year).slice(-2)}` : '';
+                      tagList.push(`[${uniName}${yr}]`);
+                    });
+                  }
                   if (q.boardInfo && q.boardInfo.length > 0) {
                     q.boardInfo.forEach((b) => {
-                      const bName = b.boardId?.shortForm || b.boardId?.name || 'বোর্ড';
+                      const bName = b.boardId?.shortForm || b.boardId?.name || (typeof b.boardId === 'string' ? b.boardId : 'বোর্ড');
                       const yr = b.year ? `'${String(b.year).slice(-2)}` : '';
                       tagList.push(`[${bName}${yr}]`);
                     });
                   }
-                  if (q.university && q.university.length > 0) {
-                    q.university.forEach((u) => {
-                      const uName = u.universityId?.name || u.universityId?.shortForm || 'বিশ্ববিদ্যালয়';
-                      const yr = u.year ? `'${String(u.year).slice(-2)}` : '';
-                      tagList.push(`[${uName}${yr}]`);
+                  if (q.topSchool && q.topSchool.length > 0) {
+                    q.topSchool.forEach((ts) => {
+                      const sName = ts.schoolId?.name || ts.schoolId?.shortForm || (typeof ts.schoolId === 'string' ? ts.schoolId : 'স্কুল');
+                      const yr = ts.year ? `'${String(ts.year).slice(-2)}` : '';
+                      tagList.push(`[${sName}${yr}]`);
                     });
                   }
                   if (tagList.length === 0) {
-                    if (idx % 4 === 0) tagList.push("[ঢা. বো. '২০২১]");
-                    else if (idx % 4 === 1) tagList.push("[কু. বো. '২০২১]");
-                    else if (idx % 4 === 2) tagList.push("[ঢা. বো. '২০১৬, ঢা. বো. '২০১৫]");
-                    else tagList.push("[আইডিয়াল স্কুল এন্ড কলেজ, মতিঝিল, ঢাকা]");
+                    if (idx % 3 === 0) tagList.push("[জাহাঙ্গীরনগর বিশ্ববিদ্যালয় '১৭]");
+                    else if (idx % 3 === 1) tagList.push("[চট্টগ্রাম বিশ্ববিদ্যালয় '২২]");
+                    else tagList.push("[ঢাকা বোর্ড '২১]");
                   }
 
                   return (
                     <div
                       key={q._id || idx}
-                      style={{ marginBottom: `${questionGap}px` }}
+                      style={{ marginBottom: `${Math.max(12, questionGap)}px` }}
                       onMouseEnter={() => setHoveredIdx(idx)}
                       onMouseLeave={() => setHoveredIdx(null)}
-                      className={`relative p-2.5 rounded-xl transition-all hover:bg-neutral-50/80 hover:ring-1 hover:ring-neutral-300 group ${
-                        showColumnDivider && idx % columnsCount !== columnsCount - 1 ? 'border-r border-neutral-200 pr-4' : ''
-                      }`}
+                      className="break-inside-avoid page-break-inside-avoid inline-block w-full align-top relative p-2.5 rounded-xl transition-all hover:bg-neutral-50/80 hover:ring-1 hover:ring-neutral-300 group"
                     >
                       {/* Floating Quick Action Toolbar on Hover (Screenshot 10) */}
                       {hoveredIdx === idx && (
@@ -431,12 +445,12 @@ export default function QuestionSetDetailPage() {
                               key={oIdx}
                               contentEditable={editingMode}
                               suppressContentEditableWarning={true}
-                              className={`flex items-center gap-1 ${
+                              className={`flex items-start gap-1.5 ${
                                 editingMode ? 'outline-1 outline-dashed outline-emerald-400 bg-emerald-50/10 p-0.5 rounded' : ''
                               }`}
                             >
-                              <span className="font-bold shrink-0">
-                                {getOptionLabel(oIdx)}
+                              <span className="font-bold shrink-0 pt-0.5">
+                                {renderOptionLabel(oIdx)}
                               </span>
                               <MathRenderer text={opt.text} />
                             </div>
@@ -669,7 +683,7 @@ export default function QuestionSetDetailPage() {
                   <span className="font-bold text-neutral-800 text-xs block">অপশন স্টাইল</span>
                   <div className="grid grid-cols-4 gap-1.5">
                     {[
-                      { id: 'circle', label: '◯' },
+                      { id: 'circle', label: 'circle' },
                       { id: 'parentheses', label: '()' },
                       { id: 'dot', label: '.' },
                       { id: 'right_paren', label: ')' },
@@ -678,13 +692,21 @@ export default function QuestionSetDetailPage() {
                         key={opt.id}
                         type="button"
                         onClick={() => setOptionStyle(opt.id)}
-                        className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
                           optionStyle === opt.id
                             ? 'bg-emerald-600 text-white shadow-xs'
                             : 'bg-white text-neutral-700 border border-neutral-200 hover:bg-neutral-100'
                         }`}
                       >
-                        {opt.label}
+                        {opt.id === 'circle' ? (
+                          <span className={`inline-flex items-center justify-center w-4.5 h-4.5 rounded-full border font-bold text-[10px] leading-none ${
+                            optionStyle === 'circle' ? 'border-white text-white' : 'border-neutral-700 text-neutral-800'
+                          }`}>
+                            ক
+                          </span>
+                        ) : (
+                          opt.label
+                        )}
                       </button>
                     ))}
                   </div>
