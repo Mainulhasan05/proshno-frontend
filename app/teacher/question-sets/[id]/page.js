@@ -72,7 +72,10 @@ export default function QuestionSetDetailPage() {
     const letter = letters[idx] || String(idx + 1);
     if (optionStyle === 'circle') {
       return (
-        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border-1.5 border-neutral-900 text-[11px] font-bold leading-none shrink-0 mr-1 text-neutral-900">
+        <span
+          className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold leading-none shrink-0 mr-1 text-neutral-900"
+          style={{ border: '1.5px solid #171717' }}
+        >
           {letter}
         </span>
       );
@@ -129,6 +132,24 @@ export default function QuestionSetDetailPage() {
       .join('');
   };
 
+  const getPaperSizeCSS = () => {
+    switch (paperSize) {
+      case 'Letter': return '8.5in 11in';
+      case 'Legal': return '8.5in 14in';
+      case 'A5': return '148mm 210mm';
+      default: return '210mm 297mm';
+    }
+  };
+
+  const getFontFamilyCSS = () => {
+    switch (fontFamily) {
+      case 'solaiman': return "'SolaimanLipi', serif";
+      case 'kalpurush': return "'Kalpurush', sans-serif";
+      case 'sutonny': return "'SutonnyMJ', serif";
+      default: return 'inherit';
+    }
+  };
+
   if (isLoading || !qs) {
     return (
       <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -156,18 +177,18 @@ export default function QuestionSetDetailPage() {
       <style jsx global>{`
         @media print {
           @page {
-            size: A4 portrait;
-            margin: 10mm 12mm 12mm 12mm;
+            size: ${getPaperSizeCSS()} portrait;
+            margin: 15mm 12mm 15mm 12mm;
           }
           html, body {
-            background-color: white !important;
-            color: black !important;
+            background: #fff !important;
+            color: #000 !important;
             margin: 0 !important;
             padding: 0 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          .no-print, nav, header, sidebar, aside, footer, .bottom-nav, button {
+          .no-print, nav, header, aside, footer, .bottom-nav, button {
             display: none !important;
           }
           .print-sheet {
@@ -178,8 +199,26 @@ export default function QuestionSetDetailPage() {
             margin: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
+            background: #fff !important;
+          }
+          .question-item {
+            background: transparent !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            outline: none !important;
+          }
+          .question-item:hover {
             background: transparent !important;
           }
+          ${showPageNumber ? `
+          @page {
+            @bottom-center {
+              content: counter(page);
+              font-size: 9pt;
+              font-family: sans-serif;
+              color: #999;
+            }
+          }` : ''}
         }
       `}</style>
 
@@ -245,7 +284,7 @@ export default function QuestionSetDetailPage() {
               LEFT MAIN COLUMN: Printable 2-Column Question Paper (Screenshot 9)
              ════════════════════════════════════════════════════════════════════════ */}
           <div className={`lg:col-span-3 ${activeMobileTab === 'paper' ? 'block' : 'hidden lg:block'}`}>
-            <div className="print-sheet bg-white rounded-2xl border border-neutral-300 shadow-xl p-8 sm:p-12 space-y-6 font-serif text-neutral-900">
+            <div className="print-sheet bg-white rounded-2xl border border-neutral-300 shadow-xl p-8 sm:p-12 space-y-6 font-serif text-neutral-900" style={{ fontFamily: getFontFamilyCSS() }}>
               {/* Header Box (Screenshot 9 & 10) */}
               <div className="relative border-b-2 border-neutral-800 pb-4 text-center space-y-1">
                 {/* Marks Box Top Left */}
@@ -367,19 +406,17 @@ export default function QuestionSetDetailPage() {
                       tagList.push(`[${sName}${yr}]`);
                     });
                   }
-                  if (tagList.length === 0) {
-                    if (idx % 3 === 0) tagList.push("[জাহাঙ্গীরনগর বিশ্ববিদ্যালয় '১৭]");
-                    else if (idx % 3 === 1) tagList.push("[চট্টগ্রাম বিশ্ববিদ্যালয় '২২]");
-                    else tagList.push("[ঢাকা বোর্ড '২১]");
-                  }
 
                   return (
                     <div
                       key={q._id || idx}
-                      style={{ marginBottom: `${Math.max(12, questionGap)}px` }}
+                      style={{
+                        marginBottom: `${Math.max(2, questionGap)}px`,
+                        ...(showImportant ? { borderLeft: `3px solid ${importantColor}`, paddingLeft: '12px' } : {}),
+                      }}
                       onMouseEnter={() => setHoveredIdx(idx)}
                       onMouseLeave={() => setHoveredIdx(null)}
-                      className="break-inside-avoid page-break-inside-avoid inline-block w-full align-top relative p-2.5 rounded-xl transition-all hover:bg-neutral-50/80 hover:ring-1 hover:ring-neutral-300 group"
+                      className="break-inside-avoid page-break-inside-avoid inline-block w-full align-top relative py-1 px-1.5 rounded-xl transition-all hover:bg-neutral-50/80 hover:ring-1 hover:ring-neutral-300 group question-item"
                     >
                       {/* Floating Quick Action Toolbar on Hover (Screenshot 10) */}
                       {hoveredIdx === idx && (
@@ -411,23 +448,25 @@ export default function QuestionSetDetailPage() {
                         </div>
                       )}
 
-                      {/* Top Tag Badges Row (Screenshot 10) */}
-                      <div className="flex justify-end mb-1">
-                        {tagList.map((tag, tIdx) => (
-                          <span
-                            key={tIdx}
-                            className="bg-yellow-300 text-amber-900 border border-yellow-400 font-bold px-2 py-0.5 rounded text-[10px] shadow-2xs"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
+                      {/* Top Tag Badges Row — Controlled by showQuestionInfo toggle */}
+                      {showQuestionInfo && tagList.length > 0 && (
+                        <div className="flex justify-end mb-1 gap-1 flex-wrap no-print">
+                          {tagList.map((tag, tIdx) => (
+                            <span
+                              key={tIdx}
+                              className="bg-yellow-300 text-amber-900 border border-yellow-400 font-bold px-2 py-0.5 rounded text-[10px] shadow-2xs"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Question Text */}
                       <div
                         contentEditable={editingMode}
                         suppressContentEditableWarning={true}
-                        className={`font-semibold flex items-start gap-1.5 mb-1.5 ${
+                        className={`font-semibold flex items-start gap-1.5 mb-0.5 ${
                           editingMode ? 'outline-2 outline-dashed outline-emerald-400 bg-emerald-50/20 p-1 rounded' : ''
                         }`}
                       >
@@ -475,7 +514,7 @@ export default function QuestionSetDetailPage() {
 
                       {/* Answer Key if Toggle Enabled */}
                       {showAnswerKey && q.options && (
-                        <div className="no-print mt-2 p-1.5 bg-emerald-50 border border-emerald-200 rounded text-[11px] text-emerald-900 font-bold">
+                        <div className="mt-2 p-1.5 bg-emerald-50 border border-emerald-200 rounded text-[11px] text-emerald-900 font-bold">
                           সঠিক উত্তর: ({['ক', 'খ', 'গ', 'ঘ'][q.options.findIndex((o) => o.isCorrect)] || 'ক'})
                         </div>
                       )}
@@ -486,7 +525,7 @@ export default function QuestionSetDetailPage() {
 
               {/* OMR Sheet Page if Enabled */}
               {showOMR && (
-                <div className="no-print mt-12 pt-8 border-t-2 border-dashed border-neutral-400 font-sans space-y-4">
+                <div className="mt-12 pt-8 border-t-2 border-dashed border-neutral-400 font-sans space-y-4" style={{ breakBefore: 'page' }}>
                   <h3 className="font-bold text-center text-sm">OMR উত্তরপত্র</h3>
                   <div className="grid grid-cols-5 gap-3 p-4 border rounded-xl bg-neutral-50 text-xs">
                     {questionList.map((_, i) => (
