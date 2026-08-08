@@ -155,6 +155,13 @@ export default function PurchasesPage() {
                       <span>পদ্ধতি: {purchase.paymentMethod || '—'}</span>
                       <span>তারিখ: {formatDate(purchase.createdAt)}</span>
                     </div>
+                    {/* The transaction id is what the admin matches against the
+                        bKash/Nagad statement before approving. */}
+                    {purchase.paymentTransactionId && (
+                      <p className="mt-1.5 inline-block rounded bg-indigo-50 px-2 py-1 font-mono text-xs font-bold tracking-wide text-indigo-800">
+                        TrxID: {purchase.paymentTransactionId}
+                      </p>
+                    )}
                     {purchase.adminNote && (
                       <p className="text-xs text-neutral-500 mt-1.5 italic bg-neutral-50 px-2 py-1 rounded">
                         নোট: {purchase.adminNote}

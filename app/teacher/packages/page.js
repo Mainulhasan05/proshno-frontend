@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import { fetchAvailablePackages, createPurchase } from '@/store/slices/teacherSlice';
+import apiClient from '@/store/api/apiClient';
 import Skeleton from '@/components/ui/Skeleton';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -22,9 +24,31 @@ export default function TeacherPackagesPage() {
   const [purchasing, setPurchasing] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Checkout state
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [trxId, setTrxId] = useState('');
+  const [paymentInfo, setPaymentInfo] = useState(null);
+
   useEffect(() => {
     dispatch(fetchAvailablePackages());
   }, [dispatch]);
+
+  // Where to send the money. Without this the teacher is asked for a transaction id
+  // for a payment they were never told how to make.
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .get('/settings/payment-info')
+      .then((res) => {
+        if (!cancelled) setPaymentInfo(res.data || null);
+      })
+      .catch(() => {
+        if (!cancelled) setPaymentInfo(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Auto-open checkout modal if packageId is passed via redirect
   useEffect(() => {
@@ -40,16 +64,43 @@ export default function TeacherPackagesPage() {
     }
   }, [packages, purchaseModal]);
 
-  const handlePurchase = async (paymentMethod = 'manual') => {
-    if (!purchaseModal) return;
+  const closeCheckout = () => {
+    setPurchaseModal(null);
+    setPaymentMethod('');
+    setTrxId('');
+  };
+
+  /** The account number the teacher should send money to for the chosen method. */
+  const payeeNumber =
+    paymentMethod === 'bkash'
+      ? paymentInfo?.bkashNumber
+      : paymentMethod === 'nagad'
+      ? paymentInfo?.nagadNumber
+      : '';
+
+  const needsTrxId = paymentMethod === 'bkash' || paymentMethod === 'nagad';
+
+  const handlePurchase = async () => {
+    if (!purchaseModal || !paymentMethod) return;
+    if (needsTrxId && !trxId.trim()) {
+      toast.error('পেমেন্ট ট্রানজেকশন আইডি দিন');
+      return;
+    }
+
     setPurchasing(true);
     try {
-      await dispatch(createPurchase({ packageId: purchaseModal._id, paymentMethod })).unwrap();
+      await dispatch(
+        createPurchase({
+          packageId: purchaseModal._id,
+          paymentMethod,
+          paymentTransactionId: trxId.trim(),
+        })
+      ).unwrap();
       setSuccessMsg('ক্রয় অনুরোধ সফল! অ্যাডমিন যাচাই করলে অ্যাক্সেস পাবেন।');
-      setPurchaseModal(null);
+      closeCheckout();
       dispatch(fetchAvailablePackages());
     } catch (err) {
-      alert(err || 'ক্রয় ব্যর্থ হয়েছে');
+      toast.error(typeof err === 'string' ? err : err?.error?.message || 'ক্রয় ব্যর্থ হয়েছে');
     } finally {
       setPurchasing(false);
     }
@@ -184,7 +235,7 @@ export default function TeacherPackagesPage() {
       {/* Purchase Modal */}
       <Modal
         isOpen={!!purchaseModal}
-        onClose={() => setPurchaseModal(null)}
+        onClose={closeCheckout}
         title="প্যাকেজ কিনুন"
       >
         {purchaseModal && (
@@ -203,26 +254,77 @@ export default function TeacherPackagesPage() {
               পেমেন্ট পদ্ধতি নির্বাচন করুন। পেমেন্ট সম্পন্ন হলে অ্যাডমিন যাচাই করে আপনার অ্যাক্সেস চালু করবেন।
             </p>
 
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2 mb-4">
               {[
-                { method: 'bkash', label: 'বিকাশ', color: 'bg-pink-50 border-pink-200 hover:bg-pink-100' },
-                { method: 'nagad', label: 'নগদ', color: 'bg-orange-50 border-orange-200 hover:bg-orange-100' },
-                { method: 'manual', label: 'ম্যানুয়াল পেমেন্ট', color: 'bg-neutral-50 border-neutral-200 hover:bg-neutral-100' },
+                { method: 'bkash', label: 'বিকাশ', color: 'bg-pink-50 border-pink-200 hover:bg-pink-100', active: 'border-pink-500 ring-2 ring-pink-200' },
+                { method: 'nagad', label: 'নগদ', color: 'bg-orange-50 border-orange-200 hover:bg-orange-100', active: 'border-orange-500 ring-2 ring-orange-200' },
+                { method: 'manual', label: 'ম্যানুয়াল পেমেন্ট', color: 'bg-neutral-50 border-neutral-200 hover:bg-neutral-100', active: 'border-neutral-500 ring-2 ring-neutral-200' },
               ].map((opt) => (
                 <button
                   key={opt.method}
-                  onClick={() => handlePurchase(opt.method)}
+                  onClick={() => {
+                    setPaymentMethod(opt.method);
+                    setTrxId('');
+                  }}
                   disabled={purchasing}
-                  className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium text-neutral-700 transition-colors ${opt.color} disabled:opacity-50`}
+                  className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-medium text-neutral-700 transition-colors disabled:opacity-50 ${opt.color} ${
+                    paymentMethod === opt.method ? opt.active : ''
+                  }`}
                 >
                   {opt.label}
                 </button>
               ))}
             </div>
 
-            <Button variant="ghost" size="sm" onClick={() => setPurchaseModal(null)} className="w-full">
-              বাতিল
-            </Button>
+            {needsTrxId && (
+              <div className="mb-6 space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                {payeeNumber ? (
+                  <p className="text-sm text-neutral-700">
+                    নিচের নম্বরে <span className="font-bold">৳{purchaseModal.discountPrice ?? purchaseModal.price}</span> সেন্ড মানি করুন:
+                    <span className="mt-1 block text-lg font-black tracking-wide text-neutral-900">{payeeNumber}</span>
+                  </p>
+                ) : (
+                  <p role="alert" className="text-sm text-amber-700">
+                    এই পদ্ধতির পেমেন্ট নম্বর এখনো নির্ধারণ করা হয়নি। অনুগ্রহ করে সাপোর্টে যোগাযোগ করুন
+                    {paymentInfo?.supportPhone ? ` (${paymentInfo.supportPhone})` : ''}।
+                  </p>
+                )}
+
+                {paymentInfo?.paymentInstructions && (
+                  <p className="whitespace-pre-line text-xs leading-relaxed text-neutral-500">
+                    {paymentInfo.paymentInstructions}
+                  </p>
+                )}
+
+                <div>
+                  <label htmlFor="trx-id" className="mb-1.5 block text-xs font-bold text-neutral-600">
+                    ট্রানজেকশন আইডি *
+                  </label>
+                  <input
+                    id="trx-id"
+                    value={trxId}
+                    onChange={(e) => setTrxId(e.target.value)}
+                    placeholder="যেমন: 8N7A2B1C9D"
+                    maxLength={64}
+                    className="w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-primary-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={closeCheckout} className="flex-1">
+                বাতিল
+              </Button>
+              <Button
+                size="sm"
+                onClick={handlePurchase}
+                disabled={purchasing || !paymentMethod || (needsTrxId && !trxId.trim())}
+                className="flex-1"
+              >
+                {purchasing ? 'পাঠানো হচ্ছে...' : 'ক্রয় অনুরোধ পাঠান'}
+              </Button>
+            </div>
           </div>
         )}
       </Modal>

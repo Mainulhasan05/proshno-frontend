@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button';
 import {
   HiOutlineCheckCircle, HiOutlineCog, HiOutlineExclamation,
   HiOutlineMail, HiOutlinePhone, HiOutlineRefresh, HiOutlineShieldCheck,
-  HiOutlineTag, HiOutlinePlus, HiOutlineX
+  HiOutlineTag, HiOutlinePlus, HiOutlineX, HiOutlineCurrencyBangladeshi
 } from 'react-icons/hi';
 
 const defaultSources = ['Admission', 'Board', 'Main Book', 'Onusiloni', 'Top School/College', 'Inspired'];
@@ -21,6 +21,9 @@ const defaults = {
   maintenanceMode: false,
   allowTeacherRegistration: true,
   questionSources: defaultSources,
+  bkashNumber: '',
+  nagadNumber: '',
+  paymentInstructions: '',
 };
 
 const editable = (value) => ({
@@ -31,6 +34,9 @@ const editable = (value) => ({
   maintenanceMode: value.maintenanceMode,
   allowTeacherRegistration: value.allowTeacherRegistration,
   questionSources: value.questionSources || defaultSources,
+  bkashNumber: value.bkashNumber || '',
+  nagadNumber: value.nagadNumber || '',
+  paymentInstructions: value.paymentInstructions || '',
 });
 
 export default function SettingsPage() {
@@ -156,6 +162,21 @@ export default function SettingsPage() {
             <Field label="ইমেইল"><div className="relative"><HiOutlineMail className="absolute left-3.5 top-3.5 h-4 w-4 text-neutral-400" /><input type="email" value={form.supportEmail} onChange={(e) => change('supportEmail', e.target.value)} className="admin-setting-input pl-10" /></div></Field>
             <Field label="ফোন"><div className="relative"><HiOutlinePhone className="absolute left-3.5 top-3.5 h-4 w-4 text-neutral-400" /><input maxLength={30} value={form.supportPhone} onChange={(e) => change('supportPhone', e.target.value)} className="admin-setting-input pl-10" /></div></Field>
           </div>
+        </Panel>
+
+        <Panel icon={HiOutlineCurrencyBangladeshi} title="পেমেন্ট তথ্য" subtitle="শিক্ষকরা যে নম্বরে টাকা পাঠাবেন — ক্রয়ের সময় এটি দেখানো হয়">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="বিকাশ নম্বর"><input maxLength={30} value={form.bkashNumber} onChange={(e) => change('bkashNumber', e.target.value)} placeholder="01XXXXXXXXX" className="admin-setting-input" /></Field>
+            <Field label="নগদ নম্বর"><input maxLength={30} value={form.nagadNumber} onChange={(e) => change('nagadNumber', e.target.value)} placeholder="01XXXXXXXXX" className="admin-setting-input" /></Field>
+          </div>
+          <Field label="পেমেন্ট নির্দেশনা">
+            <textarea rows={3} maxLength={1000} value={form.paymentInstructions} onChange={(e) => change('paymentInstructions', e.target.value)} placeholder="যেমন: সেন্ড মানি করার পর ট্রানজেকশন আইডি দিন। ক্যাশ আউট করবেন না।" className="admin-setting-input !h-auto py-3" />
+          </Field>
+          {!form.bkashNumber && !form.nagadNumber && (
+            <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
+              কোনো পেমেন্ট নম্বর নির্ধারণ করা হয়নি। ততক্ষণ পর্যন্ত শিক্ষকরা বিকাশ/নগদে পেমেন্ট করতে পারবেন না।
+            </p>
+          )}
         </Panel>
 
         <Panel icon={HiOutlineShieldCheck} title="প্রবেশাধিকার" subtitle="গুরুত্বপূর্ণ প্ল্যাটফর্ম নিয়ন্ত্রণ">

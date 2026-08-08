@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import useAuth from '@/hooks/useAuth';
 import apiClient from '@/store/api/apiClient';
 import Button from '@/components/ui/Button';
@@ -19,6 +20,16 @@ import {
   HiOutlineRefresh,
   HiOutlineExclamationCircle,
 } from 'react-icons/hi';
+
+/** Human labels for the ledger `reason` enum returned by the API. */
+const LEDGER_REASON_LABELS = {
+  package_purchase: 'প্যাকেজ ক্রয় (টোকেন যোগ)',
+  purchase_refunded: 'ক্রয় ফেরত (টোকেন কর্তন)',
+  exam_token_created: 'ওএমআর পরীক্ষা তৈরি',
+  sheet_evaluated: 'উত্তরপত্র মূল্যায়ন',
+  evaluation_refunded: 'মূল্যায়ন ফেরত',
+  admin_adjustment: 'অ্যাডমিন সমন্বয়',
+};
 
 const bubbleOptions = ['ক', 'খ', 'গ', 'ঘ', 'ঙ'];
 const englishBubbleOptions = ['A', 'B', 'C', 'D', 'E'];
@@ -40,11 +51,12 @@ export default function TeacherOMRPage() {
   const [loading, setLoading] = useState(true);
 
   // --- OMR DESIGN CONFIG STATES ---
-  const [examTokens, setExamTokens] = useState([
-    { id: 'tok-1', title: 'প্রথম সাময়িক গণিত পরীক্ষা', template: 'SIGNATURE', totalQuestions: 40, negativeMarks: '0.25', code: 'OMR-8401-K9', date: '১২/০৭/২০২৬' },
-    { id: 'tok-2', title: 'ইংরেজি সাপ্তাহিক কুইজ', template: 'GENERAL', totalQuestions: 60, negativeMarks: '0', code: 'OMR-1934-J2', date: '১০/০৭/২০২৬' }
-  ]);
+  // Exams come from the server. They used to be a hardcoded array in component state,
+  // so a printed sheet carried a code the backend had never issued and could never be
+  // graded against.
+  const [examTokens, setExamTokens] = useState([]);
   const [selectedTokenId, setSelectedTokenId] = useState('');
+  const [creatingToken, setCreatingToken] = useState(false);
 
   // New Token Modal states
   const [showTokenModal, setShowTokenModal] = useState(false);
@@ -56,8 +68,12 @@ export default function TeacherOMRPage() {
   const [downloading, setDownloading] = useState(false);
   const [templateMode, setTemplateMode] = useState('SIGNATURE'); // 'SIGNATURE' | 'GENERAL'
   const [selectedQuestionSetId, setSelectedQuestionSetId] = useState('');
-  const [institutionName, setInstitutionName] = useState('');
-  const [examTitle, setExamTitle] = useState('প্রথম সাময়িক পরীক্ষা');
+  // Seeded from the logged-in teacher but editable per sheet. Held as an override
+  // rather than synced in an effect, so the field is correct on first paint and never
+  // needs a render pass to catch up with `user`.
+  const [institutionOverride, setInstitutionName] = useState(null);
+  const institutionName = institutionOverride ?? (user?.institutionName || '');
+  const [examTitle, setExamTitle] = useState('');
   const [className, setClassName] = useState('');
   const [subjectName, setSubjectName] = useState('');
   const [examDate, setExamDate] = useState(new Date().toLocaleDateString('bn-BD'));
@@ -79,35 +95,60 @@ export default function TeacherOMRPage() {
   const [customQuestionCount, setCustomQuestionCount] = useState(false);
 
   // --- OMR EVALUATION STATES ---
-  const [evalQuestionSetId, setEvalQuestionSetId] = useState('');
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [uploadedFileUrl, setUploadedFileUrl] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanProgress, setScanProgress] = useState(0);
-  const [scanStatus, setScanStatus] = useState('');
-  const [showResults, setShowResults] = useState(false);
-  const [tokenBalance, setTokenBalance] = useState(user?.omrTokens ?? 150);
+  // The token balance is server state; the page only mirrors it. It previously
+  // defaulted to 150 and was decremented locally, so the number on screen had no
+  // relationship to what the account actually held.
+  const [tokenBalance, setTokenBalance] = useState(0);
+  const [ledger, setLedger] = useState([]);
 
-  // Evaluated results mock state
-  const [evaluatedRoll, setEvaluatedRoll] = useState('১২৩৪৫৬');
-  const [evaluatedSet, setEvaluatedSet] = useState('খ');
-  const [evaluatedScore, setEvaluatedScore] = useState(34);
-  const [savedGrades, setSavedGrades] = useState([]);
+  const [evalExamId, setEvalExamId] = useState('');
+  const [savingAnswerKey, setSavingAnswerKey] = useState(false);
 
-  useEffect(() => {
-    if (user?.institutionName) {
-      setInstitutionName(user.institutionName);
+  // Only the teacher's *edits* are stored; the full answer key and answer sheet are
+  // derived from the selected exam during render. Holding the whole array in state
+  // meant an effect had to rebuild it whenever the exam changed, which is both a
+  // cascading render and a source of stale-form bugs.
+  const [keyEdits, setKeyEdits] = useState({});
+  const [answerEdits, setAnswerEdits] = useState({});
+
+  const [entryRoll, setEntryRoll] = useState('');
+  const [entrySetCode, setEntrySetCode] = useState('');
+  const [entryStudentName, setEntryStudentName] = useState('');
+  const [evaluating, setEvaluating] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
+
+  const [results, setResults] = useState([]);
+  const [examSummary, setExamSummary] = useState(null);
+
+  /** Refresh the authoritative balance and statement from the server. */
+  const refreshBalance = useCallback(async () => {
+    try {
+      const res = await apiClient.get('/teacher/omr/balance');
+      setTokenBalance(res.data?.balance ?? 0);
+      setLedger(res.data?.ledger || []);
+    } catch (err) {
+      console.error('Failed to load OMR token balance', err);
     }
-    if (user?.omrTokens != null) {
-      setTokenBalance(user.omrTokens);
+  }, []);
+
+  const refreshExams = useCallback(async () => {
+    try {
+      const res = await apiClient.get('/teacher/omr/exams');
+      setExamTokens(res.data || []);
+    } catch (err) {
+      console.error('Failed to load OMR exams', err);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const qSetsRes = await apiClient.get('/teacher/question-sets');
+        const [qSetsRes] = await Promise.all([
+          apiClient.get('/teacher/question-sets'),
+          refreshBalance(),
+          refreshExams(),
+        ]);
         setQuestionSets(qSetsRes.data || []);
       } catch (err) {
         console.error('Failed to load data for OMR generator', err);
@@ -116,7 +157,156 @@ export default function TeacherOMRPage() {
       }
     };
     fetchData();
+  }, [refreshBalance, refreshExams]);
+
+  const selectedEvalExam = useMemo(
+    () => examTokens.find((t) => t._id === evalExamId) || null,
+    [examTokens, evalExamId]
+  );
+
+  /** The exam the designer is currently laying out a sheet for, if any. */
+  const linkedExam = useMemo(
+    () => examTokens.find((t) => t._id === selectedTokenId) || null,
+    [examTokens, selectedTokenId]
+  );
+
+  /**
+   * The answer key shown in the editor: the exam's saved key, with any unsaved edits
+   * layered on top. `questionNo in keyEdits` rather than a falsy check, so deselecting
+   * an option (edit value `null`) correctly overrides a saved answer.
+   */
+  const answerKeyDraft = useMemo(() => {
+    if (!selectedEvalExam) return [];
+    const saved = new Map((selectedEvalExam.answerKey || []).map((e) => [e.questionNo, e.correctOption]));
+    return Array.from({ length: selectedEvalExam.totalQuestions }, (_, i) => {
+      const questionNo = i + 1;
+      return {
+        questionNo,
+        correctOption: questionNo in keyEdits ? keyEdits[questionNo] : saved.get(questionNo) ?? null,
+      };
+    });
+  }, [selectedEvalExam, keyEdits]);
+
+  /** The sheet being entered. Always starts blank for each student. */
+  const entryAnswers = useMemo(() => {
+    if (!selectedEvalExam) return [];
+    return Array.from({ length: selectedEvalExam.totalQuestions }, (_, i) => ({
+      questionNo: i + 1,
+      marked: answerEdits[i + 1] ?? null,
+    }));
+  }, [selectedEvalExam, answerEdits]);
+
+  /** Load saved results whenever the selected exam changes. */
+  useEffect(() => {
+    if (!evalExamId) return undefined;
+
+    let cancelled = false;
+    const loadResults = async () => {
+      try {
+        const [resultsRes, summaryRes] = await Promise.all([
+          apiClient.get('/teacher/omr/results', { params: { examTokenId: evalExamId, limit: 100 } }),
+          apiClient.get(`/teacher/omr/exams/${evalExamId}/summary`),
+        ]);
+        if (cancelled) return;
+        setResults(resultsRes.data || []);
+        setExamSummary(summaryRes.data || null);
+      } catch (err) {
+        if (!cancelled) console.error('Failed to load OMR results', err);
+      }
+    };
+    loadResults();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [evalExamId]);
+
+  /**
+   * Switch the exam being evaluated, clearing everything tied to the previous one so no
+   * result, summary, or half-entered sheet can bleed across exams.
+   */
+  const handleSelectExam = useCallback((examId) => {
+    setEvalExamId(examId);
+    setKeyEdits({});
+    setAnswerEdits({});
+    setEntryRoll('');
+    setEntrySetCode('');
+    setEntryStudentName('');
+    setLastResult(null);
+    setResults([]);
+    setExamSummary(null);
   }, []);
+
+  const refreshResults = useCallback(async (examId) => {
+    if (!examId) return;
+    try {
+      const [resultsRes, summaryRes] = await Promise.all([
+        apiClient.get('/teacher/omr/results', { params: { examTokenId: examId, limit: 100 } }),
+        apiClient.get(`/teacher/omr/exams/${examId}/summary`),
+      ]);
+      setResults(resultsRes.data || []);
+      setExamSummary(summaryRes.data || null);
+    } catch (err) {
+      console.error('Failed to refresh OMR results', err);
+    }
+  }, []);
+
+  const handleSaveAnswerKey = async () => {
+    if (!evalExamId) return;
+    setSavingAnswerKey(true);
+    try {
+      await apiClient.put(`/teacher/omr/exams/${evalExamId}/answer-key`, {
+        answerKey: answerKeyDraft,
+      });
+      await refreshExams();
+      toast.success('উত্তরপত্র কী সংরক্ষণ করা হয়েছে');
+    } catch (err) {
+      toast.error(err?.error?.message || 'উত্তরপত্র কী সংরক্ষণ করা যায়নি');
+    } finally {
+      setSavingAnswerKey(false);
+    }
+  };
+
+  const handleEvaluate = async () => {
+    if (!evalExamId || !entryRoll.trim()) {
+      toast.error('রোল নম্বর দিন');
+      return;
+    }
+
+    setEvaluating(true);
+    try {
+      const res = await apiClient.post(`/teacher/omr/exams/${evalExamId}/evaluate`, {
+        rollNumber: entryRoll.trim(),
+        setCode: entrySetCode.trim(),
+        studentName: entryStudentName.trim(),
+        answers: entryAnswers,
+      });
+      setLastResult(res.data);
+      toast.success(res.message || 'মূল্যায়ন সম্পন্ন হয়েছে');
+
+      // Clear the sheet for the next student but keep the exam and set code, which are
+      // the same across a stack of papers.
+      setEntryRoll('');
+      setEntryStudentName('');
+      setAnswerEdits({});
+
+      await Promise.all([refreshBalance(), refreshResults(evalExamId)]);
+    } catch (err) {
+      toast.error(err?.error?.message || 'মূল্যায়ন করা যায়নি');
+    } finally {
+      setEvaluating(false);
+    }
+  };
+
+  const handleDeleteResult = async (resultId) => {
+    try {
+      await apiClient.delete(`/teacher/omr/results/${resultId}`);
+      await refreshResults(evalExamId);
+      toast.success('ফলাফল মুছে ফেলা হয়েছে');
+    } catch (err) {
+      toast.error(err?.error?.message || 'ফলাফল মুছে ফেলা যায়নি');
+    }
+  };
 
   // Safe numeric parsing helper
   const getSafeNum = (val, fallback) => {
@@ -363,125 +553,60 @@ export default function TeacherOMRPage() {
     }
   };
 
-  // Generate Token handler
-  const handleGenerateToken = () => {
+  /**
+   * Create a real exam on the server. The token is charged server-side as part of
+   * creation, so the balance shown afterwards is the balance that actually exists.
+   */
+  const handleGenerateToken = async () => {
     if (!tokenTitle.trim()) {
-      alert('দয়া করে পরীক্ষার টাইটেল দিন!');
+      toast.error('পরীক্ষার টাইটেল দিন');
       return;
     }
     const qCount = Number(tokenQuestions);
     if (isNaN(qCount) || qCount < 10 || qCount > 100) {
-      alert('মোট প্রশ্ন সংখ্যা ১০ থেকে ১০০ এর মধ্যে হতে হবে!');
-      return;
-    }
-    if (tokenBalance <= 0) {
-      alert('আপনার ওএমআর টোকেন ব্যালেন্স অপর্যাপ্ত! ওএমআর টোকেন কিনুন।');
+      toast.error('মোট প্রশ্ন সংখ্যা ১০ থেকে ১০০ এর মধ্যে হতে হবে');
       return;
     }
 
-    const uniqueCode = `OMR-${Math.floor(1000 + Math.random() * 9000)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${Math.floor(Math.random() * 9)}`;
-    const newToken = {
-      id: `tok-${Date.now()}`,
-      title: tokenTitle,
-      template: tokenTemplate,
-      totalQuestions: qCount,
-      negativeMarks: tokenNegativeMarks,
-      code: uniqueCode,
-      date: new Date().toLocaleDateString('bn-BD')
-    };
+    setCreatingToken(true);
+    try {
+      const res = await apiClient.post('/teacher/omr/exams', {
+        title: tokenTitle.trim(),
+        templateMode: tokenTemplate,
+        totalQuestions: qCount,
+        optionsPerQuestion: finalOptionsPerQuestion,
+        negativeMarks: Number(tokenNegativeMarks) || 0,
+      });
 
-    setExamTokens(prev => [newToken, ...prev]);
-    setTokenBalance(prev => Math.max(0, prev - 1));
-    setShowTokenModal(false);
-    
-    // Auto-select the newly created token!
-    setSelectedTokenId(newToken.id);
-    setTemplateMode(newToken.template);
-    setTotalQuestionsCount(String(newToken.totalQuestions));
-    setExamTitle(newToken.title);
-    setCustomQuestionCount(true);
-    
-    alert(`টোকেন জেনারেট সফল হয়েছে! আপনার ইউনিক কোড: ${uniqueCode}`);
-  };
+      const created = res.data;
+      await Promise.all([refreshExams(), refreshBalance()]);
+      setShowTokenModal(false);
 
-  // --- OMR SCANNING & EVALUATION HANDLERS ---
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setUploadedFile(file);
-      setUploadedFileUrl(URL.createObjectURL(file));
-      setShowResults(false);
+      // Load the new exam into the designer so the printed sheet matches it.
+      setSelectedTokenId(created._id);
+      setTemplateMode(created.templateMode);
+      setTotalQuestionsCount(String(created.totalQuestions));
+      setExamTitle(created.title);
+      setCustomQuestionCount(true);
+
+      toast.success(`টোকেন তৈরি হয়েছে — কোড: ${created.code}`);
+    } catch (err) {
+      toast.error(err?.error?.message || 'টোকেন তৈরি করা যায়নি');
+    } finally {
+      setCreatingToken(false);
     }
   };
 
-  const triggerScan = () => {
-    if (!uploadedFile) return;
-    if (!evalQuestionSetId) {
-      alert('দয়া করে মূল্যায়নের জন্য ওএমআর এক্সাম টোকেন নির্বাচন করুন।');
-      return;
+  const handleDeleteExam = async (examId) => {
+    try {
+      await apiClient.delete(`/teacher/omr/exams/${examId}`);
+      await refreshExams();
+      if (evalExamId === examId) handleSelectExam('');
+      if (selectedTokenId === examId) setSelectedTokenId('');
+      toast.success('ওএমআর পরীক্ষা মুছে ফেলা হয়েছে');
+    } catch (err) {
+      toast.error(err?.error?.message || 'মুছে ফেলা যায়নি');
     }
-    if (tokenBalance <= 0) {
-      alert('আপনার পর্যাপ্ত ওএমআর টোকেন নেই! ওএমআর টোকেন রিচার্জ করুন।');
-      return;
-    }
-
-    setIsScanning(true);
-    setScanProgress(0);
-    setScanStatus('ওএমআর শিটের বর্ডার সনাক্ত করা হচ্ছে...');
-
-    const statuses = [
-      { progress: 20, text: 'Timing Marks ডিকোড করা হচ্ছে...' },
-      { progress: 45, text: 'শিক্ষার্থীর তথ্য এবং রোল নম্বর স্ক্যান করা হচ্ছে...' },
-      { progress: 70, text: 'সেট কোড এবং উত্তর বাবলসমূহ রিড করা হচ্ছে...' },
-      { progress: 90, text: 'উত্তরপত্রের সাথে উত্তরপত্র কী (Answer Key) যাচাই করা হচ্ছে...' },
-      { progress: 100, text: 'মূল্যায়ন সম্পন্ন হয়েছে!' }
-    ];
-
-    let currentIdx = 0;
-    const interval = setInterval(() => {
-      if (currentIdx < statuses.length) {
-        setScanProgress(statuses[currentIdx].progress);
-        setScanStatus(statuses[currentIdx].text);
-        currentIdx++;
-      } else {
-        clearInterval(interval);
-        setIsScanning(false);
-        setShowResults(true);
-        // Deduct token
-        setTokenBalance(prev => Math.max(0, prev - 1));
-        // Select random mock score from the OMR token parameters
-        const activeTok = examTokens.find(t => t.id === evalQuestionSetId);
-        const totalQ = activeTok ? activeTok.totalQuestions : 40;
-        const randomScore = Math.floor(Math.random() * (totalQ - 10)) + 10;
-        setEvaluatedScore(randomScore);
-        // Random roll
-        const rolls = ['১২৩৪৫৬', '৪৫০১৯২', '১৮৯৭৩৩', '৩০৪১৫৫'];
-        setEvaluatedRoll(rolls[Math.floor(Math.random() * rolls.length)]);
-        // Random set
-        const sets = ['ক', 'খ', 'গ', 'ঘ'];
-        setEvaluatedSet(sets[Math.floor(Math.random() * sets.length)]);
-      }
-    }, 800);
-  };
-
-  const handleSaveResult = () => {
-    const activeTok = examTokens.find(t => t.id === evalQuestionSetId);
-    const qSetName = activeTok ? activeTok.title : 'ওএমআর পরীক্ষা';
-    const totalQ = activeTok ? activeTok.totalQuestions : 40;
-    const newGrade = {
-      id: Date.now(),
-      roll: evaluatedRoll,
-      set: evaluatedSet,
-      score: evaluatedScore,
-      total: totalQ,
-      exam: qSetName,
-      date: new Date().toLocaleDateString('bn-BD')
-    };
-    setSavedGrades(prev => [newGrade, ...prev]);
-    // Reset scanner
-    setUploadedFile(null);
-    setUploadedFileUrl('');
-    setShowResults(false);
   };
 
   return (
@@ -633,10 +758,11 @@ export default function TeacherOMRPage() {
                       const id = e.target.value;
                       setSelectedTokenId(id);
                       if (id) {
-                        const tok = examTokens.find(t => t.id === id);
+                        const tok = examTokens.find((t) => t._id === id);
                         if (tok) {
-                          setTemplateMode(tok.template);
+                          setTemplateMode(tok.templateMode);
                           setTotalQuestionsCount(String(tok.totalQuestions));
+                          setOptionsPerQuestion(String(tok.optionsPerQuestion || 4));
                           setExamTitle(tok.title);
                           setCustomQuestionCount(true);
                         }
@@ -646,7 +772,7 @@ export default function TeacherOMRPage() {
                   >
                     <option value="">কোনো টোকেন লিঙ্ক নেই (ম্যানুয়াল)</option>
                     {examTokens.map((t) => (
-                      <option key={t.id} value={t.id}>
+                      <option key={t._id} value={t._id}>
                         {t.title} ({t.code})
                       </option>
                     ))}
@@ -1034,6 +1160,14 @@ export default function TeacherOMRPage() {
                       <span>বিষয়: {subjectName}</span>
                     </div>
                   )}
+
+                  {/* The exam code is what ties a printed sheet back to its answer key.
+                      Without it on the paper a stack of sheets cannot be graded. */}
+                  {linkedExam && (
+                    <div className="mt-2 text-[10px] font-black tracking-[0.2em] text-neutral-500">
+                      EXAM CODE: {linkedExam.code}
+                    </div>
+                  )}
                 </div>
 
                 {/* ─── STUDENT INFO & BUBBLE GRIDS ─── */}
@@ -1180,10 +1314,10 @@ export default function TeacherOMRPage() {
           <div className="bg-white rounded-2xl border border-neutral-200 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="font-extrabold text-neutral-800 text-lg">আমার তৈরী ওএমআর এক্সাম টোকেন</h3>
-              <p className="text-xs text-neutral-500 mt-1">প্রতিটি পরীক্ষার জন্য ইউনিক টোকেন কোড ও সেটিংস ওএমআর খাতার সাথে লিঙ্ক করতে ব্যবহৃত হয়</p>
+              <p className="text-xs text-neutral-500 mt-1">প্রতিটি পরীক্ষার ইউনিক কোড ওএমআর খাতার সাথে লিঙ্ক করতে ব্যবহৃত হয়। মূল্যায়নের আগে উত্তরপত্র কী নির্ধারণ করতে হবে।</p>
             </div>
-            
-            <button 
+
+            <button
               onClick={() => {
                 setTokenTitle('');
                 setTokenQuestions('40');
@@ -1194,8 +1328,8 @@ export default function TeacherOMRPage() {
               + নতুন টোকেন তৈরী
             </button>
           </div>
-          
-          <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
+
+          <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs md:text-sm">
               <thead>
                 <tr className="bg-neutral-50 text-neutral-600 font-bold border-b border-neutral-100">
@@ -1205,166 +1339,294 @@ export default function TeacherOMRPage() {
                   <th className="p-4 text-center">প্রশ্ন সংখ্যা</th>
                   <th className="p-4 text-center">নেগেটিভ মার্ক্স</th>
                   <th className="p-4 text-center">ইউনিক কোড</th>
+                  <th className="p-4 text-center">উত্তরপত্র কী</th>
                   <th className="p-4 text-center">তৈরি তারিখ</th>
                   <th className="p-4 text-center">অ্যাকশন</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {examTokens.map((t, idx) => (
-                  <tr key={t.id} className="hover:bg-neutral-50 text-neutral-700 font-semibold">
+                  <tr key={t._id} className="hover:bg-neutral-50 text-neutral-700 font-semibold">
                     <td className="p-4 text-center text-neutral-400">{idx + 1}</td>
                     <td className="p-4 text-neutral-800 font-extrabold">{t.title}</td>
                     <td className="p-4 text-center">
-                      <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg ${t.template === 'SIGNATURE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-neutral-100 text-neutral-600 border border-neutral-200'}`}>
-                        {t.template === 'SIGNATURE' ? 'সিগনেচার' : 'সাধারণ'}
+                      <span className={`px-2.5 py-1 text-[10px] font-black rounded-lg ${t.templateMode === 'SIGNATURE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-neutral-100 text-neutral-600 border border-neutral-200'}`}>
+                        {t.templateMode === 'SIGNATURE' ? 'সিগনেচার' : 'সাধারণ'}
                       </span>
                     </td>
                     <td className="p-4 text-center font-bold text-neutral-600">{t.totalQuestions} টি</td>
                     <td className="p-4 text-center font-bold text-red-600">-{t.negativeMarks}</td>
                     <td className="p-4 text-center font-black text-emerald-800 tracking-wider bg-emerald-50/20">{t.code}</td>
-                    <td className="p-4 text-center text-neutral-500 font-medium">{t.date}</td>
                     <td className="p-4 text-center">
-                      <button 
-                        onClick={() => {
-                          setSelectedTokenId(t.id);
-                          setTemplateMode(t.template);
-                          setTotalQuestionsCount(String(t.totalQuestions));
-                          setExamTitle(t.title);
-                          setCustomQuestionCount(true);
-                          setActiveTab('design');
-                        }}
-                        className="px-3 py-1.5 text-xs text-neutral-700 bg-white border hover:bg-neutral-50 rounded-lg shadow-sm"
-                      >
-                        ডিজাইন দেখুন
-                      </button>
+                      {t.isAnswerKeyComplete ? (
+                        <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">সম্পূর্ণ</span>
+                      ) : (
+                        <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-amber-50 text-amber-700 border border-amber-200">অসম্পূর্ণ</span>
+                      )}
+                    </td>
+                    <td className="p-4 text-center text-neutral-500 font-medium">
+                      {new Date(t.createdAt).toLocaleDateString('bn-BD')}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedTokenId(t._id);
+                            setTemplateMode(t.templateMode);
+                            setTotalQuestionsCount(String(t.totalQuestions));
+                            setOptionsPerQuestion(String(t.optionsPerQuestion || 4));
+                            setExamTitle(t.title);
+                            setCustomQuestionCount(true);
+                            setActiveTab('design');
+                          }}
+                          className="px-3 py-1.5 text-xs text-neutral-700 bg-white border hover:bg-neutral-50 rounded-lg shadow-sm"
+                        >
+                          ডিজাইন
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleSelectExam(t._id);
+                            setActiveTab('evaluate');
+                          }}
+                          className="px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-lg"
+                        >
+                          মূল্যায়ন
+                        </button>
+                        <button
+                          onClick={() => handleDeleteExam(t._id)}
+                          className="px-3 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-lg"
+                        >
+                          মুছুন
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
-                {examTokens.length === 0 && (
+                {examTokens.length === 0 && !loading && (
                   <tr>
-                    <td colSpan="8" className="p-8 text-center text-neutral-400 font-semibold">
-                      কোন ওএমআর টোকেন তৈরি করা হয়নি এখনও। নতুন টোকেন তৈরি করতে উপরের বাটনে ক্লিক করুন।
+                    <td colSpan="9" className="p-8 text-center text-neutral-400 font-semibold">
+                      কোন ওএমআর টোকেন তৈরি করা হয়নি এখনও। নতুন টোকেন তৈরি করতে উপরের বাটনে ক্লিক করুন।
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* Token statement — the record of where the balance actually went */}
+          {ledger.length > 0 && (
+            <div className="bg-white rounded-2xl border border-neutral-200 p-6 shadow-sm">
+              <h4 className="font-extrabold text-neutral-800 text-sm mb-3">টোকেন লেনদেনের বিবরণী</h4>
+              <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                {ledger.map((entry) => (
+                  <div key={entry._id} className="flex items-center justify-between text-xs border-b border-neutral-50 py-2">
+                    <div>
+                      <p className="font-bold text-neutral-700">{LEDGER_REASON_LABELS[entry.reason] || entry.reason}</p>
+                      <p className="text-[10px] text-neutral-400">
+                        {new Date(entry.createdAt).toLocaleString('bn-BD')}
+                        {entry.note ? ` • ${entry.note}` : ''}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0 ml-3">
+                      <span className={`font-black ${entry.amount > 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                        {entry.amount > 0 ? '+' : ''}{entry.amount}
+                      </span>
+                      <span className="text-[10px] text-neutral-400 block">ব্যালেন্স: {entry.balanceAfter}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* ─── TAB 3: EVALUATION WORKSPACE (SCANNER) ─── */}
+      {/* ─── TAB 3: EVALUATION WORKSPACE ─── */}
       {activeTab === 'evaluate' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 no-print">
-          
-          {/* Scanner Setup & Upload Box */}
+
+          {/* Answer key + sheet entry */}
           <div className="lg:col-span-7 space-y-6">
             <div className="bg-white rounded-2xl border border-neutral-200 p-6 shadow-sm space-y-6">
-              
               <div>
-                <h3 className="font-extrabold text-neutral-800 text-base mb-1.5">১. উত্তরপত্র মূল্যায়নের সেটিংস</h3>
-                <p className="text-xs text-neutral-500">মূল্যায়ন করার আগে সংশ্লিষ্ট প্রশ্নপত্র সেট এবং ইমেজ আপলোড করুন।</p>
+                <h3 className="font-extrabold text-neutral-800 text-base mb-1.5">১. পরীক্ষা নির্বাচন করুন</h3>
+                <p className="text-xs text-neutral-500">যে ওএমআর পরীক্ষার খাতা মূল্যায়ন করবেন সেটি বেছে নিন।</p>
               </div>
 
-              {/* Question set selection */}
-              <div>
-                <label className="block text-xs font-bold text-neutral-600 mb-1.5">সংশ্লিষ্ট প্রশ্ন সেট নির্বাচন করুন</label>
-                <select
-                  value={evalQuestionSetId}
-                  onChange={(e) => {
-                    setEvalQuestionSetId(e.target.value);
-                    setShowResults(false);
-                  }}
-                  className="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm bg-white focus:ring-2 focus:ring-[#0F5132]/25 focus:border-[#0F5132] outline-none"
-                >
-                  <option value="">নির্বাচন করুন...</option>
-                  {questionSets.map((q) => (
-                    <option key={q._id} value={q._id}>
-                      {q.name} ({q.totalQuestions} টি এমসিকিউ প্রশ্ন)
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={evalExamId}
+                onChange={(e) => handleSelectExam(e.target.value)}
+                className="w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm bg-white focus:ring-2 focus:ring-[#0F5132]/25 focus:border-[#0F5132] outline-none"
+              >
+                <option value="">নির্বাচন করুন...</option>
+                {examTokens.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.title} — {t.code} ({t.totalQuestions} টি প্রশ্ন)
+                  </option>
+                ))}
+              </select>
 
-              {/* File Dropzone */}
-              <div>
-                <label className="block text-xs font-bold text-neutral-600 mb-1.5">ওএমআর শিটের ছবি বা স্ক্যান কপি</label>
-                <div 
-                  className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center transition-colors relative overflow-hidden ${
-                    uploadedFileUrl ? 'border-emerald-500 bg-emerald-50/25' : 'border-neutral-300 hover:bg-neutral-50'
-                  }`}
-                >
-                  {uploadedFileUrl ? (
-                    <div className="relative w-full max-w-[280px] aspect-[3/4] border rounded-xl bg-white shadow overflow-hidden group">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img 
-                        src={uploadedFileUrl} 
-                        alt="Uploaded OMR copy" 
-                        className="w-full h-full object-contain"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
-                        <label className="bg-white text-neutral-700 text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer hover:bg-neutral-100">
-                          পরিবর্তন করুন
-                          <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-                        </label>
+              {examTokens.length === 0 && !loading && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  কোনো ওএমআর পরীক্ষা নেই। প্রথমে &ldquo;আমার টোকেন&rdquo; ট্যাব থেকে একটি পরীক্ষা তৈরি করুন।
+                </p>
+              )}
+            </div>
+
+            {/* Answer key editor */}
+            {selectedEvalExam && (
+              <div className="bg-white rounded-2xl border border-neutral-200 p-6 shadow-sm space-y-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-extrabold text-neutral-800 text-base mb-1.5">২. উত্তরপত্র কী (Answer Key)</h3>
+                    <p className="text-xs text-neutral-500">প্রতিটি প্রশ্নের সঠিক উত্তর নির্ধারণ করুন। কী সম্পূর্ণ না হলে মূল্যায়ন করা যাবে না।</p>
+                  </div>
+                  <button
+                    onClick={handleSaveAnswerKey}
+                    disabled={savingAnswerKey}
+                    className="shrink-0 px-4 py-2 text-xs font-bold text-white bg-[#0F5132] hover:bg-[#072617] rounded-xl disabled:opacity-60"
+                  >
+                    {savingAnswerKey ? 'সংরক্ষণ হচ্ছে...' : 'কী সংরক্ষণ করুন'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 max-h-80 overflow-y-auto pr-1">
+                  {answerKeyDraft.map((entry, idx) => (
+                    <div key={entry.questionNo} className="flex items-center gap-1.5 bg-neutral-50 border border-neutral-200 rounded-lg p-1.5">
+                      <span className="text-[11px] font-black text-neutral-500 w-6 shrink-0">
+                        {toBanglaDigits(entry.questionNo)}.
+                      </span>
+                      <div className="flex gap-1">
+                        {Array.from({ length: selectedEvalExam.optionsPerQuestion || 4 }).map((_, optIdx) => (
+                          <button
+                            key={optIdx}
+                            type="button"
+                            onClick={() =>
+                              setKeyEdits((prev) => ({
+                                ...prev,
+                                [entry.questionNo]: entry.correctOption === optIdx ? null : optIdx,
+                              }))
+                            }
+                            className={`h-6 w-6 rounded-full text-[10px] font-black border transition-colors ${
+                              entry.correctOption === optIdx
+                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                : 'bg-white text-neutral-500 border-neutral-300 hover:border-emerald-400'
+                            }`}
+                          >
+                            {bubbleOptions[optIdx]}
+                          </button>
+                        ))}
                       </div>
-
-                      {/* SCANNING LASER EFFECT */}
-                      {isScanning && (
-                        <motion.div
-                          initial={{ top: '0%' }}
-                          animate={{ top: '100%' }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 1.5,
-                            ease: 'easeInOut'
-                          }}
-                          className="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-green-500 to-transparent shadow-[0_0_10px_#10B981] z-20"
-                        />
-                      )}
                     </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full py-6">
-                      <HiOutlineUpload className="h-10 w-10 text-neutral-400 mb-3" />
-                      <span className="text-sm font-bold text-neutral-700">OMR ইমেজ ফাইল ড্রপ করুন বা আপলোড করুন</span>
-                      <span className="text-xs text-neutral-400 mt-1">PNG, JPG, JPEG (সর্বোচ্চ ১০ এমবি)</span>
-                      <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-                    </label>
-                  )}
+                  ))}
                 </div>
               </div>
+            )}
 
-              {/* Action Button */}
-              {uploadedFileUrl && evalQuestionSetId && !showResults && (
+            {/* Sheet entry */}
+            {selectedEvalExam && (
+              <div className="bg-white rounded-2xl border border-neutral-200 p-6 shadow-sm space-y-5">
+                <div>
+                  <h3 className="font-extrabold text-neutral-800 text-base mb-1.5">৩. উত্তরপত্র এন্ট্রি</h3>
+                  <p className="text-xs text-neutral-500">
+                    শিক্ষার্থীর খাতা থেকে উত্তরগুলো বসান। প্রতিটি নতুন রোলের মূল্যায়নে ১টি টোকেন খরচ হবে; একই রোল সংশোধন করলে কোনো টোকেন কাটা হবে না।
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-600 mb-1.5">রোল নম্বর *</label>
+                    <input
+                      value={entryRoll}
+                      onChange={(e) => setEntryRoll(e.target.value)}
+                      placeholder="যেমন: ১২৩৪৫৬"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-[#0F5132]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-600 mb-1.5">সেট কোড</label>
+                    <input
+                      value={entrySetCode}
+                      onChange={(e) => setEntrySetCode(e.target.value)}
+                      placeholder="যেমন: ক"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-[#0F5132]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-600 mb-1.5">শিক্ষার্থীর নাম</label>
+                    <input
+                      value={entryStudentName}
+                      onChange={(e) => setEntryStudentName(e.target.value)}
+                      placeholder="ঐচ্ছিক"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-[#0F5132]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 max-h-80 overflow-y-auto pr-1">
+                  {entryAnswers.map((entry, idx) => (
+                    <div key={entry.questionNo} className="flex items-center gap-1.5 bg-neutral-50 border border-neutral-200 rounded-lg p-1.5">
+                      <span className="text-[11px] font-black text-neutral-500 w-6 shrink-0">
+                        {toBanglaDigits(entry.questionNo)}.
+                      </span>
+                      <div className="flex gap-1">
+                        {Array.from({ length: selectedEvalExam.optionsPerQuestion || 4 }).map((_, optIdx) => (
+                          <button
+                            key={optIdx}
+                            type="button"
+                            onClick={() =>
+                              setAnswerEdits((prev) => ({
+                                ...prev,
+                                [entry.questionNo]: entry.marked === optIdx ? null : optIdx,
+                              }))
+                            }
+                            className={`h-6 w-6 rounded-full text-[10px] font-black border transition-colors ${
+                              entry.marked === optIdx
+                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                : 'bg-white text-neutral-500 border-neutral-300 hover:border-indigo-400'
+                            }`}
+                          >
+                            {bubbleOptions[optIdx]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {!selectedEvalExam.isAnswerKeyComplete && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    এই পরীক্ষার উত্তরপত্র কী এখনো সম্পূর্ণ নয়। উপরে সব প্রশ্নের সঠিক উত্তর নির্ধারণ করে সংরক্ষণ করুন।
+                  </p>
+                )}
+
                 <button
-                  onClick={triggerScan}
-                  disabled={isScanning}
-                  className="w-full py-4 rounded-xl font-bold bg-[#0F5132] text-white flex items-center justify-center gap-2 hover:bg-[#072617] transition-all disabled:opacity-70 shadow-lg shadow-emerald-800/10"
+                  onClick={handleEvaluate}
+                  disabled={evaluating || !selectedEvalExam.isAnswerKeyComplete || !entryRoll.trim()}
+                  className="w-full py-4 rounded-xl font-bold bg-[#0F5132] text-white flex items-center justify-center gap-2 hover:bg-[#072617] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-800/10"
                 >
-                  {isScanning ? (
+                  {evaluating ? (
                     <>
                       <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>{scanStatus}</span>
+                      <span>মূল্যায়ন হচ্ছে...</span>
                     </>
                   ) : (
                     <>
-                      <HiOutlineSparkles className="h-5 w-5" />
-                      <span>ওএমআর মূল্যায়ন শুরু করুন (১টি টোকেন ব্যালেন্স কর্তন হবে)</span>
+                      <HiOutlineCheck className="h-5 w-5" />
+                      <span>মূল্যায়ন করুন ও সংরক্ষণ করুন</span>
                     </>
                   )}
                 </button>
-              )}
-
-            </div>
+              </div>
+            )}
           </div>
 
-          {/* Evaluated Result Preview Panel */}
+          {/* Result panel */}
           <div className="lg:col-span-5 space-y-6">
-            
-            {/* Live scan analysis results panel */}
             <AnimatePresence mode="wait">
-              {showResults ? (
+              {lastResult ? (
                 <motion.div
+                  key={lastResult._id}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
@@ -1373,119 +1635,106 @@ export default function TeacherOMRPage() {
                   <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-100">
                     <HiOutlineCheckCircle className="h-6 w-6 text-emerald-500 shrink-0" />
                     <div>
-                      <h3 className="font-extrabold text-neutral-800 text-sm">ওএমআর সফলভাবে স্ক্যান করা হয়েছে!</h3>
-                      <p className="text-[10px] text-neutral-400">ব্যালেন্স থেকে ১টি টোকেন কাটা হয়েছে</p>
+                      <h3 className="font-extrabold text-neutral-800 text-sm">মূল্যায়ন সম্পন্ন হয়েছে</h3>
+                      <p className="text-[10px] text-neutral-400">
+                        রোল {lastResult.rollNumber}
+                        {lastResult.setCode ? ` • সেট ${lastResult.setCode}` : ''}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-neutral-50 border p-3 rounded-xl">
-                      <span className="text-[10px] font-bold text-neutral-400 block uppercase">শনাক্তকৃত রোল</span>
-                      <input 
-                        type="text" 
-                        value={evaluatedRoll} 
-                        onChange={(e) => setEvaluatedRoll(e.target.value)}
-                        className="text-base font-black text-neutral-800 bg-transparent border-b border-transparent focus:border-neutral-400 focus:outline-none w-full mt-0.5"
-                      />
-                    </div>
-                    <div className="bg-neutral-50 border p-3 rounded-xl">
-                      <span className="text-[10px] font-bold text-neutral-400 block uppercase">শনাক্তকৃত সেট</span>
-                      <input 
-                        type="text" 
-                        value={evaluatedSet} 
-                        onChange={(e) => setEvaluatedSet(e.target.value)}
-                        className="text-base font-black text-neutral-800 bg-transparent border-b border-transparent focus:border-neutral-400 focus:outline-none w-full mt-0.5"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Grading metrics */}
                   <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 text-center">
-                    <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">পরীক্ষার্থীর স্কোর</span>
+                    <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">প্রাপ্ত নম্বর</span>
                     <div className="flex items-baseline justify-center gap-1.5 mt-2">
-                      <span className="text-4xl font-black text-emerald-950">{evaluatedScore}</span>
-                      <span className="text-sm font-bold text-emerald-800">/ {questionSets.find(q => q._id === evalQuestionSetId)?.totalQuestions || 40}</span>
+                      <span className="text-4xl font-black text-emerald-950">{lastResult.score}</span>
+                      <span className="text-sm font-bold text-emerald-800">/ {lastResult.totalMarks}</span>
                     </div>
-                    <span className="inline-block mt-3 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 uppercase tracking-wide">
-                      {evaluatedScore >= 16 ? 'কৃতকার্য (Passed)' : 'অকৃতকার্য (Failed)'}
-                    </span>
                   </div>
 
-                  {/* Answers sheet simulation grid */}
-                  <div>
-                    <h4 className="text-xs font-bold text-neutral-600 mb-2.5">উত্তরপত্রের উত্তর বাবল ওভারভিউ (নমুনা):</h4>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {Array.from({ length: Math.min(25, questionSets.find(q => q._id === evalQuestionSetId)?.totalQuestions || 40) }).map((_, idx) => {
-                        const isCorrect = idx !== 4 && idx !== 11 && idx !== 18; // Fake correct/incorrect patterns
-                        return (
-                          <div 
-                            key={idx}
-                            className={`p-2 rounded-lg text-center font-bold text-xs border ${
-                              isCorrect 
-                                ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
-                                : 'bg-rose-50 border-rose-200 text-rose-800'
-                            }`}
-                          >
-                            Q{idx + 1}: {isCorrect ? '✔' : '✘'}
-                          </div>
-                        );
-                      })}
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl">
+                      <span className="block text-lg font-black text-emerald-800">{lastResult.correctCount}</span>
+                      <span className="text-[10px] font-bold text-emerald-700">সঠিক</span>
                     </div>
-                    <p className="text-[10px] text-neutral-400 mt-2">* লাল চিহ্ন দ্বারা চিহ্নিত প্রশ্নগুলো শিক্ষার্থীর ভুল করা উত্তর নির্দেশ করে।</p>
+                    <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl">
+                      <span className="block text-lg font-black text-rose-700">{lastResult.wrongCount}</span>
+                      <span className="text-[10px] font-bold text-rose-600">ভুল</span>
+                    </div>
+                    <div className="bg-neutral-50 border border-neutral-200 p-3 rounded-xl">
+                      <span className="block text-lg font-black text-neutral-600">{lastResult.blankCount}</span>
+                      <span className="text-[10px] font-bold text-neutral-500">খালি</span>
+                    </div>
                   </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      onClick={() => setShowResults(false)}
-                      className="flex-1 py-3 text-xs font-bold rounded-xl border border-neutral-300 hover:bg-neutral-50 text-neutral-700"
-                    >
-                      পুনরায় স্ক্যান
-                    </button>
-                    <button
-                      onClick={handleSaveResult}
-                      className="flex-1 py-3 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
-                    >
-                      ফলাফল সংরক্ষণ করুন
-                    </button>
-                  </div>
-
                 </motion.div>
               ) : (
                 <div className="bg-white rounded-2xl border border-neutral-200 p-6 text-center py-16 text-neutral-400">
                   <HiOutlineExclamationCircle className="h-10 w-10 mx-auto opacity-40 mb-3" />
-                  <h3 className="font-bold text-neutral-700 text-sm">কোনো স্ক্যান ফলাফল নেই</h3>
-                  <p className="text-xs max-w-[240px] mx-auto mt-1 leading-relaxed">উত্তরপত্র স্ক্যান করা শুরু করলে ফলাফল বিবরণী এখানে প্রদর্শিত হবে।</p>
+                  <h3 className="font-bold text-neutral-700 text-sm">এখনো কোনো মূল্যায়ন হয়নি</h3>
+                  <p className="text-xs max-w-[240px] mx-auto mt-1 leading-relaxed">উত্তরপত্র এন্ট্রি করে মূল্যায়ন করলে ফলাফল এখানে দেখা যাবে।</p>
                 </div>
               )}
             </AnimatePresence>
 
-            {/* Saved exam results dashboard */}
-            {savedGrades.length > 0 && (
-              <div className="bg-white rounded-2xl border border-neutral-200 p-5 shadow-sm space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <h4 className="font-extrabold text-neutral-800 text-xs">সাম্প্রতিক সংরক্ষিত মূল্যায়নসমূহ ({savedGrades.length})</h4>
-                  <button onClick={() => setSavedGrades([])} className="text-[10px] text-rose-600 font-bold hover:underline">সব মুছুন</button>
+            {examSummary && examSummary.evaluated > 0 && (
+              <div className="bg-white rounded-2xl border border-neutral-200 p-5 shadow-sm">
+                <h4 className="font-extrabold text-neutral-800 text-xs mb-3">এই পরীক্ষার সারসংক্ষেপ</h4>
+                <div className="grid grid-cols-2 gap-3 text-center text-xs">
+                  <div className="bg-neutral-50 border rounded-xl p-3">
+                    <span className="block text-lg font-black text-neutral-800">{examSummary.evaluated}</span>
+                    <span className="text-[10px] text-neutral-500 font-bold">মূল্যায়িত খাতা</span>
+                  </div>
+                  <div className="bg-neutral-50 border rounded-xl p-3">
+                    <span className="block text-lg font-black text-neutral-800">{examSummary.averageScore}</span>
+                    <span className="text-[10px] text-neutral-500 font-bold">গড় নম্বর</span>
+                  </div>
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
+                    <span className="block text-lg font-black text-emerald-800">{examSummary.highestScore}</span>
+                    <span className="text-[10px] text-emerald-700 font-bold">সর্বোচ্চ</span>
+                  </div>
+                  <div className="bg-rose-50 border border-rose-100 rounded-xl p-3">
+                    <span className="block text-lg font-black text-rose-700">{examSummary.lowestScore}</span>
+                    <span className="text-[10px] text-rose-600 font-bold">সর্বনিম্ন</span>
+                  </div>
                 </div>
-                <div className="space-y-2 max-h-56 overflow-y-auto">
-                  {savedGrades.map((grade) => (
-                    <div key={grade.id} className="flex justify-between items-center bg-neutral-50 p-2.5 rounded-lg border text-xs">
-                      <div>
-                        <p className="font-extrabold text-neutral-800">রোল: {grade.roll} ({grade.exam})</p>
-                        <p className="text-[9px] text-neutral-400">{grade.date}</p>
+              </div>
+            )}
+
+            {results.length > 0 && (
+              <div className="bg-white rounded-2xl border border-neutral-200 p-5 shadow-sm space-y-4">
+                <h4 className="font-extrabold text-neutral-800 text-xs border-b pb-2">
+                  সংরক্ষিত ফলাফল ({results.length})
+                </h4>
+                <div className="space-y-2 max-h-72 overflow-y-auto">
+                  {results.map((grade) => (
+                    <div key={grade._id} className="flex justify-between items-center bg-neutral-50 p-2.5 rounded-lg border text-xs gap-2">
+                      <div className="min-w-0">
+                        <p className="font-extrabold text-neutral-800 truncate">
+                          রোল: {grade.rollNumber}
+                          {grade.studentName ? ` — ${grade.studentName}` : ''}
+                        </p>
+                        <p className="text-[9px] text-neutral-400">
+                          {new Date(grade.createdAt).toLocaleDateString('bn-BD')}
+                          {grade.setCode ? ` • সেট ${grade.setCode}` : ''}
+                        </p>
                       </div>
-                      <div className="text-right">
-                        <span className="font-black text-emerald-800">{grade.score}</span>
-                        <span className="text-neutral-400 font-bold"> / {grade.total}</span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="text-right">
+                          <span className="font-black text-emerald-800">{grade.score}</span>
+                          <span className="text-neutral-400 font-bold"> / {grade.totalMarks}</span>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteResult(grade._id)}
+                          className="text-[10px] text-rose-600 font-bold hover:underline"
+                        >
+                          মুছুন
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-
           </div>
-
         </div>
       )}
 
@@ -1585,11 +1834,12 @@ export default function TeacherOMRPage() {
               >
                 বাতিল
               </button>
-              <button 
+              <button
                 onClick={handleGenerateToken}
-                className="px-5 py-2.5 text-xs font-bold text-white bg-[#0F5132] hover:bg-[#072617] rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                disabled={creatingToken}
+                className="px-5 py-2.5 text-xs font-bold text-white bg-[#0F5132] hover:bg-[#072617] rounded-xl shadow-md transition-all flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Generate Token
+                {creatingToken ? 'তৈরি হচ্ছে...' : 'Generate Token'}
               </button>
             </div>
           </div>
