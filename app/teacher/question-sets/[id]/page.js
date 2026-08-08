@@ -178,13 +178,14 @@ export default function QuestionSetDetailPage() {
         @media print {
           @page {
             size: ${getPaperSizeCSS()} portrait;
-            margin: 15mm 12mm 15mm 12mm;
+            margin: 8mm 7mm 8mm 7mm;
           }
           html, body {
             background: #fff !important;
             color: #000 !important;
             margin: 0 !important;
             padding: 0 !important;
+            font-size: ${fontSize}px !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -201,22 +202,52 @@ export default function QuestionSetDetailPage() {
             max-width: 100% !important;
             background: #fff !important;
           }
+          .print-sheet > * {
+            margin-top: 0 !important;
+          }
+          .print-sheet > *:first-child {
+            margin-top: 0 !important;
+          }
+          .question-body-columns {
+            column-gap: 14px !important;
+          }
           .question-item {
             background: transparent !important;
             border-radius: 0 !important;
             box-shadow: none !important;
             outline: none !important;
+            padding: 0 !important;
+            margin-bottom: ${Math.max(1, questionGap)}px !important;
+            ring: none !important;
           }
           .question-item:hover {
             background: transparent !important;
+            box-shadow: none !important;
+            ring: none !important;
+          }
+          .print-header {
+            padding-bottom: 4px !important;
+            margin-bottom: 3px !important;
+          }
+          .print-header * {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+          }
+          .section-subheader {
+            padding-bottom: 2px !important;
+            margin-bottom: 2px !important;
+          }
+          .print-footer {
+            padding-top: 3px !important;
+            margin-top: 4px !important;
           }
           ${showPageNumber ? `
           @page {
             @bottom-center {
               content: counter(page);
-              font-size: 9pt;
+              font-size: 8pt;
               font-family: sans-serif;
-              color: #999;
+              color: #aaa;
             }
           }` : ''}
         }
@@ -284,33 +315,35 @@ export default function QuestionSetDetailPage() {
               LEFT MAIN COLUMN: Printable 2-Column Question Paper (Screenshot 9)
              ════════════════════════════════════════════════════════════════════════ */}
           <div className={`lg:col-span-3 ${activeMobileTab === 'paper' ? 'block' : 'hidden lg:block'}`}>
-            <div className="print-sheet bg-white rounded-2xl border border-neutral-300 shadow-xl p-8 sm:p-12 space-y-6 font-serif text-neutral-900" style={{ fontFamily: getFontFamilyCSS() }}>
+            <div className="print-sheet bg-white rounded-2xl border border-neutral-300 shadow-xl p-6 sm:p-8 space-y-3 font-serif text-neutral-900" style={{ fontFamily: getFontFamilyCSS() }}>
               {/* Header Box (Screenshot 9 & 10) */}
-              <div className="relative border-b-2 border-neutral-800 pb-4 text-center space-y-1">
-                {/* Marks Box Top Left */}
-                {showMarksBox && (
-                  <div className="absolute top-0 left-0 border-2 border-neutral-900 px-3 py-1 font-bold text-xs font-sans">
-                    প্রাপ্ত নম্বর: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                  </div>
-                )}
-
-                {/* Set Code Box Top Right */}
-                {showSetCode && (
-                  <div className="absolute top-0 right-0 border-2 border-neutral-900 px-3 py-1 font-bold text-xs">
-                    সেট কোড: <span className="border border-neutral-900 px-1.5 py-0.5 ml-1">ক</span>
+              <div className="print-header border-b-2 border-neutral-800 pb-2 text-center space-y-0.5">
+                {/* Marks Box & Set Code - Top Row */}
+                {(showMarksBox || showSetCode) && (
+                  <div className="flex items-center justify-between mb-1">
+                    {showMarksBox ? (
+                      <div className="border-2 border-neutral-900 px-2 py-0.5 font-bold text-xs font-sans">
+                        প্রাপ্ত নম্বর: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                      </div>
+                    ) : <div />}
+                    {showSetCode ? (
+                      <div className="border-2 border-neutral-900 px-2 py-0.5 font-bold text-xs">
+                        সেট কোড: <span className="border border-neutral-900 px-1 py-0.5 ml-1">ক</span>
+                      </div>
+                    ) : <div />}
                   </div>
                 )}
 
                 {/* Exam Title */}
                 {showExamName && (
-                  <h1 className="text-2xl font-extrabold text-neutral-900 tracking-tight">
+                  <h1 className="text-xl font-extrabold text-neutral-900 tracking-tight leading-tight">
                     {qs.name || 'New Educare'}
                   </h1>
                 )}
 
                 {/* Class Name */}
                 {showClassName && (
-                  <h2 className="text-base font-bold text-neutral-800">
+                  <h2 className="text-sm font-bold text-neutral-800 leading-tight">
                     {className}
                   </h2>
                 )}
@@ -336,26 +369,26 @@ export default function QuestionSetDetailPage() {
 
                 {/* Student Info Box if Enabled */}
                 {showStudentInfo && (
-                  <div className="my-3 p-3 border border-neutral-800 rounded-lg text-xs grid grid-cols-2 gap-4 text-left font-sans font-semibold">
+                  <div className="my-1.5 p-2 border border-neutral-800 rounded text-xs grid grid-cols-2 gap-2 text-left font-sans font-semibold">
                     <div>শিক্ষার্থীর নাম: ___________________________</div>
                     <div>রোল নম্বর: ___________________</div>
                   </div>
                 )}
 
                 {/* Meta Line: Time & Total Marks */}
-                <div className="flex justify-between items-center text-xs font-bold text-neutral-900 pt-3 border-t border-neutral-200 mt-3">
+                <div className="flex justify-between items-center text-xs font-bold text-neutral-900 pt-1.5 border-t border-neutral-200 mt-1.5">
                   <span>সময়— ৩০ মিনিট</span>
                   <span>পূর্ণমান— {totalMarks}</span>
                 </div>
 
                 {/* Notice Banner */}
-                <div className="text-center text-xs font-bold text-neutral-800 pt-2 border-t border-neutral-200 mt-2">
+                <div className="text-center text-xs font-bold text-neutral-800 pt-1 border-t border-neutral-200 mt-1">
                   প্রশ্নপত্রে কোনো প্রকার দাগ/চিহ্ন দেয়া যাবেনা।
                 </div>
               </div>
 
               {/* Section Sub-Header */}
-              <div className="flex justify-between items-center text-xs font-bold text-neutral-900 border-b border-neutral-200 pb-2">
+              <div className="section-subheader flex justify-between items-center text-xs font-bold text-neutral-900 border-b border-neutral-200 pb-1">
                 <span>বহুনির্বাচনি অংশ:</span>
                 <span>{questionList.length} × ১ = {questionList.length}</span>
               </div>
@@ -365,15 +398,15 @@ export default function QuestionSetDetailPage() {
                 style={{
                   fontSize: `${fontSize}px`,
                   textAlign: textAlign,
-                  columnRule: columnsCount > 1 && showColumnDivider ? '1px solid #cbd5e1' : 'none',
+                  columnRule: columnsCount > 1 && showColumnDivider ? '1px solid #d4d4d4' : 'none',
                 }}
-                className={`${
+                className={`question-body-columns ${
                   columnsCount === 1
                     ? 'block'
                     : columnsCount === 3
-                    ? 'columns-1 sm:columns-3 gap-x-6'
-                    : 'columns-1 sm:columns-2 gap-x-8'
-                } text-neutral-900 leading-relaxed font-sans pt-2`}
+                    ? 'columns-1 sm:columns-3 gap-x-4'
+                    : 'columns-1 sm:columns-2 gap-x-5'
+                } text-neutral-900 leading-snug font-sans pt-1`}
               >
                 {questionList.map((q, idx) => {
                   // Smart auto-format: 4x1 if options are long (> 20 chars), else 2x2
@@ -411,12 +444,12 @@ export default function QuestionSetDetailPage() {
                     <div
                       key={q._id || idx}
                       style={{
-                        marginBottom: `${Math.max(2, questionGap)}px`,
-                        ...(showImportant ? { borderLeft: `3px solid ${importantColor}`, paddingLeft: '12px' } : {}),
+                        marginBottom: `${Math.max(1, questionGap)}px`,
+                        ...(showImportant ? { borderLeft: `2px solid ${importantColor}`, paddingLeft: '8px' } : {}),
                       }}
                       onMouseEnter={() => setHoveredIdx(idx)}
                       onMouseLeave={() => setHoveredIdx(null)}
-                      className="break-inside-avoid page-break-inside-avoid inline-block w-full align-top relative py-1 px-1.5 rounded-xl transition-all hover:bg-neutral-50/80 hover:ring-1 hover:ring-neutral-300 group question-item"
+                      className="break-inside-avoid page-break-inside-avoid inline-block w-full align-top relative py-0.5 px-0 rounded-lg transition-colors hover:bg-neutral-50/60 group question-item"
                     >
                       {/* Floating Quick Action Toolbar on Hover (Screenshot 10) */}
                       {hoveredIdx === idx && (
@@ -466,29 +499,29 @@ export default function QuestionSetDetailPage() {
                       <div
                         contentEditable={editingMode}
                         suppressContentEditableWarning={true}
-                        className={`font-semibold flex items-start gap-1.5 mb-0.5 ${
+                        className={`font-semibold flex items-start gap-1 leading-snug ${
                           editingMode ? 'outline-2 outline-dashed outline-emerald-400 bg-emerald-50/20 p-1 rounded' : ''
                         }`}
                       >
                         <span className="font-bold shrink-0">{toBengaliNumber(idx + 1)}.</span>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <MathRenderer text={q.questionText} />
                         </div>
                       </div>
 
                       {/* Options Grid */}
                       {q.type === 'MCQ' && q.options && (
-                        <div className={`grid ${gridColsClass} gap-1.5 pl-4`}>
+                        <div className={`grid ${gridColsClass} gap-x-2 gap-y-0.5 pl-5 mt-0.5`}>
                           {q.options.map((opt, oIdx) => (
                             <div
                               key={oIdx}
                               contentEditable={editingMode}
                               suppressContentEditableWarning={true}
-                              className={`flex items-start gap-1.5 ${
+                              className={`flex items-start gap-1 leading-snug ${
                                 editingMode ? 'outline-1 outline-dashed outline-emerald-400 bg-emerald-50/10 p-0.5 rounded' : ''
                               }`}
                             >
-                              <span className="font-bold shrink-0 pt-0.5">
+                              <span className="font-bold shrink-0">
                                 {renderOptionLabel(oIdx)}
                               </span>
                               <MathRenderer text={opt.text} />
@@ -499,14 +532,14 @@ export default function QuestionSetDetailPage() {
 
                       {/* CQ Subparts */}
                       {q.type === 'CQ' && q.subParts && (
-                        <div className="space-y-1 pl-4 text-xs">
+                        <div className="space-y-0.5 pl-5 text-xs mt-0.5">
                           {q.subParts.map((sp, spIdx) => (
-                            <div key={spIdx} className="flex justify-between items-start">
+                            <div key={spIdx} className="flex justify-between items-start leading-snug">
                               <div>
                                 <span className="font-bold mr-1">{sp.partLabel}.</span>
                                 <MathRenderer text={sp.text} />
                               </div>
-                              <span className="font-semibold text-neutral-500">[{sp.marks}]</span>
+                              <span className="font-semibold text-neutral-500 shrink-0 ml-2">[{sp.marks}]</span>
                             </div>
                           ))}
                         </div>
@@ -545,10 +578,10 @@ export default function QuestionSetDetailPage() {
               )}
 
               {/* ProshnoPedia Printed Paper Footer Branding */}
-              <div className="pt-4 border-t-2 border-neutral-900 mt-8 flex items-center justify-between text-xs font-bold text-neutral-800 font-sans">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-600"></span>
-                  <span>— Powered by <strong className="text-emerald-700 font-black text-sm">ProshnoPedia</strong> | প্রশ্নব্যাংক ও পরীক্ষা তৈরি —</span>
+              <div className="print-footer pt-2 border-t-2 border-neutral-900 mt-4 flex items-center justify-between text-[10px] font-bold text-neutral-800 font-sans">
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-600"></span>
+                  <span>Powered by <strong className="text-emerald-700 font-black text-xs">ProshnoPedia</strong> | প্রশ্নব্যাংক ও পরীক্ষা তৈরি</span>
                 </div>
                 <span>www.proshnopedia.com</span>
               </div>

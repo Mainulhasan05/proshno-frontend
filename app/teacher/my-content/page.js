@@ -174,9 +174,43 @@ export default function TeacherMyContentPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-neutral-800">আমার কন্টেন্ট</h1>
-        <p className="text-sm text-neutral-500 mt-1">আপনার প্যাকেজ অনুযায়ী কন্টেন্ট ব্রাউজ করুন</p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-800">আমার কন্টেন্ট</h1>
+          <p className="text-sm text-neutral-500 mt-1">আপনার প্যাকেজ অনুযায়ী কন্টেন্ট ব্রাউজ করুন ও নিজের কাস্টম প্রশ্ন তৈরি করুন</p>
+        </div>
+        <Button
+          onClick={() => {
+            setForm({
+              type: 'MCQ',
+              format: 'single_correct',
+              questionText: '',
+              cognitiveDomain: 'knowledge',
+              difficulty: 'easy',
+              marks: 1,
+              negativeMarks: 0,
+              explanation: '',
+              bookReference: '',
+              sources: ['Main Book'],
+              options: [
+                { text: '', isCorrect: true, order: 1 },
+                { text: '', isCorrect: false, order: 2 },
+                { text: '', isCorrect: false, order: 3 },
+                { text: '', isCorrect: false, order: 4 },
+              ],
+              stimulus: '',
+              stimulusImage: '',
+              questionImage: '',
+              subParts: [{ partLabel: 'ক', text: '', marks: 1, sampleAnswer: '' }],
+            });
+            setShowAdvanced(false);
+            setModalOpen(true);
+          }}
+          className="bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs py-2.5 px-4 rounded-xl flex items-center gap-2 shadow-sm shrink-0"
+        >
+          <HiOutlinePlus className="h-4 w-4" />
+          নিজের কাস্টম প্রশ্ন যোগ করুন
+        </Button>
       </div>
 
       {/* Breadcrumb */}

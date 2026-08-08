@@ -23,10 +23,12 @@ import {
   HiOutlineCloud,
   HiOutlinePhotograph,
   HiOutlineTag,
+  HiOutlineTrendingUp,
 } from 'react-icons/hi';
 
 const adminMenu = [
   { label: 'Dashboard', href: '/admin', icon: HiOutlineHome },
+  { label: 'Earnings & Analytics', href: '/admin/analytics', icon: HiOutlineTrendingUp },
   { label: 'Classes', href: '/admin/classes', icon: HiOutlineAcademicCap },
   { label: 'Subjects', href: '/admin/subjects', icon: HiOutlineBookOpen },
   { label: 'Chapters', href: '/admin/chapters', icon: HiOutlineClipboardList },
