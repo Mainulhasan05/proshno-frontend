@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { fetchQuestionSetDetail } from '@/store/slices/teacherSlice';
+import { fetchQuestionSetDetail, updateQuestionSet } from '@/store/slices/teacherSlice';
+import apiClient from '@/store/api/apiClient';
 import Skeleton from '@/components/ui/Skeleton';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -20,51 +21,107 @@ import {
 import MathRenderer from '@/components/shared/MathRenderer';
 import toast from 'react-hot-toast';
 
+/**
+ * Mirrors the `paperSettings` subdocument on the QuestionSet model. Used both as the
+ * initial state for a set saved before the field existed and as the merge base for
+ * whatever the server returns.
+ */
+const DEFAULT_PAPER_SETTINGS = {
+  // Header metadata
+  showExamName: true,
+  showClassName: true,
+  showSubjectName: true,
+  showChapterName: true,
+  showSetCode: true,
+  // Attachments / blocks
+  showAnswerKey: false,
+  showOMR: false,
+  showImportant: false,
+  importantColor: '#059669',
+  showQuestionInfo: false,
+  showStudentInfo: false,
+  showSubjectCode: false,
+  showMarksBox: false,
+  showPageNumber: false,
+  // Typography and layout
+  textAlign: 'justify', // 'left' | 'center' | 'right' | 'justify'
+  paperSize: 'A4', // 'A4' | 'Letter' | 'Legal' | 'A5'
+  optionStyle: 'parentheses', // 'circle' | 'parentheses' | 'dot' | 'right_paren'
+  fontFamily: 'bangla',
+  fontSize: 14,
+  columnsCount: 2, // 1 | 2 | 3
+  showColumnDivider: true,
+  questionGap: 0, // px
+};
+
+const OPTION_LAYOUTS = ['2x2', '4x1', '1x4'];
+
+/**
+ * Serialise the editable state into a comparable string.
+ *
+ * Only what actually gets saved is included, so toggling a question's hover state or
+ * switching the mobile tab never makes the page claim there are unsaved changes. Keys
+ * are sorted because object key order is not meaningful but would otherwise change the
+ * result.
+ */
+function buildSnapshot(questionList, gridFormats, settings) {
+  const ids = questionList.map((q) => q?._id).filter(Boolean);
+  const layouts = ids
+    .filter((id) => gridFormats[id])
+    .map((id) => `${id}:${gridFormats[id]}`);
+  const settingEntries = Object.keys(settings)
+    .sort()
+    .map((key) => `${key}=${settings[key]}`);
+
+  return JSON.stringify({ ids, layouts, settings: settingEntries });
+}
+
 export default function QuestionSetDetailPage() {
   const dispatch = useDispatch();
   const router = useRouter();
   const params = useParams();
   const { questionSetDetail, isLoading } = useSelector((state) => state.teacher);
 
-  // Settings State (Screenshot 9)
-  // Header Metadata Switches
-  const [showExamName, setShowExamName] = useState(true);
-  const [showClassName, setShowClassName] = useState(true);
-  const [showSubjectName, setShowSubjectName] = useState(true);
-  const [showChapterName, setShowChapterName] = useState(true);
-  const [showSetCode, setShowSetCode] = useState(true);
+  // Paper settings live in one object because they are saved as one unit — the server
+  // stores them on the question set as `paperSettings`. Keeping them as ~20 separate
+  // useState values made it impossible to tell what had changed since the last save.
+  const [settings, setSettings] = useState(DEFAULT_PAPER_SETTINGS);
 
-  // Question Attachments Switches
-  const [showAnswerKey, setShowAnswerKey] = useState(false);
-  const [showOMR, setShowOMR] = useState(false);
-  const [showImportant, setShowImportant] = useState(false);
-  const [importantColor, setImportantColor] = useState('#059669');
-  const [showQuestionInfo, setShowQuestionInfo] = useState(false);
-  const [showStudentInfo, setShowStudentInfo] = useState(false);
-  const [showSubjectCode, setShowSubjectCode] = useState(false);
-  const [showMarksBox, setShowMarksBox] = useState(false);
+  // Destructured for reading so the rest of the component reads naturally.
+  const {
+    showExamName, showClassName, showSubjectName, showChapterName, showSetCode,
+    showAnswerKey, showOMR, showImportant, importantColor,
+    showQuestionInfo, showStudentInfo, showSubjectCode, showMarksBox, showPageNumber,
+    textAlign, paperSize, optionStyle, fontFamily, fontSize,
+    columnsCount, showColumnDivider, questionGap,
+  } = settings;
 
-  // Document Customization States (Screenshot 11)
+  const updateSetting = useCallback((key, value) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  // Editing mode is a transient view state, not a property of the paper, so it is not
+  // part of `settings` and is never saved.
   const [editingMode, setEditingMode] = useState(false);
-  const [textAlign, setTextAlign] = useState('justify'); // 'left', 'center', 'right', 'justify'
-  const [paperSize, setPaperSize] = useState('A4'); // 'A4', 'Letter', 'Legal', 'A5'
-  const [showPageNumber, setShowPageNumber] = useState(false);
-  const [optionStyle, setOptionStyle] = useState('parentheses'); // 'circle', 'parentheses', 'dot', 'right_paren'
-  const [fontFamily, setFontFamily] = useState('bangla');
-  const [fontSize, setFontSize] = useState(14);
-  const [columnsCount, setColumnsCount] = useState(2); // 1, 2, 3
-  const [showColumnDivider, setShowColumnDivider] = useState(true);
-  const [questionGap, setQuestionGap] = useState(0); // px
 
   // Mobile View Toggle State
   const [activeMobileTab, setActiveMobileTab] = useState('paper'); // 'paper' | 'settings'
 
   // Question & Interaction States
   const [questionList, setQuestionList] = useState([]);
+  // Keyed by question id, not list position — a reorder must not reassign layouts.
   const [gridFormats, setGridFormats] = useState({});
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [exchangeTargetIdx, setExchangeTargetIdx] = useState(null);
   const [exchangeModalOpen, setExchangeModalOpen] = useState(false);
+  const [exchangeCandidates, setExchangeCandidates] = useState([]);
+  const [exchangeLoading, setExchangeLoading] = useState(false);
+  const [exchangeError, setExchangeError] = useState('');
+
+  // Snapshot of what the server last confirmed, so "unsaved changes" is a fact rather
+  // than a guess.
+  const [savedSnapshot, setSavedSnapshot] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Helper for option labels
   const renderOptionLabel = (idx) => {
@@ -91,14 +148,82 @@ export default function QuestionSetDetailPage() {
     }
   }, [dispatch, params.id]);
 
+  // Hydrate local editing state from whatever the server has stored for this set.
   useEffect(() => {
-    if (questionSetDetail && questionSetDetail.questions) {
-      const qList = questionSetDetail.questions.map((qItem) => qItem.questionId).filter(Boolean);
-      queueMicrotask(() => setQuestionList(qList));
+    if (!questionSetDetail?.questions) return;
+
+    const items = questionSetDetail.questions.filter((item) => item?.questionId);
+    const qList = items.map((item) => item.questionId);
+    const layouts = {};
+    for (const item of items) {
+      if (item.optionLayout) layouts[String(item.questionId._id)] = item.optionLayout;
     }
+
+    const loadedSettings = { ...DEFAULT_PAPER_SETTINGS, ...(questionSetDetail.paperSettings || {}) };
+
+    queueMicrotask(() => {
+      setQuestionList(qList);
+      setGridFormats(layouts);
+      setSettings(loadedSettings);
+      setSavedSnapshot(buildSnapshot(qList, layouts, loadedSettings));
+    });
   }, [questionSetDetail]);
 
   const qs = questionSetDetail;
+
+  const currentSnapshot = useMemo(
+    () => buildSnapshot(questionList, gridFormats, settings),
+    [questionList, gridFormats, settings]
+  );
+
+  const isDirty = savedSnapshot !== null && currentSnapshot !== savedSnapshot;
+
+  const handleSave = async () => {
+    if (!params.id || !isDirty || isSaving) return;
+    if (questionList.length === 0) {
+      toast.error('প্রশ্ন সেটে অন্তত একটি প্রশ্ন থাকতে হবে');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const questionIds = questionList.map((q) => q._id);
+      // Only send layouts for questions still in the set, so removing a question also
+      // drops its stale layout instead of leaving it to be reapplied later.
+      const optionLayouts = {};
+      for (const id of questionIds) {
+        if (gridFormats[id]) optionLayouts[id] = gridFormats[id];
+      }
+
+      await dispatch(
+        updateQuestionSet({
+          id: params.id,
+          body: { questionIds, optionLayouts, paperSettings: settings },
+        })
+      ).unwrap();
+
+      setSavedSnapshot(currentSnapshot);
+      toast.success('পরিবর্তনগুলো সংরক্ষণ করা হয়েছে');
+    } catch (err) {
+      // The thunk rejects with a plain string message; keep the object forms as a
+      // fallback in case it is ever changed to pass the error envelope through.
+      const message = typeof err === 'string' ? err : err?.error?.message || err?.message;
+      toast.error(message || 'সংরক্ষণ করা যায়নি');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Warn before losing unsaved edits to a navigation or tab close.
+  useEffect(() => {
+    if (!isDirty) return undefined;
+    const warn = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [isDirty]);
 
   const handlePrintDownload = () => {
     window.print();
@@ -106,20 +231,63 @@ export default function QuestionSetDetailPage() {
 
   const handleDeleteQuestion = (index) => {
     setQuestionList((prev) => prev.filter((_, idx) => idx !== index));
-    toast.success('প্রশ্নটি মুছে ফেলা হয়েছে');
+    toast.success('প্রশ্নটি মুছে ফেলা হয়েছে — সংরক্ষণ করতে "সেভ করুন" চাপুন');
   };
 
   const toggleGridFormat = (index) => {
+    const questionId = questionList[index]?._id;
+    if (!questionId) return;
     setGridFormats((prev) => {
-      const current = prev[index] || '2x2';
-      const next = current === '2x2' ? '4x1' : current === '4x1' ? '1x4' : '2x2';
-      return { ...prev, [index]: next };
+      const currentIdx = OPTION_LAYOUTS.indexOf(prev[questionId] || OPTION_LAYOUTS[0]);
+      const next = OPTION_LAYOUTS[(currentIdx + 1) % OPTION_LAYOUTS.length];
+      return { ...prev, [questionId]: next };
     });
   };
 
-  const openExchangeModal = (index) => {
+  /**
+   * Load replacement candidates for the question at `index`.
+   *
+   * Candidates are drawn from the same chapter and question type so the swap keeps the
+   * paper coherent, and every question already in this set is excluded so the teacher
+   * cannot introduce a duplicate (which the API would reject on save anyway).
+   */
+  const openExchangeModal = async (index) => {
+    const target = questionList[index];
+    if (!target) return;
+
     setExchangeTargetIdx(index);
     setExchangeModalOpen(true);
+    setExchangeCandidates([]);
+    setExchangeError('');
+    setExchangeLoading(true);
+
+    try {
+      const chapterId = target.chapterId?._id || target.chapterId;
+      const res = await apiClient.get('/teacher/content/questions', {
+        params: {
+          chapterId,
+          type: target.type,
+          excludeQuestionIds: questionList.map((q) => q._id).join(','),
+          limit: 20,
+        },
+      });
+      setExchangeCandidates(res?.data || []);
+    } catch (err) {
+      setExchangeError(err?.error?.message || 'বিকল্প প্রশ্ন লোড করা যায়নি');
+    } finally {
+      setExchangeLoading(false);
+    }
+  };
+
+  const handleExchange = (candidate) => {
+    if (exchangeTargetIdx === null) return;
+    setQuestionList((prev) => {
+      const list = [...prev];
+      list[exchangeTargetIdx] = candidate;
+      return list;
+    });
+    setExchangeModalOpen(false);
+    toast.success('প্রশ্নটি প্রতিস্থাপন করা হয়েছে — সংরক্ষণ করতে "সেভ করুন" চাপুন');
   };
 
   // Convert number to Bengali digits
@@ -267,17 +435,31 @@ export default function QuestionSetDetailPage() {
               <h1 className="text-lg font-bold text-neutral-800">{qs.name}</h1>
               <p className="text-xs text-neutral-500">
                 {questionList.length} টি প্রশ্ন • {totalMarks} নম্বর
+                {isDirty && (
+                  <span className="ml-2 font-bold text-amber-600">• অসংরক্ষিত পরিবর্তন</span>
+                )}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={handlePrintDownload}
-            className="bg-indigo-950 hover:bg-indigo-900 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-md transition-all cursor-pointer"
-          >
-            <HiOutlineDownload className="h-4 w-4" />
-            ডাউনলোড
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              disabled={!isDirty || isSaving}
+              className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-neutral-200 disabled:text-neutral-400 disabled:cursor-not-allowed text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-md transition-all cursor-pointer"
+            >
+              <HiOutlineCheckCircle className="h-4 w-4" />
+              {isSaving ? 'সংরক্ষণ হচ্ছে...' : 'সেভ করুন'}
+            </button>
+
+            <button
+              onClick={handlePrintDownload}
+              className="bg-indigo-950 hover:bg-indigo-900 text-white font-bold text-xs px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-md transition-all cursor-pointer"
+            >
+              <HiOutlineDownload className="h-4 w-4" />
+              ডাউনলোড
+            </button>
+          </div>
         </div>
       </div>
 
@@ -412,7 +594,7 @@ export default function QuestionSetDetailPage() {
                   // Smart auto-format: 4x1 if options are long (> 20 chars), else 2x2
                   const maxOptLen = q.options ? Math.max(...q.options.map((o) => (o.text ? o.text.length : 0))) : 0;
                   const defaultFormat = maxOptLen > 20 ? '4x1' : '2x2';
-                  const formatType = gridFormats[idx] || defaultFormat;
+                  const formatType = gridFormats[q._id] || defaultFormat;
                   const gridColsClass =
                     formatType === '4x1' ? 'grid-cols-1' : formatType === '1x4' ? 'grid-cols-4' : 'grid-cols-2';
 
@@ -617,19 +799,19 @@ export default function QuestionSetDetailPage() {
                 </h4>
 
                 {[
-                  { label: 'উত্তরপত্র', state: showAnswerKey, setState: setShowAnswerKey },
-                  { label: 'OMR সংযুক্ত', state: showOMR, setState: setShowOMR },
-                  { label: 'গুরুত্বপূর্ণ প্রশ্ন', state: showImportant, setState: setShowImportant },
-                  { label: 'প্রশ্নের তথ্য', state: showQuestionInfo, setState: setShowQuestionInfo },
-                  { label: 'শিক্ষার্থীর তথ্য', state: showStudentInfo, setState: setShowStudentInfo },
-                  { label: 'বিষয় কোড', state: showSubjectCode, setState: setShowSubjectCode },
-                  { label: 'প্রাপ্ত নম্বর ঘর', state: showMarksBox, setState: setShowMarksBox },
+                  { label: 'উত্তরপত্র', key: 'showAnswerKey', state: showAnswerKey },
+                  { label: 'OMR সংযুক্ত', key: 'showOMR', state: showOMR },
+                  { label: 'গুরুত্বপূর্ণ প্রশ্ন', key: 'showImportant', state: showImportant },
+                  { label: 'প্রশ্নের তথ্য', key: 'showQuestionInfo', state: showQuestionInfo },
+                  { label: 'শিক্ষার্থীর তথ্য', key: 'showStudentInfo', state: showStudentInfo },
+                  { label: 'বিষয় কোড', key: 'showSubjectCode', state: showSubjectCode },
+                  { label: 'প্রাপ্ত নম্বর ঘর', key: 'showMarksBox', state: showMarksBox },
                 ].map((item) => (
                   <div key={item.label} className="flex items-center justify-between py-1">
                     <span className="font-medium text-neutral-700 text-xs">{item.label}</span>
                     <button
                       type="button"
-                      onClick={() => item.setState(!item.state)}
+                      onClick={() => updateSetting(item.key, !item.state)}
                       className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer ${
                         item.state ? 'bg-emerald-600' : 'bg-neutral-300'
                       }`}
@@ -684,7 +866,7 @@ export default function QuestionSetDetailPage() {
                       <button
                         key={align.id}
                         type="button"
-                        onClick={() => setTextAlign(align.id)}
+                        onClick={() => updateSetting('textAlign', align.id)}
                         className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                           textAlign === align.id
                             ? 'bg-emerald-600 text-white shadow-xs'
@@ -705,7 +887,7 @@ export default function QuestionSetDetailPage() {
                       <button
                         key={size}
                         type="button"
-                        onClick={() => setPaperSize(size)}
+                        onClick={() => updateSetting('paperSize', size)}
                         className={`p-2 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
                           paperSize === size
                             ? 'border-emerald-600 bg-emerald-50/50 text-emerald-900 font-bold ring-2 ring-emerald-500/20'
@@ -733,7 +915,7 @@ export default function QuestionSetDetailPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setShowPageNumber(!showPageNumber)}
+                      onClick={() => updateSetting('showPageNumber', !showPageNumber)}
                       className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer ${
                         showPageNumber ? 'bg-emerald-600' : 'bg-neutral-300'
                       }`}
@@ -763,7 +945,7 @@ export default function QuestionSetDetailPage() {
                       <button
                         key={opt.id}
                         type="button"
-                        onClick={() => setOptionStyle(opt.id)}
+                        onClick={() => updateSetting('optionStyle', opt.id)}
                         className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
                           optionStyle === opt.id
                             ? 'bg-emerald-600 text-white shadow-xs'
@@ -789,7 +971,7 @@ export default function QuestionSetDetailPage() {
                   <span className="font-bold text-neutral-800 text-xs shrink-0">ফন্ট পরিবর্তন</span>
                   <select
                     value={fontFamily}
-                    onChange={(e) => setFontFamily(e.target.value)}
+                    onChange={(e) => updateSetting('fontFamily', e.target.value)}
                     className="w-full px-2.5 py-1.5 border border-neutral-300 rounded-lg text-xs bg-white font-medium"
                   >
                     <option value="bangla">বাংলা (Default)</option>
@@ -805,7 +987,7 @@ export default function QuestionSetDetailPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setFontSize(Math.max(10, fontSize - 1))}
+                      onClick={() => updateSetting('fontSize', Math.max(10, fontSize - 1))}
                       className="h-6 w-6 rounded border bg-white font-bold text-neutral-700 hover:bg-neutral-100 flex items-center justify-center cursor-pointer"
                     >
                       -
@@ -815,7 +997,7 @@ export default function QuestionSetDetailPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => setFontSize(Math.min(24, fontSize + 1))}
+                      onClick={() => updateSetting('fontSize', Math.min(24, fontSize + 1))}
                       className="h-6 w-6 rounded border bg-white font-bold text-neutral-700 hover:bg-neutral-100 flex items-center justify-center cursor-pointer"
                     >
                       +
@@ -831,7 +1013,7 @@ export default function QuestionSetDetailPage() {
                       <button
                         key={cols}
                         type="button"
-                        onClick={() => setColumnsCount(cols)}
+                        onClick={() => updateSetting('columnsCount', cols)}
                         className={`h-10 rounded-xl border flex items-center justify-center gap-1 transition-all cursor-pointer ${
                           columnsCount === cols
                             ? 'border-neutral-900 bg-white ring-2 ring-neutral-900/20'
@@ -851,7 +1033,7 @@ export default function QuestionSetDetailPage() {
                   <span className="font-semibold text-neutral-800 text-xs">কলাম ডিভাইডার</span>
                   <button
                     type="button"
-                    onClick={() => setShowColumnDivider(!showColumnDivider)}
+                    onClick={() => updateSetting('showColumnDivider', !showColumnDivider)}
                     className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer ${
                       showColumnDivider ? 'bg-emerald-600' : 'bg-neutral-300'
                     }`}
@@ -875,7 +1057,7 @@ export default function QuestionSetDetailPage() {
                     min={0}
                     max={40}
                     value={questionGap}
-                    onChange={(e) => setQuestionGap(Number(e.target.value))}
+                    onChange={(e) => updateSetting('questionGap', Number(e.target.value))}
                     className="w-full accent-emerald-600 cursor-pointer"
                   />
                 </div>
@@ -894,79 +1076,99 @@ export default function QuestionSetDetailPage() {
       >
         <div className="space-y-4 font-sans text-xs">
           <p className="text-neutral-600 leading-relaxed">
-            বর্তমান প্রশ্নটির পরিবর্তে ডেটাবেজ থেকে সমমান ও সমমানের বিকল্প প্রশ্ন নির্বাচন করুন:
+            বর্তমান প্রশ্নটির পরিবর্তে একই অধ্যায় ও ধরনের বিকল্প প্রশ্ন নির্বাচন করুন:
           </p>
 
+          {exchangeLoading && (
+            <div className="space-y-2">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-20 rounded-xl bg-neutral-100 animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {!exchangeLoading && exchangeError && (
+            <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-center text-rose-700">
+              {exchangeError}
+            </div>
+          )}
+
+          {!exchangeLoading && !exchangeError && exchangeCandidates.length === 0 && (
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-6 text-center text-neutral-500">
+              এই অধ্যায়ে বিনিময়ের জন্য আর কোনো প্রশ্ন পাওয়া যায়নি।
+            </div>
+          )}
+
           <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-            {[
-              {
-                _id: 'alt1',
-                questionText: 'একটি কাল্পনিক ট্রেনের প্রকৃত দৈর্ঘ্য 80 m এবং স্টেশন প্ল্যাটফর্মের দৈর্ঘ্য 100 m হলে এর আপেক্ষিক বেগ কত?',
-                options: [{ text: '0.6c' }, { text: '0.8c' }, { text: '0.5c' }, { text: '0.9c' }],
-                boardTag: "[কু. বো. '২০২১]"
-              },
-              {
-                _id: 'alt2',
-                questionText: 'কম্পটন ক্রিয়া কোন তত্ত্বের সাহায্যে ব্যাখ্যা করা হয়?',
-                options: [{ text: 'কণা তত্ত্ব' }, { text: 'তরঙ্গ তত্ত্ব' }, { text: 'কোয়ান্টাম তত্ত্ব' }, { text: 'তড়িৎ চুম্বক তত্ত্ব' }],
-                boardTag: "[চ. বো. '২০২১]"
-              },
-              {
-                _id: 'alt3',
-                questionText: 'X-রশ্মির আবিষ্কারক কে?',
-                options: [{ text: 'আইনস্টাইন' }, { text: 'ম্যাক্সওয়েল' }, { text: 'রঞ্জন' }, { text: 'প্ল্যাঙ্ক' }],
-                boardTag: "[ঢা. বো. '২০১৬]"
-              }
-            ].map((altQ, aIdx) => (
-              <div
-                key={altQ._id}
-                className="p-3.5 bg-neutral-50 hover:bg-emerald-50/40 border border-neutral-200 hover:border-emerald-400 rounded-xl transition-all space-y-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="font-semibold text-neutral-800 flex-1">
-                    <span className="font-bold text-emerald-700 mr-1.5">{aIdx + 1}.</span>
-                    <MathRenderer text={altQ.questionText} />
-                  </div>
-                  <span className="bg-yellow-300 text-amber-900 border border-yellow-400 font-bold px-2 py-0.5 rounded text-[10px] shrink-0">
-                    {altQ.boardTag}
-                  </span>
-                </div>
+            {!exchangeLoading && !exchangeError && exchangeCandidates.map((altQ, aIdx) => {
+              const tags = [];
+              (altQ.boardInfo || []).forEach((b) => {
+                const name = b.boardId?.shortForm || b.boardId?.name;
+                if (name) tags.push(`[${name}${b.year ? ` '${String(b.year).slice(-2)}` : ''}]`);
+              });
+              (altQ.university || []).forEach((u) => {
+                const name = u.universityId?.name || u.universityId?.shortForm;
+                if (name) tags.push(`[${name}${u.year ? ` '${String(u.year).slice(-2)}` : ''}]`);
+              });
 
-                <div className="grid grid-cols-2 gap-1.5 pl-4 text-neutral-600 text-[11px]">
-                  {altQ.options.map((o, oi) => (
-                    <div key={oi}>
-                      ({['ক', 'খ', 'গ', 'ঘ'][oi]}) {o.text}
+              return (
+                <div
+                  key={altQ._id}
+                  className="p-3.5 bg-neutral-50 hover:bg-emerald-50/40 border border-neutral-200 hover:border-emerald-400 rounded-xl transition-all space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold text-neutral-800 flex-1">
+                      <span className="font-bold text-emerald-700 mr-1.5">{aIdx + 1}.</span>
+                      <MathRenderer text={altQ.questionText} />
                     </div>
-                  ))}
-                </div>
+                    <div className="flex flex-wrap justify-end gap-1 shrink-0">
+                      <span className="bg-neutral-200 text-neutral-700 font-bold px-2 py-0.5 rounded text-[10px]">
+                        {altQ.marks ?? 1} নম্বর
+                      </span>
+                      {tags.map((tag, tIdx) => (
+                        <span
+                          key={tIdx}
+                          className="bg-yellow-300 text-amber-900 border border-yellow-400 font-bold px-2 py-0.5 rounded text-[10px]"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
 
-                <div className="flex justify-end pt-1">
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      if (exchangeTargetIdx !== null) {
-                        setQuestionList((prev) => {
-                          const list = [...prev];
-                          list[exchangeTargetIdx] = {
-                            _id: altQ._id,
-                            questionText: altQ.questionText,
-                            type: 'MCQ',
-                            options: altQ.options.map((opt) => ({ text: opt.text, isCorrect: false })),
-                            boardInfo: [{ boardId: { shortForm: altQ.boardTag.replace(/[\[\]]/g, '') } }]
-                          };
-                          return list;
-                        });
-                        setExchangeModalOpen(false);
-                        toast.success('প্রশ্নটি সফলভাবে প্রতিস্থাপন/বিনিময় করা হয়েছে!');
-                      }
-                    }}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
-                  >
-                    বিনিময় করুন
-                  </Button>
+                  {altQ.type === 'MCQ' && altQ.options?.length > 0 && (
+                    <div className="grid grid-cols-2 gap-1.5 pl-4 text-neutral-600 text-[11px]">
+                      {altQ.options.map((o, oi) => (
+                        <div key={oi}>
+                          ({['ক', 'খ', 'গ', 'ঘ', 'ঙ'][oi] || oi + 1}) <MathRenderer text={o.text} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {altQ.type === 'CQ' && altQ.subParts?.length > 0 && (
+                    <div className="pl-4 text-neutral-600 text-[11px] space-y-0.5">
+                      {altQ.subParts.map((sp, si) => (
+                        <div key={si}>
+                          <span className="font-bold mr-1">{sp.partLabel}.</span>
+                          <MathRenderer text={sp.text} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-1">
+                    <Button
+                      size="sm"
+                      onClick={() => handleExchange(altQ)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                    >
+                      বিনিময় করুন
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="flex justify-end pt-2 border-t border-neutral-100">

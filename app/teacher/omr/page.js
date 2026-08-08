@@ -304,7 +304,7 @@ export default function TeacherOMRPage() {
     }
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (typeof window !== 'undefined') {
       const original = document.querySelector('.print-sheet');
       if (!original) return;
@@ -343,33 +343,22 @@ export default function TeacherOMRPage() {
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      const runGeneration = () => {
-        window.html2pdf().set(opt).from(tempDiv).save().then(() => {
-          document.body.removeChild(tempDiv);
-          setDownloading(false);
-        }).catch(err => {
-          console.error(err);
-          document.body.removeChild(tempDiv);
-          setDownloading(false);
-          window.print();
-        });
-      };
-
-      if (window.html2pdf) {
-        runGeneration();
-      } else {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-        script.onload = () => {
-          runGeneration();
-        };
-        script.onerror = () => {
-          document.body.removeChild(tempDiv);
-          setDownloading(false);
-          alert('PDF জেনারেটর লোড করতে ব্যর্থ হয়েছে, বিকল্প হিসেবে প্রিন্ট উইন্ডো ওপেন হচ্ছে।');
-          window.print();
-        };
-        document.body.appendChild(script);
+      // html2pdf is a project dependency loaded on demand, not a <script> injected from a
+      // third-party CDN. The previous approach fetched ~200 KB from cdnjs with no
+      // Subresource Integrity hash, so a compromised or spoofed CDN response would have
+      // executed with full privileges inside an authenticated teacher session. A dynamic
+      // import keeps it out of the initial bundle while removing that exposure — and the
+      // export no longer depends on an external host being reachable.
+      try {
+        const { default: html2pdf } = await import('html2pdf.js');
+        await html2pdf().set(opt).from(tempDiv).save();
+      } catch (err) {
+        console.error(err);
+        alert('PDF জেনারেটর লোড করতে ব্যর্থ হয়েছে, বিকল্প হিসেবে প্রিন্ট উইন্ডো ওপেন হচ্ছে।');
+        window.print();
+      } finally {
+        if (tempDiv.parentNode) document.body.removeChild(tempDiv);
+        setDownloading(false);
       }
     }
   };

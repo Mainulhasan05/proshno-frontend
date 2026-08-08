@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import useAuth from '@/hooks/useAuth';
 import Link from 'next/link';
@@ -39,29 +39,33 @@ export default function PricingPage() {
   const { isAuthenticated, isInitialized } = useAuth();
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [activeTab, setActiveTab] = useState('class-wise'); // 'class-wise' | 'bundles' | 'coaching'
   const [openFaq, setOpenFaq] = useState(null);
 
-  // Fetch packages from backend public endpoint
-  useEffect(() => {
-    const loadPackages = async () => {
-      try {
-        const res = await apiClient.get('/packages/public');
-        if (res?.data && res.data.length > 0) {
-          setPackages(res.data);
-        } else {
-          // Fallback to static packages if db is empty
-          setPackages(getFallbackPackages());
-        }
-      } catch (err) {
-        console.error('Failed to fetch packages, using fallbacks', err);
-        setPackages(getFallbackPackages());
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadPackages();
+  // Fetch packages from the backend public endpoint.
+  //
+  // There is deliberately no static fallback list here. Placeholder packages carry
+  // invented `_id`s, so every "buy" button on them leads to a package the purchase flow
+  // cannot resolve — an empty price list is better than an unbuyable one.
+  const loadPackages = useCallback(async () => {
+    setLoading(true);
+    setLoadFailed(false);
+    try {
+      const res = await apiClient.get('/packages/public');
+      setPackages(res?.data || []);
+    } catch (err) {
+      console.error('Failed to fetch packages', err);
+      setPackages([]);
+      setLoadFailed(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadPackages();
+  }, [loadPackages]);
 
   const handleBuy = (packageId) => {
     if (!isInitialized) return;
@@ -180,11 +184,31 @@ export default function PricingPage() {
                 <div key={i} className="bg-white rounded-2xl h-80 animate-pulse border border-[#E6DFC9]" />
               ))}
             </div>
+          ) : loadFailed ? (
+            <div role="alert" className="text-center py-20 bg-white rounded-2xl border border-[#E6DFC9] p-8 shadow-sm">
+              <HiOutlineCube className="h-12 w-12 mx-auto text-neutral-300 mb-3" />
+              <h3 className="text-lg font-bold text-[#0B3B24] mb-1">প্যাকেজের তালিকা লোড করা যায়নি</h3>
+              <p className="text-sm text-neutral-500 mb-5">আপনার ইন্টারনেট সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।</p>
+              <button
+                type="button"
+                onClick={loadPackages}
+                className="rounded-full px-6 py-2.5 text-sm font-bold text-white"
+                style={{ background: '#0F5132' }}
+              >
+                আবার চেষ্টা করুন
+              </button>
+            </div>
           ) : filteredPackages.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-2xl border border-[#E6DFC9] p-8 shadow-sm">
               <HiOutlineCube className="h-12 w-12 mx-auto text-neutral-300 mb-3" />
-              <h3 className="text-lg font-bold text-[#0B3B24] mb-1">এই ক্যাটাগরিতে কোনো প্যাকেজ নেই</h3>
-              <p className="text-sm text-neutral-500">অনুগ্রহ করে অন্য ক্যাটাগরিগুলো পরীক্ষা করুন।</p>
+              <h3 className="text-lg font-bold text-[#0B3B24] mb-1">
+                {packages.length === 0 ? 'এখনো কোনো প্যাকেজ প্রকাশ করা হয়নি' : 'এই ক্যাটাগরিতে কোনো প্যাকেজ নেই'}
+              </h3>
+              <p className="text-sm text-neutral-500">
+                {packages.length === 0
+                  ? 'শীঘ্রই প্যাকেজ যুক্ত করা হবে। প্রয়োজনে আমাদের সাথে যোগাযোগ করুন।'
+                  : 'অনুগ্রহ করে অন্য ক্যাটাগরিগুলো পরীক্ষা করুন।'}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
@@ -352,86 +376,4 @@ export default function PricingPage() {
       </div>
     </MotionConfig>
   );
-}
-
-// Fallback pricing packages matching competitor tiers if DB is not populated yet
-function getFallbackPackages() {
-  return [
-    // Class-wise
-    {
-      _id: 'class-6-all',
-      name: 'Class 6 - সকল বিষয়',
-      description: '৬ষ্ঠ শ্রেণির সব বিষয়ের প্রশ্ন ও ওএমআর শিট তৈরির সুবিধা (১ বছর মেয়াদ)।',
-      price: 999,
-      discountPrice: null,
-      omrTokens: 100,
-      items: [{ classId: { _id: '6', name: 'Class 6' } }]
-    },
-    {
-      _id: 'class-7-all',
-      name: 'Class 7 - সকল বিষয়',
-      description: '৭ম শ্রেণির সব বিষয়ের প্রশ্ন ও ওএমআর শিট তৈরির সুবিধা (১ বছর মেয়াদ)।',
-      price: 999,
-      discountPrice: null,
-      omrTokens: 100,
-      items: [{ classId: { _id: '7', name: 'Class 7' } }]
-    },
-    {
-      _id: 'class-9-10-all',
-      name: 'Class 9-10 - সকল বিষয়',
-      description: '৯ম ও ১০ম শ্রেণির সব বিষয়ের সৃজনশীল, এমসিকিউ ও ওএমআর তৈরির সুবিধা।',
-      price: 1499,
-      discountPrice: null,
-      omrTokens: 150,
-      items: [{ classId: { _id: '9-10', name: 'Class 9-10' } }]
-    },
-    // Bundles
-    {
-      _id: 'bundle-6-8',
-      name: 'Class 6-8 - সুপার বান্ডেল',
-      description: '৬ষ্ঠ, ৭ম ও ৮ম শ্রেণির সব বিষয়ের প্রশ্ন ব্যাংক ও ওএমআর শিট (১ বছর মেয়াদ)।',
-      price: 2499,
-      discountPrice: 1999,
-      omrTokens: 300,
-      items: [
-        { classId: { _id: '6', name: 'Class 6' } },
-        { classId: { _id: '7', name: 'Class 7' } },
-        { classId: { _id: '8', name: 'Class 8' } }
-      ]
-    },
-    {
-      _id: 'bundle-6-10',
-      name: 'Class 6-10 - মেগা বান্ডেল',
-      description: '৬ষ্ঠ থেকে ১০ম শ্রেণির সকল বিষয়ের প্রশ্ন ব্যাংক, অনলাইন পরীক্ষা ও ওএমআর মূল্যায়ন।',
-      price: 3499,
-      discountPrice: 2999,
-      omrTokens: 500,
-      items: [
-        { classId: { _id: '6-10', name: 'Class 6-10' } }
-      ]
-    },
-    // Institution/Coaching
-    {
-      _id: 'coaching-pack-1',
-      name: 'কোচিং সেন্টার প্যাক (৫ম-১০ম)',
-      description: '৫ম থেকে ১০ম শ্রেণির সকল বিষয়ের আনলিমিটেড ওএমআর শিট তৈরি এবং দ্রুত মূল্যায়ন টোকেন।',
-      price: 3699,
-      discountPrice: null,
-      omrTokens: 1000,
-      items: [
-        { classId: { _id: '5-10', name: 'Class 5-10' } }
-      ]
-    },
-    {
-      _id: 'coaching-pack-2',
-      name: 'প্রতিষ্ঠানের জন্য প্যাক (৩য়-১২শ)',
-      description: '৩য় থেকে দ্বাদশ শ্রেণির সকল বিষয়ের প্রশ্নপত্র, ওএমআর শিট এবং ওএমআর মূল্যায়ন ব্যালেন্স।',
-      price: 4999,
-      discountPrice: 4499,
-      omrTokens: 2000,
-      items: [
-        { classId: { _id: '3-12', name: 'Class 3-12' } }
-      ]
-    }
-  ];
 }

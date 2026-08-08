@@ -322,8 +322,15 @@ const teacherSlice = createSlice({
         state.questionSets.unshift(action.payload.data);
       })
       .addCase(updateQuestionSet.fulfilled, (state, action) => {
-        const idx = state.questionSets.findIndex((qs) => qs._id === action.payload.data._id);
-        if (idx !== -1) state.questionSets[idx] = action.payload.data;
+        const updated = action.payload.data;
+        const idx = state.questionSets.findIndex((qs) => qs._id === updated._id);
+        if (idx !== -1) state.questionSets[idx] = updated;
+        // The paper editor reads from `questionSetDetail`. Without this the detail in
+        // the store keeps the pre-save questions, so navigating away and back within
+        // the same session would show stale content.
+        if (state.questionSetDetail?._id === updated._id) {
+          state.questionSetDetail = updated;
+        }
       })
       .addCase(deleteQuestionSet.fulfilled, (state, action) => {
         state.questionSets = state.questionSets.filter((qs) => qs._id !== action.payload);

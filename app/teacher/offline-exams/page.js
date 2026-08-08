@@ -187,7 +187,7 @@ export default function OfflineExamsPage() {
   };
 
   // PDF Generator handler
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (typeof window !== 'undefined') {
       setDownloading(true);
       const original = document.querySelector('.print-sheet');
@@ -229,33 +229,18 @@ export default function OfflineExamsPage() {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      const runGeneration = () => {
-        window.html2pdf().set(opt).from(tempDiv).save().then(() => {
-          document.body.removeChild(tempDiv);
-          setDownloading(false);
-        }).catch(err => {
-          console.error(err);
-          document.body.removeChild(tempDiv);
-          setDownloading(false);
-          window.print();
-        });
-      };
-
-      if (window.html2pdf) {
-        runGeneration();
-      } else {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-        script.onload = () => {
-          runGeneration();
-        };
-        script.onerror = () => {
-          document.body.removeChild(tempDiv);
-          setDownloading(false);
-          alert('PDF জেনারেটর লোড করা সম্ভব হয়নি, সরাসরি প্রিন্ট অপশন খুলছে।');
-          window.print();
-        };
-        document.body.appendChild(script);
+      // Loaded from the project's own dependency rather than injected from cdnjs without
+      // an integrity hash. See the equivalent comment in app/teacher/omr/page.js.
+      try {
+        const { default: html2pdf } = await import('html2pdf.js');
+        await html2pdf().set(opt).from(tempDiv).save();
+      } catch (err) {
+        console.error(err);
+        alert('PDF জেনারেটর লোড করা সম্ভব হয়নি, সরাসরি প্রিন্ট অপশন খুলছে।');
+        window.print();
+      } finally {
+        if (tempDiv.parentNode) document.body.removeChild(tempDiv);
+        setDownloading(false);
       }
     }
   };
