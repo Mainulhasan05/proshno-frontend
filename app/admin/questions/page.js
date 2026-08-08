@@ -10,6 +10,7 @@ import { fetchTree } from '@/store/slices/hierarchySlice';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Pagination from '@/components/ui/Pagination';
+import useDebouncedValue from '@/hooks/useDebouncedValue';
 import {
   HiOutlinePlus, HiOutlinePencil, HiOutlineTrash,
   HiOutlineEye, HiOutlineEyeOff, HiOutlineFilter,
@@ -118,6 +119,11 @@ export default function QuestionsPage() {
   // Filters
   const [filters, setFilters] = useState({});
   const [showFilters, setShowFilters] = useState(false);
+
+  // The search box is held locally and debounced into `filters`, so typing does not
+  // fire a request (and a ~175 KB response) on every keystroke.
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
 
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -313,10 +319,26 @@ export default function QuestionsPage() {
     }
   };
 
+  // The hierarchy tree is ~100 KB and changes only when an admin edits the hierarchy,
+  // so it is fetched once per mount. It used to share an effect with fetchQuestions,
+  // which re-ran on every filter change and re-downloaded the whole tree each time.
   useEffect(() => {
     dispatch(fetchTree());
+  }, [dispatch]);
+
+  useEffect(() => {
     dispatch(fetchQuestions(filters));
   }, [dispatch, filters]);
+
+  // Push the settled search term into `filters`. Returning the previous object when
+  // nothing changed keeps the identity stable, so the fetch effect above does not re-run.
+  useEffect(() => {
+    setFilters((prev) => {
+      const next = debouncedSearch || undefined;
+      if (prev.search === next) return prev;
+      return { ...prev, page: 1, search: next };
+    });
+  }, [debouncedSearch]);
 
   useEffect(() => {
     apiClient.get('/question-sources').then((res) => {
@@ -339,17 +361,45 @@ export default function QuestionsPage() {
     }).catch(() => {});
   }, []);
 
+  // Hierarchy cascades. These walk the whole tree, so they are memoised on the
+  // selections that actually determine them — otherwise every keystroke or checkbox
+  // toggle in this component re-traversed the tree eight times.
+
   // Modal hierarchy options
-  const versions = tree.find((c) => c._id === selClass)?.versions || [];
-  const subjects = versions.find((v) => v._id === selVersion)?.subjects || [];
-  const chapters = subjects.find((s) => s._id === selSubject)?.chapters || [];
-  const topics = chapters.find((ch) => ch._id === form.chapterId)?.topics || [];
+  const versions = useMemo(
+    () => tree.find((c) => c._id === selClass)?.versions || [],
+    [tree, selClass]
+  );
+  const subjects = useMemo(
+    () => versions.find((v) => v._id === selVersion)?.subjects || [],
+    [versions, selVersion]
+  );
+  const chapters = useMemo(
+    () => subjects.find((s) => s._id === selSubject)?.chapters || [],
+    [subjects, selSubject]
+  );
+  const topics = useMemo(
+    () => chapters.find((ch) => ch._id === form.chapterId)?.topics || [],
+    [chapters, form.chapterId]
+  );
 
   // Filter bar hierarchy options (cascade)
-  const filterVersions = tree.find((c) => c._id === filters.classId)?.versions || [];
-  const filterSubjects = filterVersions.find((v) => v._id === filters.versionId)?.subjects || [];
-  const filterChapters = filterSubjects.find((s) => s._id === filters.subjectId)?.chapters || [];
-  const filterTopics = filterChapters.find((ch) => ch._id === filters.chapterId)?.topics || [];
+  const filterVersions = useMemo(
+    () => tree.find((c) => c._id === filters.classId)?.versions || [],
+    [tree, filters.classId]
+  );
+  const filterSubjects = useMemo(
+    () => filterVersions.find((v) => v._id === filters.versionId)?.subjects || [],
+    [filterVersions, filters.versionId]
+  );
+  const filterChapters = useMemo(
+    () => filterSubjects.find((s) => s._id === filters.subjectId)?.chapters || [],
+    [filterSubjects, filters.subjectId]
+  );
+  const filterTopics = useMemo(
+    () => filterChapters.find((ch) => ch._id === filters.chapterId)?.topics || [],
+    [filterChapters, filters.chapterId]
+  );
 
   const resetForm = () => {
     setForm({
@@ -384,11 +434,8 @@ export default function QuestionsPage() {
 
   const openModal = (item = null) => {
     setShowAdvanced(false);
-    apiClient.get('/settings').then((res) => {
-      if (res.data?.questionSources?.length) {
-        setAvailableSources((prev) => Array.from(new Set([...res.data.questionSources, ...prev])));
-      }
-    }).catch(() => {});
+    // The question-source list is loaded once on mount (see the effect above); it does
+    // not need re-fetching each time the modal opens.
 
     if (item) {
       setEditItem(item);
@@ -885,8 +932,8 @@ export default function QuestionsPage() {
             <div className="bg-white rounded-xl border border-neutral-200 p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               <input
                 type="text"
-                value={filters.search || ''}
-                onChange={(e) => setFilters({ ...filters, page: 1, search: e.target.value || undefined })}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="প্রশ্ন খুঁজুন..."
                 className="px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-1 focus:ring-primary-500 outline-none w-full col-span-2 sm:col-span-1"
               />

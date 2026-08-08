@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useAuth from '@/hooks/useAuth';
 import apiClient from '@/store/api/apiClient';
@@ -195,9 +195,60 @@ export default function TeacherOMRPage() {
     ? 'p-[8mm] pb-[4mm]' 
     : 'p-[12mm]';
   
-  const topBarSpacingClass = isHighDensity 
-    ? 'mb-3' 
+  const topBarSpacingClass = isHighDensity
+    ? 'mb-3'
     : 'mb-6';
+
+  // The answer grid is `columns × questionsPerColumn × optionsPerQuestion` elements —
+  // 400+ for a typical 100-question, 4-option sheet. It depends only on the sheet
+  // layout, so it is memoised rather than rebuilt on every keystroke in the unrelated
+  // configuration inputs (exam name, roll digits, question-set selection, …).
+  const bubbleGrid = useMemo(() => (
+    Array.from({ length: columns }).map((_, colIndex) => {
+      const startIdx = colIndex * actualQuestionsPerColumn + 1;
+      const endIdx = Math.min(startIdx + actualQuestionsPerColumn - 1, finalTotalQuestions);
+
+      if (startIdx > finalTotalQuestions) return null;
+
+      return (
+        <div key={colIndex} className="space-y-1 bg-white border border-transparent px-2 py-0.5">
+          {Array.from({ length: endIdx - startIdx + 1 }).map((_, rowIdx) => {
+            const qNumber = startIdx + rowIdx;
+            return (
+              <div key={qNumber} className={`flex items-center ${rowSpacingClass} rounded`}>
+                <span className="text-[9px] font-black w-4.5 text-right text-neutral-500 mr-1.5">{qNumber}.</span>
+                <div className="flex gap-1.5">
+                  {Array.from({ length: finalOptionsPerQuestion }).map((_, optIndex) => (
+                    <div key={optIndex} className="flex items-center">
+                      <div
+                        className={`flex items-center justify-center font-extrabold transition-all ${bubbleSizeClass}`}
+                        style={{
+                          borderColor: selectedTheme.hex,
+                          color: selectedTheme.hex,
+                          borderRadius: bubbleShape === 'square' ? '4px' : '999px'
+                        }}
+                      >
+                        {bubbleOptions[optIndex]}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    })
+  ), [
+    columns,
+    actualQuestionsPerColumn,
+    finalTotalQuestions,
+    finalOptionsPerQuestion,
+    rowSpacingClass,
+    bubbleSizeClass,
+    bubbleShape,
+    selectedTheme.hex,
+  ]);
   
   const headerBottomSpacingClass = isHighDensity 
     ? 'pb-2.5 mb-3' 
@@ -1103,43 +1154,7 @@ export default function TeacherOMRPage() {
 
                 {/* ─── BUBBLE SHEET QUESTION COLUMNS ─── */}
                 <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
-                  
-                  {Array.from({ length: columns }).map((_, colIndex) => {
-                    const startIdx = colIndex * actualQuestionsPerColumn + 1;
-                    const endIdx = Math.min(startIdx + actualQuestionsPerColumn - 1, finalTotalQuestions);
-                    
-                    if (startIdx > finalTotalQuestions) return null;
-
-                    return (
-                      <div key={colIndex} className="space-y-1 bg-white border border-transparent px-2 py-0.5">
-                        {Array.from({ length: endIdx - startIdx + 1 }).map((_, rowIdx) => {
-                          const qNumber = startIdx + rowIdx;
-                          return (
-                            <div key={qNumber} className={`flex items-center ${rowSpacingClass} rounded`}>
-                              <span className="text-[9px] font-black w-4.5 text-right text-neutral-500 mr-1.5">{qNumber}.</span>
-                              <div className="flex gap-1.5">
-                                {Array.from({ length: finalOptionsPerQuestion }).map((_, optIndex) => (
-                                  <div key={optIndex} className="flex items-center">
-                                    <div 
-                                      className={`flex items-center justify-center font-extrabold transition-all ${bubbleSizeClass}`}
-                                      style={{
-                                        borderColor: selectedTheme.hex,
-                                        color: selectedTheme.hex,
-                                        borderRadius: bubbleShape === 'square' ? '4px' : '999px'
-                                      }}
-                                    >
-                                      {bubbleOptions[optIndex]}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
-
+                  {bubbleGrid}
                 </div>
 
                 {/* ─── SIGNATURE BLOCK ─── */}

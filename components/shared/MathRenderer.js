@@ -2,7 +2,21 @@ import React from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
-function preprocessMathText(text) {
+/**
+ * Memoisation cache for preprocessed text.
+ *
+ * Preprocessing runs fifteen sequential regex passes. The admin questions table renders
+ * up to 100 questions with 4 options each, and every parent state change (opening a
+ * modal, ticking a checkbox) re-renders the whole list — so the same strings were being
+ * reprocessed thousands of times per interaction. Question text repeats heavily across
+ * renders, making it a good cache key.
+ *
+ * Bounded with FIFO eviction so a long session cannot grow it without limit.
+ */
+const PREPROCESS_CACHE_LIMIT = 500;
+const preprocessCache = new Map();
+
+function preprocessMathTextUncached(text) {
   if (!text) return '';
 
   let processed = text;
@@ -53,7 +67,24 @@ function preprocessMathText(text) {
   return processed;
 }
 
-export default function MathRenderer({ text, className = '' }) {
+function preprocessMathText(text) {
+  if (!text) return '';
+
+  const cached = preprocessCache.get(text);
+  if (cached !== undefined) return cached;
+
+  const processed = preprocessMathTextUncached(text);
+
+  if (preprocessCache.size >= PREPROCESS_CACHE_LIMIT) {
+    // Map preserves insertion order, so the first key is the oldest entry.
+    preprocessCache.delete(preprocessCache.keys().next().value);
+  }
+  preprocessCache.set(text, processed);
+
+  return processed;
+}
+
+function MathRenderer({ text, className = '' }) {
   if (!text) return null;
 
   const cleanText = preprocessMathText(text);
@@ -86,3 +117,8 @@ export default function MathRenderer({ text, className = '' }) {
     </span>
   );
 }
+
+// Both props are primitives, so the default shallow comparison is exact and cheap.
+// Without this, every parent re-render re-ran KaTeX for every question and option on
+// screen — several hundred renders per keystroke on the admin questions table.
+export default React.memo(MathRenderer);
